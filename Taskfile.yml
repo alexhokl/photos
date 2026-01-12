@@ -1,0 +1,145 @@
+---
+version: "3"
+
+env:
+  APP_NAME: photos
+
+tasks:
+  build:
+    desc: Build
+    cmds:
+      - go build -o /dev/null ./...
+
+  install:
+    desc: Intsall
+    cmd: go install
+
+  test:
+    desc: Test
+    cmds:
+      - go test ./...
+      - cd mobile && flutter test --no-pub --coverage
+
+  coverage:
+    desc: Test with coverage
+    cmd: go test --cover ./...
+
+  coverage-html:
+    desc: Test with coverage in HTML
+    cmd: go test -coverprofile=coverage.out ./... && go tool cover -html=coverage.out -o coverage.html
+
+  open-coverage-html:
+    desc: Test with coverage in HTML and open the HTML
+    cmds:
+      - open coverage.html
+      - open mobile/coverage/html/index.html
+
+  flutter-coverage:
+    desc: Run Flutter tests with coverage
+    dir: mobile
+    cmd: flutter test --no-pub --coverage
+
+  flutter-coverage-html:
+    desc: Generate Flutter coverage HTML report
+    dir: mobile
+    cmds:
+      - task: flutter-coverage
+      - genhtml coverage/lcov.info -o coverage/html
+
+  bench:
+    desc: Run benchmarks on CPU and memory
+    cmd: go test -bench=. -benchmem ./...
+
+  bench-profile:
+    desc: Run benchmarks on CPU and memory and create a profile
+    cmds:
+      - go test -bench=. -benchmem -memprofile ./benchmarks/collection.mem.prof -cpuprofile ./benchmarks/collection.cpu.prof ./collection/
+
+  lint:
+    desc: Lint
+    cmds:
+      - golangci-lint run
+      - dart fix --dry-run
+
+  sec:
+    desc: Security check
+    cmd: gosec ./...
+
+  completion-mac:
+    desc: Generate bash completion and save to homebrew
+    cmd: $APP_NAME completion bash > /opt/homebrew/etc/bash_completion.d/$APP_NAME
+
+  completion-linux:
+    desc: Generate bash completion and save configuration directory
+    cmd: $APP_NAME completion bash | sudo tee /etc/bash_completion.d/$APP_NAME
+
+  proto:
+    desc: Generate Go files from protobuf definitions
+    cmds:
+      - |
+        protoc \
+          -I . \
+          --go_out=. --go_opt=paths=source_relative \
+          --go-grpc_out=. --go-grpc_opt=paths=source_relative \
+          --grpc-gateway_out=. --grpc-gateway_opt=paths=source_relative \
+          --openapiv2_out ./openapiv2 \
+          --dart_out=grpc:mobile/lib \
+          ./google/protobuf/empty.proto \
+          ./proto/*.proto
+        sed -i 's|package:protobuf/well_known_types/google/protobuf/empty.pb.dart|../google/protobuf/empty.pb.dart|g' mobile/lib/proto/tracker.pbgrpc.dart
+
+  update-proto-dependencies:
+    desc: Update protobuf dependencies
+    cmds:
+      - curl -o google/api/annotations.proto -sSL https://raw.githubusercontent.com/googleapis/googleapis/refs/heads/master/google/api/annotations.proto
+      - curl -o google/api/http.proto -sSL https://raw.githubusercontent.com/googleapis/googleapis/refs/heads/master/google/api/http.proto
+      - curl -o google/protobuf/empty.proto -sSL https://raw.githubusercontent.com/protocolbuffers/protobuf/refs/heads/main/src/google/protobuf/empty.proto
+      - curl -o protoc-gen-openapiv2/options/annotations.proto -sSL https://raw.githubusercontent.com/grpc-ecosystem/grpc-gateway/refs/heads/main/protoc-gen-openapiv2/options/annotations.proto
+      - curl -o protoc-gen-openapiv2/options/openapiv2.proto -sSL https://raw.githubusercontent.com/grpc-ecosystem/grpc-gateway/refs/heads/main/protoc-gen-openapiv2/options/openapiv2.proto
+
+  swagger:
+    desc: Run Swagger UI using Docker
+    cmd: docker run --rm --name swagger -p 8000:8080 -v ./openapiv2/proto:/mnt/swagger:ro -e SWAGGER_JSON=/mnt/swagger/photos.swagger.json -d swaggerapi/swagger-ui
+
+  architecture-watch:
+    desc: Watch architecture diagram and regenerate on changes
+    cmd: d2 --watch --theme 302 ./documentation/architecture.d2
+
+  image:
+    desc: Build a Docker image
+    preconditions:
+      - test -f Dockerfile
+      - sh: docker version
+    cmd: docker build -t asia-east1-docker.pkg.dev/craffy/private/photos:local .
+
+  run-flutter:
+    desc: Run Flutter app
+    platforms: [darwin]
+    cmd: cd mobile && flutter run -d macos
+
+  mac:
+    desc: Build MacOS
+    cmd: cd mobile && flutter build macos
+
+  apk:
+    desc: Build APK
+    cmd: cd mobile && flutter build apk
+
+  run-flutter-release:
+    desc: Run on MacOS
+    platforms: [darwin]
+    cmd: open ./build/macos/Build/Products/Release/photos.app
+
+  run-android:
+    desc: Run on Android
+    cmd: flutter devices --machine | jq -r '.[] | select(.targetPlatform | contains("android")) | .id' | head -n 1 | xargs flutter run -d
+
+  lint-flutter-fix:
+    desc: Lint Fix
+    cmd: dart fix --apply
+
+  copy-apk-to-desktop:
+    desc: Copy APK to Desktop
+    platforms: [darwin]
+    cmd: cp mobile/build/app/outputs/flutter-apk/app-release.apk ~/Desktop/photos.apk
+
