@@ -29,6 +29,18 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   int _selectedIndex = 0;
+  int _selectedPhotoCount = 0;
+  final GlobalKey<PhotoGridState> _photoGridKey = GlobalKey<PhotoGridState>();
+
+  void _onSelectionChanged(int count) {
+    setState(() {
+      _selectedPhotoCount = count;
+    });
+  }
+
+  void _onMenuAction(PhotoGridAction action) {
+    _photoGridKey.currentState?.performAction(action);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -36,8 +48,42 @@ class _HomePageState extends State<HomePage> {
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         title: Text(widget.title),
+        actions: [
+          PopupMenuButton<PhotoGridAction>(
+            enabled: _selectedPhotoCount > 0,
+            icon: Icon(
+              Icons.more_vert,
+              color: _selectedPhotoCount > 0
+                  ? null
+                  : Theme.of(context).disabledColor,
+            ),
+            onSelected: _onMenuAction,
+            itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: PhotoGridAction.delete,
+                child: ListTile(
+                  leading: Icon(Icons.delete),
+                  title: Text('Delete'),
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+              const PopupMenuItem(
+                enabled: false,
+                value: PhotoGridAction.upload,
+                child: ListTile(
+                  leading: Icon(Icons.cloud_upload),
+                  title: Text('Upload'),
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
-      body: const PhotoGrid(),
+      body: PhotoGrid(
+        key: _photoGridKey,
+        onSelectionChanged: _onSelectionChanged,
+      ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _selectedIndex,
         onDestinationSelected: (int index) {

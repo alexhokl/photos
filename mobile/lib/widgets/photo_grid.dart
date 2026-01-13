@@ -4,17 +4,22 @@ import 'package:flutter/material.dart';
 import 'package:photo_manager/photo_manager.dart';
 
 class PhotoGrid extends StatefulWidget {
-  const PhotoGrid({super.key});
+  final void Function(int selectedCount)? onSelectionChanged;
+
+  const PhotoGrid({super.key, this.onSelectionChanged});
 
   @override
-  State<PhotoGrid> createState() => _PhotoGridState();
+  State<PhotoGrid> createState() => PhotoGridState();
 }
 
-class _PhotoGridState extends State<PhotoGrid> {
+enum PhotoGridAction { delete, upload }
+
+class PhotoGridState extends State<PhotoGrid> {
   List<AssetEntity> _photos = [];
   bool _isLoading = true;
   bool _hasPermission = false;
   String? _errorMessage;
+  final Set<String> _selectedPhotoIds = {};
 
   @override
   void initState() {
@@ -84,6 +89,62 @@ class _PhotoGridState extends State<PhotoGrid> {
     await PhotoManager.openSetting();
   }
 
+  void _toggleSelection(AssetEntity photo) {
+    setState(() {
+      if (_selectedPhotoIds.contains(photo.id)) {
+        _selectedPhotoIds.remove(photo.id);
+      } else {
+        _selectedPhotoIds.add(photo.id);
+      }
+    });
+    widget.onSelectionChanged?.call(_selectedPhotoIds.length);
+  }
+
+  void _clearSelection() {
+    setState(() {
+      _selectedPhotoIds.clear();
+    });
+    widget.onSelectionChanged?.call(0);
+  }
+
+  int get selectedCount => _selectedPhotoIds.length;
+
+  Future<void> performAction(PhotoGridAction action) async {
+    switch (action) {
+      case PhotoGridAction.delete:
+        await _deleteSelectedPhotos();
+        break;
+      case PhotoGridAction.upload:
+        _uploadSelectedPhotos();
+        break;
+    }
+  }
+
+  List<AssetEntity> get _selectedPhotos {
+    return _photos.where((p) => _selectedPhotoIds.contains(p.id)).toList();
+  }
+
+  Future<void> _deleteSelectedPhotos() async {
+    final selectedPhotos = _selectedPhotos;
+    if (selectedPhotos.isEmpty) return;
+
+    final result = await PhotoManager.editor.deleteWithIds(
+      selectedPhotos.map((p) => p.id).toList(),
+    );
+
+    if (result.isNotEmpty) {
+      setState(() {
+        _photos.removeWhere((p) => _selectedPhotoIds.contains(p.id));
+        _selectedPhotoIds.clear();
+      });
+      widget.onSelectionChanged?.call(0);
+    }
+  }
+
+  void _uploadSelectedPhotos() {
+    // TODO: Implement upload functionality
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
@@ -141,7 +202,12 @@ class _PhotoGridState extends State<PhotoGrid> {
       ),
       itemCount: _photos.length,
       itemBuilder: (context, index) {
-        return PhotoThumbnail(asset: _photos[index]);
+        final photo = _photos[index];
+        return PhotoThumbnail(
+          asset: photo,
+          isSelected: _selectedPhotoIds.contains(photo.id),
+          onTap: () => _toggleSelection(photo),
+        );
       },
     );
   }
@@ -149,29 +215,55 @@ class _PhotoGridState extends State<PhotoGrid> {
 
 class PhotoThumbnail extends StatelessWidget {
   final AssetEntity asset;
+  final bool isSelected;
+  final VoidCallback? onTap;
 
-  const PhotoThumbnail({super.key, required this.asset});
+  const PhotoThumbnail({
+    super.key,
+    required this.asset,
+    this.isSelected = false,
+    this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<Uint8List?>(
-      future: asset.thumbnailDataWithSize(const ThumbnailSize(200, 200)),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.done &&
-            snapshot.data != null) {
-          return Image.memory(snapshot.data!, fit: BoxFit.cover);
-        }
-        return Container(
-          color: Colors.grey[300],
-          child: const Center(
-            child: SizedBox(
-              width: 24,
-              height: 24,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            ),
+    return GestureDetector(
+      onTap: onTap,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          FutureBuilder<Uint8List?>(
+            future: asset.thumbnailDataWithSize(const ThumbnailSize(200, 200)),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.done &&
+                  snapshot.data != null) {
+                return Image.memory(snapshot.data!, fit: BoxFit.cover);
+              }
+              return Container(
+                color: Colors.grey[300],
+                child: const Center(
+                  child: SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                ),
+              );
+            },
           ),
-        );
-      },
+          if (isSelected)
+            Container(
+              color: Colors.blue.withValues(alpha: 0.3),
+              child: const Align(
+                alignment: Alignment.topRight,
+                child: Padding(
+                  padding: EdgeInsets.all(4.0),
+                  child: Icon(Icons.check_circle, color: Colors.blue, size: 24),
+                ),
+              ),
+            ),
+        ],
+      ),
     );
   }
 }
