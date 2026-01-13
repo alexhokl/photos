@@ -12,9 +12,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Photos',
-      theme: ThemeData(
-        colorScheme: .fromSeed(seedColor: Colors.deepPurple),
-      ),
+      theme: ThemeData(colorScheme: .fromSeed(seedColor: Colors.cyan)),
       home: const HomePage(title: 'Home'),
     );
   }
@@ -29,6 +27,8 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
+  int _selectedIndex = 0;
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -36,13 +36,32 @@ class _HomePageState extends State<HomePage> {
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         title: Text(widget.title),
       ),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: .center,
-          children: [
-            const Text('Home'),
-          ],
-        ),
+      body: const Center(child: Text('Home')),
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _selectedIndex,
+        onDestinationSelected: (int index) {
+          if (index == 0) {
+            setState(() {
+              _selectedIndex = index;
+            });
+          }
+        },
+        destinations: [
+          const NavigationDestination(
+            icon: Icon(Icons.phone_android),
+            selectedIcon: Icon(Icons.phone_android),
+            label: 'Device',
+          ),
+          NavigationDestination(
+            icon: Icon(
+              Icons.cloud_outlined,
+              color: Theme.of(context).disabledColor,
+            ),
+            selectedIcon: const Icon(Icons.cloud),
+            label: 'Cloud',
+            enabled: false,
+          ),
+        ],
       ),
     );
   }
