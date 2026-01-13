@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:photos/widgets/photo_grid.dart';
 
 void main() {
   runApp(const MyApp());
@@ -36,7 +37,7 @@ class _HomePageState extends State<HomePage> {
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         title: Text(widget.title),
       ),
-      body: const Center(child: Text('Home')),
+      body: const PhotoGrid(),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _selectedIndex,
         onDestinationSelected: (int index) {
