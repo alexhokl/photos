@@ -5,8 +5,9 @@ import 'package:photo_manager/photo_manager.dart';
 
 class PhotoGrid extends StatefulWidget {
   final void Function(int selectedCount)? onSelectionChanged;
+  final void Function(AssetEntity photo)? onPhotoTap;
 
-  const PhotoGrid({super.key, this.onSelectionChanged});
+  const PhotoGrid({super.key, this.onSelectionChanged, this.onPhotoTap});
 
   @override
   State<PhotoGrid> createState() => PhotoGridState();
@@ -228,7 +229,7 @@ class PhotoGridState extends State<PhotoGrid> {
             if (_isSelectionMode) {
               _toggleSelection(photo);
             } else {
-              // TODO: Open photo for viewing
+              widget.onPhotoTap?.call(photo);
             }
           },
           onLongPress: () => _enterSelectionMode(photo),

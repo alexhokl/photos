@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:photo_manager/photo_manager.dart';
 import 'package:photos/widgets/photo_grid.dart';
+import 'package:photos/widgets/photo_viewer.dart';
 
 void main() {
   runApp(const MyApp());
@@ -40,6 +42,13 @@ class _HomePageState extends State<HomePage> {
 
   void _onMenuAction(PhotoGridAction action) {
     _photoGridKey.currentState?.performAction(action);
+  }
+
+  void _onPhotoTap(AssetEntity photo) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => PhotoViewer(asset: photo)),
+    );
   }
 
   @override
@@ -83,6 +92,7 @@ class _HomePageState extends State<HomePage> {
       body: PhotoGrid(
         key: _photoGridKey,
         onSelectionChanged: _onSelectionChanged,
+        onPhotoTap: _onPhotoTap,
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _selectedIndex,
