@@ -20,6 +20,9 @@ class PhotoGridState extends State<PhotoGrid> {
   bool _hasPermission = false;
   String? _errorMessage;
   final Set<String> _selectedPhotoIds = {};
+  bool _isSelectionMode = false;
+
+  bool get isSelectionMode => _isSelectionMode;
 
   @override
   void initState() {
@@ -93,6 +96,10 @@ class PhotoGridState extends State<PhotoGrid> {
     setState(() {
       if (_selectedPhotoIds.contains(photo.id)) {
         _selectedPhotoIds.remove(photo.id);
+        // Exit selection mode if no photos are selected
+        if (_selectedPhotoIds.isEmpty) {
+          _isSelectionMode = false;
+        }
       } else {
         _selectedPhotoIds.add(photo.id);
       }
@@ -100,9 +107,19 @@ class PhotoGridState extends State<PhotoGrid> {
     widget.onSelectionChanged?.call(_selectedPhotoIds.length);
   }
 
+  void _enterSelectionMode(AssetEntity photo) {
+    if (_isSelectionMode) return;
+    setState(() {
+      _isSelectionMode = true;
+      _selectedPhotoIds.add(photo.id);
+    });
+    widget.onSelectionChanged?.call(_selectedPhotoIds.length);
+  }
+
   void _clearSelection() {
     setState(() {
       _selectedPhotoIds.clear();
+      _isSelectionMode = false;
     });
     widget.onSelectionChanged?.call(0);
   }
@@ -136,6 +153,7 @@ class PhotoGridState extends State<PhotoGrid> {
       setState(() {
         _photos.removeWhere((p) => _selectedPhotoIds.contains(p.id));
         _selectedPhotoIds.clear();
+        _isSelectionMode = false;
       });
       widget.onSelectionChanged?.call(0);
     }
@@ -206,7 +224,14 @@ class PhotoGridState extends State<PhotoGrid> {
         return PhotoThumbnail(
           asset: photo,
           isSelected: _selectedPhotoIds.contains(photo.id),
-          onTap: () => _toggleSelection(photo),
+          onTap: () {
+            if (_isSelectionMode) {
+              _toggleSelection(photo);
+            } else {
+              // TODO: Open photo for viewing
+            }
+          },
+          onLongPress: () => _enterSelectionMode(photo),
         );
       },
     );
@@ -217,18 +242,21 @@ class PhotoThumbnail extends StatelessWidget {
   final AssetEntity asset;
   final bool isSelected;
   final VoidCallback? onTap;
+  final VoidCallback? onLongPress;
 
   const PhotoThumbnail({
     super.key,
     required this.asset,
     this.isSelected = false,
     this.onTap,
+    this.onLongPress,
   });
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
+      onLongPress: onLongPress,
       child: Stack(
         fit: StackFit.expand,
         children: [
