@@ -44,11 +44,14 @@ class _HomePageState extends State<HomePage> {
     _photoGridKey.currentState?.performAction(action);
   }
 
-  void _onPhotoTap(AssetEntity photo) {
-    Navigator.push(
+  Future<void> _onPhotoTap(AssetEntity photo) async {
+    final deleted = await Navigator.push<bool>(
       context,
       MaterialPageRoute(builder: (context) => PhotoViewer(asset: photo)),
     );
+    if (deleted == true) {
+      _photoGridKey.currentState?.removePhoto(photo.id);
+    }
   }
 
   @override

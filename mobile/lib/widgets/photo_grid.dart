@@ -127,6 +127,17 @@ class PhotoGridState extends State<PhotoGrid> {
 
   int get selectedCount => _selectedPhotoIds.length;
 
+  void removePhoto(String photoId) {
+    setState(() {
+      _photos.removeWhere((p) => p.id == photoId);
+      _selectedPhotoIds.remove(photoId);
+      if (_selectedPhotoIds.isEmpty) {
+        _isSelectionMode = false;
+      }
+    });
+    widget.onSelectionChanged?.call(_selectedPhotoIds.length);
+  }
+
   Future<void> performAction(PhotoGridAction action) async {
     switch (action) {
       case PhotoGridAction.delete:
