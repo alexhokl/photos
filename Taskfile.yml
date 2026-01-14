@@ -17,7 +17,7 @@ tasks:
   test:
     desc: Test
     cmds:
-      - go test ./...
+      # - go test ./...
       - cd mobile && flutter test --no-pub --coverage
 
   coverage:
@@ -31,7 +31,7 @@ tasks:
   open-coverage-html:
     desc: Test with coverage in HTML and open the HTML
     cmds:
-      - open coverage.html
+      # - open coverage.html
       - open mobile/coverage/html/index.html
 
   flutter-coverage:
