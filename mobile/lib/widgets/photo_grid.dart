@@ -23,12 +23,35 @@ class PhotoGridState extends State<PhotoGrid> {
   final Set<String> _selectedPhotoIds = {};
   bool _isSelectionMode = false;
 
+  // Pagination state
+  static const int _pageSize = 50;
+  int _currentPage = 0;
+  bool _hasMorePhotos = true;
+  bool _isLoadingMore = false;
+  AssetPathEntity? _primaryAlbum;
+  final ScrollController _scrollController = ScrollController();
+
   bool get isSelectionMode => _isSelectionMode;
 
   @override
   void initState() {
     super.initState();
+    _scrollController.addListener(_onScroll);
     _requestPermissionAndLoadPhotos();
+  }
+
+  @override
+  void dispose() {
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (_scrollController.position.pixels >=
+        _scrollController.position.maxScrollExtent - 200) {
+      _loadMorePhotos();
+    }
   }
 
   Future<void> _requestPermissionAndLoadPhotos() async {
@@ -67,24 +90,58 @@ class PhotoGridState extends State<PhotoGrid> {
         setState(() {
           _photos = [];
           _isLoading = false;
+          _hasMorePhotos = false;
         });
         return;
       }
 
+      // Cache the primary album for pagination
+      _primaryAlbum = albums.first;
+      final totalCount = await _primaryAlbum!.assetCountAsync;
+
       // Get photos from the first album (usually "Recent" or "All Photos")
-      final List<AssetEntity> photos = await albums.first.getAssetListRange(
+      final List<AssetEntity> photos = await _primaryAlbum!.getAssetListRange(
         start: 0,
-        end: 100, // Load first 100 photos
+        end: _pageSize,
       );
 
       setState(() {
         _photos = photos;
+        _currentPage = 1;
+        _hasMorePhotos = photos.length < totalCount;
         _isLoading = false;
       });
     } catch (e) {
       setState(() {
         _errorMessage = 'Failed to load photos: $e';
         _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _loadMorePhotos() async {
+    if (_isLoadingMore || !_hasMorePhotos || _primaryAlbum == null) return;
+
+    setState(() {
+      _isLoadingMore = true;
+    });
+
+    try {
+      final start = _currentPage * _pageSize;
+      final totalCount = await _primaryAlbum!.assetCountAsync;
+
+      final List<AssetEntity> morePhotos = await _primaryAlbum!
+          .getAssetListRange(start: start, end: start + _pageSize);
+
+      setState(() {
+        _photos.addAll(morePhotos);
+        _currentPage++;
+        _hasMorePhotos = _photos.length < totalCount;
+        _isLoadingMore = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isLoadingMore = false;
       });
     }
   }
@@ -224,14 +281,25 @@ class PhotoGridState extends State<PhotoGrid> {
     }
 
     return GridView.builder(
+      controller: _scrollController,
       padding: const EdgeInsets.all(4),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 3,
         crossAxisSpacing: 4,
         mainAxisSpacing: 4,
       ),
-      itemCount: _photos.length,
+      itemCount: _photos.length + (_isLoadingMore ? 1 : 0),
       itemBuilder: (context, index) {
+        // Show loading indicator at the end
+        if (index >= _photos.length) {
+          return const Center(
+            child: Padding(
+              padding: EdgeInsets.all(16.0),
+              child: CircularProgressIndicator(),
+            ),
+          );
+        }
+
         final photo = _photos[index];
         return PhotoThumbnail(
           asset: photo,
