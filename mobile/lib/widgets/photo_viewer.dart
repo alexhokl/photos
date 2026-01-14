@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:photo_manager/photo_manager.dart';
+import 'package:photos/widgets/photo_info_view.dart';
 
 enum PhotoViewerAction { info, delete, upload }
 
@@ -47,6 +48,13 @@ class _PhotoViewerState extends State<PhotoViewer> {
         _deletePhoto();
         break;
       case PhotoViewerAction.info:
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => PhotoInfoView(asset: widget.asset),
+          ),
+        );
+        break;
       case PhotoViewerAction.upload:
         // Not implemented yet
         break;
@@ -70,7 +78,6 @@ class _PhotoViewerState extends State<PhotoViewer> {
             onSelected: _onMenuAction,
             itemBuilder: (context) => [
               const PopupMenuItem(
-                enabled: false,
                 value: PhotoViewerAction.info,
                 child: ListTile(
                   leading: Icon(Icons.info_outline),
