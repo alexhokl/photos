@@ -1,0 +1,612 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "proto/photos.proto",
+    "version": "version not set"
+  },
+  "tags": [
+    {
+      "name": "ByteService"
+    },
+    {
+      "name": "LibraryService"
+    }
+  ],
+  "consumes": [
+    "application/json"
+  ],
+  "produces": [
+    "application/json"
+  ],
+  "paths": {
+    "/v1/directories": {
+      "get": {
+        "summary": "ListDirectories lists virtual directories (common prefixes) in a bucket",
+        "operationId": "LibraryService_ListDirectories",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/photosListDirectoriesResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "prefix",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "LibraryService"
+        ]
+      }
+    },
+    "/v1/photos": {
+      "get": {
+        "summary": "ListPhotos returns a paginated list of photos with optional prefix filtering",
+        "operationId": "LibraryService_ListPhotos",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/photosListPhotosResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "pageSize",
+            "in": "query",
+            "required": false,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "pageToken",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "prefix",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "LibraryService"
+        ]
+      }
+    },
+    "/v1/photos/upload": {
+      "post": {
+        "summary": "Upload uploads a new photo",
+        "operationId": "ByteService_Upload",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/photosUploadResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/photosUploadRequest"
+            }
+          }
+        ],
+        "tags": [
+          "ByteService"
+        ]
+      }
+    },
+    "/v1/photos/{objectId}": {
+      "get": {
+        "summary": "GetPhoto retrieves photo metadata by ID",
+        "operationId": "LibraryService_GetPhoto",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/photosGetPhotoResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "objectId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "LibraryService"
+        ]
+      },
+      "delete": {
+        "summary": "DeletePhoto removes a photo by ID",
+        "operationId": "LibraryService_DeletePhoto",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/photosDeletePhotoResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "objectId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "LibraryService"
+        ]
+      }
+    },
+    "/v1/photos/{objectId}/download": {
+      "get": {
+        "summary": "Download retrieves a photo by ID",
+        "operationId": "ByteService_Download",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/photosDownloadResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "objectId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "ByteService"
+        ]
+      }
+    },
+    "/v1/photos/{objectId}/exists": {
+      "get": {
+        "summary": "PhotoExists checks if a photo exists by ID",
+        "operationId": "LibraryService_PhotoExists",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/photosPhotoExistsResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "objectId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "LibraryService"
+        ]
+      }
+    },
+    "/v1/photos/{objectId}/metadata": {
+      "patch": {
+        "summary": "UpdatePhotoMetadata updates metadata for a photo",
+        "operationId": "LibraryService_UpdatePhotoMetadata",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/photosUpdatePhotoMetadataResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "objectId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/LibraryServiceUpdatePhotoMetadataBody"
+            }
+          }
+        ],
+        "tags": [
+          "LibraryService"
+        ]
+      }
+    },
+    "/v1/photos/{objectId}/signed-url": {
+      "post": {
+        "summary": "GenerateSignedUrl creates a time-limited signed URL for photo access",
+        "operationId": "LibraryService_GenerateSignedUrl",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/photosGenerateSignedUrlResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "objectId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/LibraryServiceGenerateSignedUrlBody"
+            }
+          }
+        ],
+        "tags": [
+          "LibraryService"
+        ]
+      }
+    },
+    "/v1/photos/{sourceObjectId}/copy": {
+      "post": {
+        "summary": "CopyPhoto copies a photo to a new location",
+        "operationId": "LibraryService_CopyPhoto",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/photosCopyPhotoResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "sourceObjectId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/LibraryServiceCopyPhotoBody"
+            }
+          }
+        ],
+        "tags": [
+          "LibraryService"
+        ]
+      }
+    }
+  },
+  "definitions": {
+    "LibraryServiceCopyPhotoBody": {
+      "type": "object",
+      "properties": {
+        "destinationObjectId": {
+          "type": "string"
+        }
+      },
+      "title": "CopyPhotoRequest specifies source and destination for copy operation"
+    },
+    "LibraryServiceGenerateSignedUrlBody": {
+      "type": "object",
+      "properties": {
+        "expirationSeconds": {
+          "type": "string",
+          "format": "int64"
+        },
+        "method": {
+          "type": "string"
+        }
+      },
+      "title": "GenerateSignedUrlRequest specifies parameters for signed URL generation"
+    },
+    "LibraryServiceUpdatePhotoMetadataBody": {
+      "type": "object",
+      "properties": {
+        "customMetadata": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "contentType": {
+          "type": "string"
+        }
+      },
+      "title": "UpdatePhotoMetadataRequest specifies metadata updates for a photo"
+    },
+    "photosCopyPhotoResponse": {
+      "type": "object",
+      "properties": {
+        "photo": {
+          "$ref": "#/definitions/photosPhoto"
+        }
+      },
+      "title": "CopyPhotoResponse returns the copied photo metadata"
+    },
+    "photosDeletePhotoResponse": {
+      "type": "object",
+      "properties": {
+        "success": {
+          "type": "boolean"
+        }
+      },
+      "title": "DeletePhotoResponse confirms deletion"
+    },
+    "photosDownloadResponse": {
+      "type": "object",
+      "properties": {
+        "photo": {
+          "$ref": "#/definitions/photosPhoto"
+        },
+        "data": {
+          "type": "string",
+          "format": "byte"
+        }
+      },
+      "title": "DownloadResponse returns the photo with its data"
+    },
+    "photosGenerateSignedUrlResponse": {
+      "type": "object",
+      "properties": {
+        "signedUrl": {
+          "type": "string"
+        },
+        "expiresAt": {
+          "type": "string"
+        }
+      },
+      "title": "GenerateSignedUrlResponse returns the signed URL and expiration time"
+    },
+    "photosGetPhotoResponse": {
+      "type": "object",
+      "properties": {
+        "photo": {
+          "$ref": "#/definitions/photosPhoto"
+        }
+      },
+      "title": "GetPhotoResponse returns the photo metadata"
+    },
+    "photosListDirectoriesResponse": {
+      "type": "object",
+      "properties": {
+        "prefixes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "title": "ListDirectoriesResponse returns directory prefixes"
+    },
+    "photosListPhotosResponse": {
+      "type": "object",
+      "properties": {
+        "photos": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/photosPhoto"
+          }
+        },
+        "nextPageToken": {
+          "type": "string"
+        }
+      },
+      "title": "ListPhotosResponse returns a paginated list of photos"
+    },
+    "photosPhoto": {
+      "type": "object",
+      "properties": {
+        "objectId": {
+          "type": "string"
+        },
+        "filename": {
+          "type": "string"
+        },
+        "contentType": {
+          "type": "string"
+        },
+        "sizeBytes": {
+          "type": "string",
+          "format": "int64"
+        },
+        "createdAt": {
+          "type": "string"
+        },
+        "updatedAt": {
+          "type": "string"
+        }
+      },
+      "title": "Photo represents a stored photo with metadata"
+    },
+    "photosPhotoExistsResponse": {
+      "type": "object",
+      "properties": {
+        "exists": {
+          "type": "boolean"
+        }
+      },
+      "title": "PhotoExistsResponse returns whether the photo exists"
+    },
+    "photosPhotoMetadata": {
+      "type": "object",
+      "properties": {
+        "filename": {
+          "type": "string"
+        },
+        "contentType": {
+          "type": "string"
+        }
+      },
+      "title": "PhotoMetadata contains info about the photo being uploaded"
+    },
+    "photosStreamingDownloadResponse": {
+      "type": "object",
+      "properties": {
+        "metadata": {
+          "$ref": "#/definitions/photosPhoto",
+          "title": "metadata is sent in the first message only"
+        },
+        "chunk": {
+          "type": "string",
+          "format": "byte",
+          "title": "chunk contains a portion of the photo data"
+        }
+      },
+      "title": "StreamingDownloadResponse is streamed back in chunks"
+    },
+    "photosUpdatePhotoMetadataResponse": {
+      "type": "object",
+      "properties": {
+        "photo": {
+          "$ref": "#/definitions/photosPhoto"
+        }
+      },
+      "title": "UpdatePhotoMetadataResponse returns the updated photo metadata"
+    },
+    "photosUploadRequest": {
+      "type": "object",
+      "properties": {
+        "filename": {
+          "type": "string"
+        },
+        "contentType": {
+          "type": "string"
+        },
+        "data": {
+          "type": "string",
+          "format": "byte"
+        }
+      },
+      "title": "UploadRequest contains the photo data to upload"
+    },
+    "photosUploadResponse": {
+      "type": "object",
+      "properties": {
+        "photo": {
+          "$ref": "#/definitions/photosPhoto"
+        }
+      },
+      "title": "UploadResponse returns the uploaded photo metadata"
+    },
+    "protobufAny": {
+      "type": "object",
+      "properties": {
+        "@type": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": {}
+    },
+    "rpcStatus": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "message": {
+          "type": "string"
+        },
+        "details": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/protobufAny"
+          }
+        }
+      }
+    }
+  }
+}

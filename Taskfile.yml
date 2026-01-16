@@ -84,9 +84,7 @@ tasks:
           --grpc-gateway_out=. --grpc-gateway_opt=paths=source_relative \
           --openapiv2_out ./openapiv2 \
           --dart_out=grpc:mobile/lib \
-          ./google/protobuf/empty.proto \
           ./proto/*.proto
-        sed -i 's|package:protobuf/well_known_types/google/protobuf/empty.pb.dart|../google/protobuf/empty.pb.dart|g' mobile/lib/proto/tracker.pbgrpc.dart
 
   update-proto-dependencies:
     desc: Update protobuf dependencies
