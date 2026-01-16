@@ -1,0 +1,246 @@
+syntax = "proto3";
+
+package photos;
+
+import "google/api/annotations.proto";
+
+option go_package = "photos/proto";
+
+// Photo represents a stored photo with metadata
+message Photo {
+  string object_id = 1;
+  string filename = 2;
+  string content_type = 3;
+  int64 size_bytes = 4;
+  string created_at = 5;
+  string updated_at = 6;
+}
+
+// UploadRequest contains the photo data to upload
+message UploadRequest {
+  string filename = 1;
+  string content_type = 2;
+  bytes data = 3;
+}
+
+// UploadResponse returns the uploaded photo metadata
+message UploadResponse {
+  Photo photo = 1;
+}
+
+// DownloadRequest specifies which photo to retrieve
+message DownloadRequest {
+  string object_id = 1;
+}
+
+// DownloadResponse returns the photo with its data
+message DownloadResponse {
+  Photo photo = 1;
+  bytes data = 2;
+}
+
+// DeletePhotoRequest specifies which photo to delete
+message DeletePhotoRequest {
+  string object_id = 1;
+}
+
+// DeletePhotoResponse confirms deletion
+message DeletePhotoResponse {
+  bool success = 1;
+}
+
+// GetPhotoRequest specifies which photo metadata to retrieve
+message GetPhotoRequest {
+  string object_id = 1;
+}
+
+// GetPhotoResponse returns the photo metadata
+message GetPhotoResponse {
+  Photo photo = 1;
+}
+
+// ListPhotosRequest specifies pagination and filtering options
+message ListPhotosRequest {
+  int32 page_size = 1;
+  string page_token = 2;
+  string prefix = 3;
+}
+
+// ListPhotosResponse returns a paginated list of photos
+message ListPhotosResponse {
+  repeated Photo photos = 1;
+  string next_page_token = 2;
+}
+
+// CopyPhotoRequest specifies source and destination for copy operation
+message CopyPhotoRequest {
+  string source_object_id = 1;
+  string destination_object_id = 2;
+}
+
+// CopyPhotoResponse returns the copied photo metadata
+message CopyPhotoResponse {
+  Photo photo = 1;
+}
+
+// UpdatePhotoMetadataRequest specifies metadata updates for a photo
+message UpdatePhotoMetadataRequest {
+  string object_id = 1;
+  map<string, string> custom_metadata = 2;
+  string content_type = 3;
+}
+
+// UpdatePhotoMetadataResponse returns the updated photo metadata
+message UpdatePhotoMetadataResponse {
+  Photo photo = 1;
+}
+
+// GenerateSignedUrlRequest specifies parameters for signed URL generation
+message GenerateSignedUrlRequest {
+  string object_id = 1;
+  int64 expiration_seconds = 2;
+  string method = 3;
+}
+
+// GenerateSignedUrlResponse returns the signed URL and expiration time
+message GenerateSignedUrlResponse {
+  string signed_url = 1;
+  string expires_at = 2;
+}
+
+// PhotoExistsRequest specifies which photo to check for existence
+message PhotoExistsRequest {
+  string object_id = 1;
+}
+
+// PhotoExistsResponse returns whether the photo exists
+message PhotoExistsResponse {
+  bool exists = 1;
+}
+
+// ListDirectoriesRequest specifies the prefix and pagination for listing directories
+message ListDirectoriesRequest {
+  string prefix = 1;
+}
+
+// ListDirectoriesResponse returns directory prefixes
+message ListDirectoriesResponse {
+  repeated string prefixes = 1;
+}
+
+// StreamingUploadRequest is sent as a stream of chunks for large uploads
+message StreamingUploadRequest {
+  oneof data {
+    // metadata is sent in the first message only
+    PhotoMetadata metadata = 1;
+    // chunk contains a portion of the photo data
+    bytes chunk = 2;
+  }
+}
+
+// PhotoMetadata contains info about the photo being uploaded
+message PhotoMetadata {
+  string filename = 1;
+  string content_type = 2;
+}
+
+// StreamingDownloadRequest specifies which photo to download
+message StreamingDownloadRequest {
+  string object_id = 1;
+}
+
+// StreamingDownloadResponse is streamed back in chunks
+message StreamingDownloadResponse {
+  oneof data {
+    // metadata is sent in the first message only
+    Photo metadata = 1;
+    // chunk contains a portion of the photo data
+    bytes chunk = 2;
+  }
+}
+
+// ByteService provides photo upload, retrieval, and deletion operations
+service ByteService {
+  // Upload uploads a new photo
+  rpc Upload(UploadRequest) returns (UploadResponse) {
+    option (google.api.http) = {
+      post: "/v1/photos/upload"
+      body: "*"
+    };
+  }
+
+  // Download retrieves a photo by ID
+  rpc Download(DownloadRequest) returns (DownloadResponse) {
+    option (google.api.http) = {
+      get: "/v1/photos/{object_id}/download"
+    };
+  }
+
+  // StreamingUpload uploads a photo using client-side streaming for large files
+  rpc StreamingUpload(stream StreamingUploadRequest) returns (UploadResponse);
+
+  // StreamingDownload downloads a photo using server-side streaming for large files
+  rpc StreamingDownload(StreamingDownloadRequest) returns (stream StreamingDownloadResponse);
+}
+
+service LibraryService {
+  // DeletePhoto removes a photo by ID
+  rpc DeletePhoto(DeletePhotoRequest) returns (DeletePhotoResponse) {
+    option (google.api.http) = {
+      delete: "/v1/photos/{object_id}"
+    };
+  }
+
+  // GetPhoto retrieves photo metadata by ID
+  rpc GetPhoto(GetPhotoRequest) returns (GetPhotoResponse) {
+    option (google.api.http) = {
+      get: "/v1/photos/{object_id}"
+    };
+  }
+
+  // ListPhotos returns a paginated list of photos with optional prefix filtering
+  rpc ListPhotos(ListPhotosRequest) returns (ListPhotosResponse) {
+    option (google.api.http) = {
+      get: "/v1/photos"
+    };
+  }
+
+  // CopyPhoto copies a photo to a new location
+  rpc CopyPhoto(CopyPhotoRequest) returns (CopyPhotoResponse) {
+    option (google.api.http) = {
+      post: "/v1/photos/{source_object_id}/copy"
+      body: "*"
+    };
+  }
+
+  // UpdatePhotoMetadata updates metadata for a photo
+  rpc UpdatePhotoMetadata(UpdatePhotoMetadataRequest) returns (UpdatePhotoMetadataResponse) {
+    option (google.api.http) = {
+      patch: "/v1/photos/{object_id}/metadata"
+      body: "*"
+    };
+  }
+
+  // GenerateSignedUrl creates a time-limited signed URL for photo access
+  rpc GenerateSignedUrl(GenerateSignedUrlRequest) returns (GenerateSignedUrlResponse) {
+    option (google.api.http) = {
+      post: "/v1/photos/{object_id}/signed-url"
+      body: "*"
+    };
+  }
+
+  // PhotoExists checks if a photo exists by ID
+  rpc PhotoExists(PhotoExistsRequest) returns (PhotoExistsResponse) {
+    option (google.api.http) = {
+      get: "/v1/photos/{object_id}/exists"
+    };
+  }
+
+  // ListDirectories lists virtual directories (common prefixes) in a bucket
+  rpc ListDirectories(ListDirectoriesRequest) returns (ListDirectoriesResponse) {
+    option (google.api.http) = {
+      get: "/v1/directories"
+    };
+  }
+}
+
