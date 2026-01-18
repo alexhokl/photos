@@ -1025,6 +1025,7 @@ func (x *PhotoExistsResponse) GetExists() bool {
 type ListDirectoriesRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Prefix        string                 `protobuf:"bytes,1,opt,name=prefix,proto3" json:"prefix,omitempty"`
+	Recursive     bool                   `protobuf:"varint,2,opt,name=recursive,proto3" json:"recursive,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1064,6 +1065,13 @@ func (x *ListDirectoriesRequest) GetPrefix() string {
 		return x.Prefix
 	}
 	return ""
+}
+
+func (x *ListDirectoriesRequest) GetRecursive() bool {
+	if x != nil {
+		return x.Recursive
+	}
+	return false
 }
 
 // ListDirectoriesResponse returns directory prefixes
@@ -1448,9 +1456,10 @@ const file_proto_photos_proto_rawDesc = "" +
 	"\x12PhotoExistsRequest\x12\x1b\n" +
 	"\tobject_id\x18\x01 \x01(\tR\bobjectId\"-\n" +
 	"\x13PhotoExistsResponse\x12\x16\n" +
-	"\x06exists\x18\x01 \x01(\bR\x06exists\"0\n" +
+	"\x06exists\x18\x01 \x01(\bR\x06exists\"N\n" +
 	"\x16ListDirectoriesRequest\x12\x16\n" +
-	"\x06prefix\x18\x01 \x01(\tR\x06prefix\"5\n" +
+	"\x06prefix\x18\x01 \x01(\tR\x06prefix\x12\x1c\n" +
+	"\trecursive\x18\x02 \x01(\bR\trecursive\"5\n" +
 	"\x17ListDirectoriesResponse\x12\x1a\n" +
 	"\bprefixes\x18\x01 \x03(\tR\bprefixes\"m\n" +
 	"\x16StreamingUploadRequest\x123\n" +

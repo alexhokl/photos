@@ -1294,9 +1294,11 @@ class PhotoExistsResponse extends $pb.GeneratedMessage {
 class ListDirectoriesRequest extends $pb.GeneratedMessage {
   factory ListDirectoriesRequest({
     $core.String? prefix,
+    $core.bool? recursive,
   }) {
     final result = create();
     if (prefix != null) result.prefix = prefix;
+    if (recursive != null) result.recursive = recursive;
     return result;
   }
 
@@ -1314,6 +1316,7 @@ class ListDirectoriesRequest extends $pb.GeneratedMessage {
       package: const $pb.PackageName(_omitMessageNames ? '' : 'photos'),
       createEmptyInstance: create)
     ..aOS(1, _omitFieldNames ? '' : 'prefix')
+    ..aOB(2, _omitFieldNames ? '' : 'recursive')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -1344,6 +1347,15 @@ class ListDirectoriesRequest extends $pb.GeneratedMessage {
   $core.bool hasPrefix() => $_has(0);
   @$pb.TagNumber(1)
   void clearPrefix() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.bool get recursive => $_getBF(1);
+  @$pb.TagNumber(2)
+  set recursive($core.bool value) => $_setBool(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasRecursive() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearRecursive() => $_clearField(2);
 }
 
 /// ListDirectoriesResponse returns directory prefixes

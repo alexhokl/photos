@@ -122,6 +122,7 @@ message PhotoExistsResponse {
 // ListDirectoriesRequest specifies the prefix and pagination for listing directories
 message ListDirectoriesRequest {
   string prefix = 1;
+  bool recursive = 2;
 }
 
 // ListDirectoriesResponse returns directory prefixes

@@ -43,6 +43,12 @@
             "in": "query",
             "required": false,
             "type": "string"
+          },
+          {
+            "name": "recursive",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
           }
         ],
         "tags": [

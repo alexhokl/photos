@@ -363,13 +363,15 @@ const ListDirectoriesRequest$json = {
   '1': 'ListDirectoriesRequest',
   '2': [
     {'1': 'prefix', '3': 1, '4': 1, '5': 9, '10': 'prefix'},
+    {'1': 'recursive', '3': 2, '4': 1, '5': 8, '10': 'recursive'},
   ],
 };
 
 /// Descriptor for `ListDirectoriesRequest`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List listDirectoriesRequestDescriptor =
     $convert.base64Decode(
-        'ChZMaXN0RGlyZWN0b3JpZXNSZXF1ZXN0EhYKBnByZWZpeBgBIAEoCVIGcHJlZml4');
+        'ChZMaXN0RGlyZWN0b3JpZXNSZXF1ZXN0EhYKBnByZWZpeBgBIAEoCVIGcHJlZml4EhwKCXJlY3'
+        'Vyc2l2ZRgCIAEoCFIJcmVjdXJzaXZl');
 
 @$core.Deprecated('Use listDirectoriesResponseDescriptor instead')
 const ListDirectoriesResponse$json = {
