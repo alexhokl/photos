@@ -506,6 +506,9 @@
         },
         "updatedAt": {
           "type": "string"
+        },
+        "md5Hash": {
+          "type": "string"
         }
       },
       "title": "Photo represents a stored photo with metadata"

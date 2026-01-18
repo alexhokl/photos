@@ -31,6 +31,7 @@ type Photo struct {
 	SizeBytes     int64                  `protobuf:"varint,4,opt,name=size_bytes,json=sizeBytes,proto3" json:"size_bytes,omitempty"`
 	CreatedAt     string                 `protobuf:"bytes,5,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	UpdatedAt     string                 `protobuf:"bytes,6,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	Md5Hash       string                 `protobuf:"bytes,7,opt,name=md5_hash,json=md5Hash,proto3" json:"md5_hash,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -103,6 +104,13 @@ func (x *Photo) GetCreatedAt() string {
 func (x *Photo) GetUpdatedAt() string {
 	if x != nil {
 		return x.UpdatedAt
+	}
+	return ""
+}
+
+func (x *Photo) GetMd5Hash() string {
+	if x != nil {
+		return x.Md5Hash
 	}
 	return ""
 }
@@ -1375,7 +1383,7 @@ var File_proto_photos_proto protoreflect.FileDescriptor
 
 const file_proto_photos_proto_rawDesc = "" +
 	"\n" +
-	"\x12proto/photos.proto\x12\x06photos\x1a\x1cgoogle/api/annotations.proto\"\xc0\x01\n" +
+	"\x12proto/photos.proto\x12\x06photos\x1a\x1cgoogle/api/annotations.proto\"\xdb\x01\n" +
 	"\x05Photo\x12\x1b\n" +
 	"\tobject_id\x18\x01 \x01(\tR\bobjectId\x12\x1a\n" +
 	"\bfilename\x18\x02 \x01(\tR\bfilename\x12!\n" +
@@ -1385,7 +1393,8 @@ const file_proto_photos_proto_rawDesc = "" +
 	"\n" +
 	"created_at\x18\x05 \x01(\tR\tcreatedAt\x12\x1d\n" +
 	"\n" +
-	"updated_at\x18\x06 \x01(\tR\tupdatedAt\"c\n" +
+	"updated_at\x18\x06 \x01(\tR\tupdatedAt\x12\x19\n" +
+	"\bmd5_hash\x18\a \x01(\tR\amd5Hash\"c\n" +
 	"\rUploadRequest\x12\x1b\n" +
 	"\tobject_id\x18\x01 \x01(\tR\bobjectId\x12!\n" +
 	"\fcontent_type\x18\x02 \x01(\tR\vcontentType\x12\x12\n" +

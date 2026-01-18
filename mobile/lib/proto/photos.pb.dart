@@ -26,6 +26,7 @@ class Photo extends $pb.GeneratedMessage {
     $fixnum.Int64? sizeBytes,
     $core.String? createdAt,
     $core.String? updatedAt,
+    $core.String? md5Hash,
   }) {
     final result = create();
     if (objectId != null) result.objectId = objectId;
@@ -34,6 +35,7 @@ class Photo extends $pb.GeneratedMessage {
     if (sizeBytes != null) result.sizeBytes = sizeBytes;
     if (createdAt != null) result.createdAt = createdAt;
     if (updatedAt != null) result.updatedAt = updatedAt;
+    if (md5Hash != null) result.md5Hash = md5Hash;
     return result;
   }
 
@@ -56,6 +58,7 @@ class Photo extends $pb.GeneratedMessage {
     ..aInt64(4, _omitFieldNames ? '' : 'sizeBytes')
     ..aOS(5, _omitFieldNames ? '' : 'createdAt')
     ..aOS(6, _omitFieldNames ? '' : 'updatedAt')
+    ..aOS(7, _omitFieldNames ? '' : 'md5Hash')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -129,6 +132,15 @@ class Photo extends $pb.GeneratedMessage {
   $core.bool hasUpdatedAt() => $_has(5);
   @$pb.TagNumber(6)
   void clearUpdatedAt() => $_clearField(6);
+
+  @$pb.TagNumber(7)
+  $core.String get md5Hash => $_getSZ(6);
+  @$pb.TagNumber(7)
+  set md5Hash($core.String value) => $_setString(6, value);
+  @$pb.TagNumber(7)
+  $core.bool hasMd5Hash() => $_has(6);
+  @$pb.TagNumber(7)
+  void clearMd5Hash() => $_clearField(7);
 }
 
 /// UploadRequest contains the photo data to upload

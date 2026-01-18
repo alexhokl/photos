@@ -25,6 +25,7 @@ const Photo$json = {
     {'1': 'size_bytes', '3': 4, '4': 1, '5': 3, '10': 'sizeBytes'},
     {'1': 'created_at', '3': 5, '4': 1, '5': 9, '10': 'createdAt'},
     {'1': 'updated_at', '3': 6, '4': 1, '5': 9, '10': 'updatedAt'},
+    {'1': 'md5_hash', '3': 7, '4': 1, '5': 9, '10': 'md5Hash'},
   ],
 };
 
@@ -33,7 +34,7 @@ final $typed_data.Uint8List photoDescriptor = $convert.base64Decode(
     'CgVQaG90bxIbCglvYmplY3RfaWQYASABKAlSCG9iamVjdElkEhoKCGZpbGVuYW1lGAIgASgJUg'
     'hmaWxlbmFtZRIhCgxjb250ZW50X3R5cGUYAyABKAlSC2NvbnRlbnRUeXBlEh0KCnNpemVfYnl0'
     'ZXMYBCABKANSCXNpemVCeXRlcxIdCgpjcmVhdGVkX2F0GAUgASgJUgljcmVhdGVkQXQSHQoKdX'
-    'BkYXRlZF9hdBgGIAEoCVIJdXBkYXRlZEF0');
+    'BkYXRlZF9hdBgGIAEoCVIJdXBkYXRlZEF0EhkKCG1kNV9oYXNoGAcgASgJUgdtZDVIYXNo');
 
 @$core.Deprecated('Use uploadRequestDescriptor instead')
 const UploadRequest$json = {
