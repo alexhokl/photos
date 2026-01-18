@@ -11,6 +11,7 @@ import (
 	"syscall"
 	"time"
 
+	"cloud.google.com/go/storage"
 	"github.com/alexhokl/photos/database"
 	"github.com/alexhokl/photos/internal"
 	"github.com/alexhokl/photos/proto"
@@ -19,6 +20,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"golang.org/x/sync/errgroup"
+	"google.golang.org/api/option"
 	"google.golang.org/grpc"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
@@ -35,6 +37,10 @@ type serveOptions struct {
 	Hostname                string
 	TailscaleAuthKey        string
 	TailscaleStateDirectory string
+	GCSBucket               string
+	GCSProject              string
+	GCSCredentials          string
+	GCSPrefix               string
 }
 
 var serveOpts serveOptions
@@ -60,8 +66,13 @@ func init() {
 	flags.StringVar(&serveOpts.Hostname, "hostname", "", "Hostname for Tailscale (if empty, it would not be available on Tailscale network)")
 	flags.StringVar(&serveOpts.TailscaleAuthKey, "ts-auth-key", "", "Tailscale auth key (if empty, it would not be available on Tailscale network)")
 	flags.StringVar(&serveOpts.TailscaleStateDirectory, "ts-state-dir", "./tailscale-state", "Directory to store Tailscale state (if empty, it would use a temporary directory)")
+	flags.StringVarP(&serveOpts.GCSBucket, "gcs-bucket", "b", "", "Google Cloud Storage bucket name")
+	flags.StringVar(&serveOpts.GCSProject, "gcs-project", "", "Google Cloud project ID (optional, auto-detected if not set)")
+	flags.StringVar(&serveOpts.GCSCredentials, "gcs-credentials", "", "Path to GCS service account credentials JSON file (optional, uses ADC if not set)")
+	flags.StringVar(&serveOpts.GCSPrefix, "gcs-prefix", "", "Object prefix/folder path within the bucket (optional)")
 
 	_ = serveCmd.MarkFlagRequired("database")
+	_ = serveCmd.MarkFlagRequired("gcs-bucket")
 }
 
 func bindEnvironmentVariablesToServeOptions(opts *serveOptions) {
@@ -83,6 +94,18 @@ func bindEnvironmentVariablesToServeOptions(opts *serveOptions) {
 	if opts.ProxyPort == 0 {
 		opts.ProxyPort = viper.GetInt("proxy_port")
 	}
+	if opts.GCSBucket == "" {
+		opts.GCSBucket = viper.GetString("gcs_bucket")
+	}
+	if opts.GCSProject == "" {
+		opts.GCSProject = viper.GetString("gcs_project")
+	}
+	if opts.GCSCredentials == "" {
+		opts.GCSCredentials = viper.GetString("gcs_credentials")
+	}
+	if opts.GCSPrefix == "" {
+		opts.GCSPrefix = viper.GetString("gcs_prefix")
+	}
 }
 
 func runServe(cmd *cobra.Command, args []string) error {
@@ -99,6 +122,18 @@ func runServe(cmd *cobra.Command, args []string) error {
 	if err := database.AutoMigrate(dbConn); err != nil {
 		return fmt.Errorf("failed to migrate database schema: %w", err)
 	}
+
+	// Verify GCS bucket connection
+	gcsClient, err := getGCSClient(context.Background(), serveOpts)
+	if err != nil {
+		return fmt.Errorf("failed to create GCS client: %w", err)
+	}
+	defer gcsClient.Close()
+
+	if err := verifyGCSBucket(context.Background(), gcsClient, serveOpts.GCSBucket); err != nil {
+		return fmt.Errorf("failed to connect to GCS bucket %q: %w", serveOpts.GCSBucket, err)
+	}
+	slog.Info("successfully connected to GCS bucket", slog.String("bucket", serveOpts.GCSBucket))
 
 	var privateServer *pserver.Server
 	var grpcListener net.Listener
@@ -301,6 +336,14 @@ func validateFlags(opts serveOptions) error {
 	if (opts.Hostname == "" && opts.TailscaleAuthKey != "") || (opts.Hostname != "" && opts.TailscaleAuthKey == "") {
 		return fmt.Errorf("both hostname and Tailscale auth key must be provided to enable Tailscale")
 	}
+	if opts.GCSBucket == "" {
+		return fmt.Errorf("GCS bucket name cannot be empty")
+	}
+	if opts.GCSCredentials != "" {
+		if _, err := os.Stat(opts.GCSCredentials); os.IsNotExist(err) {
+			return fmt.Errorf("GCS credentials file does not exist: %s", opts.GCSCredentials)
+		}
+	}
 	return nil
 }
 
@@ -343,4 +386,31 @@ func getRestfulProxyServerHandler(ctx context.Context, fqdn string, grpcServerPo
 	}
 
 	return mux, nil
+}
+
+func getGCSClient(ctx context.Context, opts serveOptions) (*storage.Client, error) {
+	var clientOpts []option.ClientOption
+
+	if opts.GCSCredentials != "" {
+		clientOpts = append(clientOpts, option.WithAuthCredentialsFile(option.ServiceAccount, opts.GCSCredentials))
+	}
+
+	client, err := storage.NewClient(ctx, clientOpts...)
+	if err != nil {
+		return nil, err
+	}
+
+	return client, nil
+}
+
+func verifyGCSBucket(ctx context.Context, client *storage.Client, bucketName string) error {
+	bucket := client.Bucket(bucketName)
+
+	// Try to get bucket attributes to verify the bucket exists and we have access
+	_, err := bucket.Attrs(ctx)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
