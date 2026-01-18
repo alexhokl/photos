@@ -193,7 +193,7 @@ func runServe(cmd *cobra.Command, args []string) error {
 	g, ctx := errgroup.WithContext(ctx)
 
 	// Create gRPC server
-	grpcServer := getGrpcServer(ctx, dbConn, privateServer)
+	grpcServer := getGrpcServer(ctx, dbConn, privateServer, gcsClient, serveOpts.GCSBucket)
 
 	// Create HTTP servers for graceful shutdown support
 	fqdn := ""
@@ -347,7 +347,7 @@ func validateFlags(opts serveOptions) error {
 	return nil
 }
 
-func getGrpcServer(_ context.Context, conn *gorm.DB, privateServer *pserver.Server) *grpc.Server {
+func getGrpcServer(_ context.Context, conn *gorm.DB, privateServer *pserver.Server, gcsClient *storage.Client, bucketName string) *grpc.Server {
 	authenticationInterceptor := internal.DummyAuthenticationInterceptor
 	if privateServer != nil {
 		authenticationInterceptor = internal.NewTailscaleAuthenticationInterceptor(conn, privateServer).Intercept
@@ -359,7 +359,11 @@ func getGrpcServer(_ context.Context, conn *gorm.DB, privateServer *pserver.Serv
 		),
 	)
 
-	proto.RegisterByteServiceServer(grpcServer, &internal.BytesServer{DB: conn})
+	proto.RegisterByteServiceServer(grpcServer, &internal.BytesServer{
+		DB:         conn,
+		GCSClient:  gcsClient,
+		BucketName: bucketName,
+	})
 	proto.RegisterLibraryServiceServer(grpcServer, &internal.LibraryServer{DB: conn})
 
 	return grpcServer
