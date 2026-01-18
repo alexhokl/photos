@@ -110,7 +110,7 @@ func (x *Photo) GetUpdatedAt() string {
 // UploadRequest contains the photo data to upload
 type UploadRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Filename      string                 `protobuf:"bytes,1,opt,name=filename,proto3" json:"filename,omitempty"`
+	ObjectId      string                 `protobuf:"bytes,1,opt,name=object_id,json=objectId,proto3" json:"object_id,omitempty"`
 	ContentType   string                 `protobuf:"bytes,2,opt,name=content_type,json=contentType,proto3" json:"content_type,omitempty"`
 	Data          []byte                 `protobuf:"bytes,3,opt,name=data,proto3" json:"data,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -147,9 +147,9 @@ func (*UploadRequest) Descriptor() ([]byte, []int) {
 	return file_proto_photos_proto_rawDescGZIP(), []int{1}
 }
 
-func (x *UploadRequest) GetFilename() string {
+func (x *UploadRequest) GetObjectId() string {
 	if x != nil {
-		return x.Filename
+		return x.ObjectId
 	}
 	return ""
 }
@@ -1385,9 +1385,9 @@ const file_proto_photos_proto_rawDesc = "" +
 	"\n" +
 	"created_at\x18\x05 \x01(\tR\tcreatedAt\x12\x1d\n" +
 	"\n" +
-	"updated_at\x18\x06 \x01(\tR\tupdatedAt\"b\n" +
-	"\rUploadRequest\x12\x1a\n" +
-	"\bfilename\x18\x01 \x01(\tR\bfilename\x12!\n" +
+	"updated_at\x18\x06 \x01(\tR\tupdatedAt\"c\n" +
+	"\rUploadRequest\x12\x1b\n" +
+	"\tobject_id\x18\x01 \x01(\tR\bobjectId\x12!\n" +
 	"\fcontent_type\x18\x02 \x01(\tR\vcontentType\x12\x12\n" +
 	"\x04data\x18\x03 \x01(\fR\x04data\"5\n" +
 	"\x0eUploadResponse\x12#\n" +

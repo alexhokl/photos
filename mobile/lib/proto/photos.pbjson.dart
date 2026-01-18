@@ -39,7 +39,7 @@ final $typed_data.Uint8List photoDescriptor = $convert.base64Decode(
 const UploadRequest$json = {
   '1': 'UploadRequest',
   '2': [
-    {'1': 'filename', '3': 1, '4': 1, '5': 9, '10': 'filename'},
+    {'1': 'object_id', '3': 1, '4': 1, '5': 9, '10': 'objectId'},
     {'1': 'content_type', '3': 2, '4': 1, '5': 9, '10': 'contentType'},
     {'1': 'data', '3': 3, '4': 1, '5': 12, '10': 'data'},
   ],
@@ -47,8 +47,8 @@ const UploadRequest$json = {
 
 /// Descriptor for `UploadRequest`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List uploadRequestDescriptor = $convert.base64Decode(
-    'Cg1VcGxvYWRSZXF1ZXN0EhoKCGZpbGVuYW1lGAEgASgJUghmaWxlbmFtZRIhCgxjb250ZW50X3'
-    'R5cGUYAiABKAlSC2NvbnRlbnRUeXBlEhIKBGRhdGEYAyABKAxSBGRhdGE=');
+    'Cg1VcGxvYWRSZXF1ZXN0EhsKCW9iamVjdF9pZBgBIAEoCVIIb2JqZWN0SWQSIQoMY29udGVudF'
+    '90eXBlGAIgASgJUgtjb250ZW50VHlwZRISCgRkYXRhGAMgASgMUgRkYXRh');
 
 @$core.Deprecated('Use uploadResponseDescriptor instead')
 const UploadResponse$json = {

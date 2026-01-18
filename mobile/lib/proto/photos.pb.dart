@@ -134,12 +134,12 @@ class Photo extends $pb.GeneratedMessage {
 /// UploadRequest contains the photo data to upload
 class UploadRequest extends $pb.GeneratedMessage {
   factory UploadRequest({
-    $core.String? filename,
+    $core.String? objectId,
     $core.String? contentType,
     $core.List<$core.int>? data,
   }) {
     final result = create();
-    if (filename != null) result.filename = filename;
+    if (objectId != null) result.objectId = objectId;
     if (contentType != null) result.contentType = contentType;
     if (data != null) result.data = data;
     return result;
@@ -158,7 +158,7 @@ class UploadRequest extends $pb.GeneratedMessage {
       _omitMessageNames ? '' : 'UploadRequest',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'photos'),
       createEmptyInstance: create)
-    ..aOS(1, _omitFieldNames ? '' : 'filename')
+    ..aOS(1, _omitFieldNames ? '' : 'objectId')
     ..aOS(2, _omitFieldNames ? '' : 'contentType')
     ..a<$core.List<$core.int>>(
         3, _omitFieldNames ? '' : 'data', $pb.PbFieldType.OY)
@@ -184,13 +184,13 @@ class UploadRequest extends $pb.GeneratedMessage {
   static UploadRequest? _defaultInstance;
 
   @$pb.TagNumber(1)
-  $core.String get filename => $_getSZ(0);
+  $core.String get objectId => $_getSZ(0);
   @$pb.TagNumber(1)
-  set filename($core.String value) => $_setString(0, value);
+  set objectId($core.String value) => $_setString(0, value);
   @$pb.TagNumber(1)
-  $core.bool hasFilename() => $_has(0);
+  $core.bool hasObjectId() => $_has(0);
   @$pb.TagNumber(1)
-  void clearFilename() => $_clearField(1);
+  void clearObjectId() => $_clearField(1);
 
   @$pb.TagNumber(2)
   $core.String get contentType => $_getSZ(1);

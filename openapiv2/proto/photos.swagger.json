@@ -558,7 +558,7 @@
     "photosUploadRequest": {
       "type": "object",
       "properties": {
-        "filename": {
+        "objectId": {
           "type": "string"
         },
         "contentType": {

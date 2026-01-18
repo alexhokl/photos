@@ -19,16 +19,16 @@ type BytesServer struct {
 }
 
 // Upload uploads a file to Google Cloud Storage.
-// The filename in UploadRequest corresponds to the object ID in the bucket.
+// The object_id in UploadRequest corresponds to the object ID in the bucket.
 func (s *BytesServer) Upload(ctx context.Context, req *proto.UploadRequest) (*proto.UploadResponse, error) {
-	if req.GetFilename() == "" {
-		return nil, status.Errorf(codes.InvalidArgument, "filename is required")
+	if req.GetObjectId() == "" {
+		return nil, status.Errorf(codes.InvalidArgument, "object_id is required")
 	}
 	if len(req.GetData()) == 0 {
 		return nil, status.Errorf(codes.InvalidArgument, "data is required")
 	}
 
-	objectID := req.GetFilename()
+	objectID := req.GetObjectId()
 	bucket := s.GCSClient.Bucket(s.BucketName)
 	obj := bucket.Object(objectID)
 
@@ -51,7 +51,7 @@ func (s *BytesServer) Upload(ctx context.Context, req *proto.UploadRequest) (*pr
 
 	photo := &proto.Photo{
 		ObjectId:    objectID,
-		Filename:    req.GetFilename(),
+		Filename:    objectID,
 		ContentType: attrs.ContentType,
 		SizeBytes:   attrs.Size,
 		CreatedAt:   attrs.Created.Format(time.RFC3339),

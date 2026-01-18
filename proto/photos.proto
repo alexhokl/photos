@@ -18,7 +18,7 @@ message Photo {
 
 // UploadRequest contains the photo data to upload
 message UploadRequest {
-  string filename = 1;
+  string object_id = 1;
   string content_type = 2;
   bytes data = 3;
 }
