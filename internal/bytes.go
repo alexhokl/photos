@@ -75,7 +75,7 @@ func (s *BytesServer) Upload(ctx context.Context, req *proto.UploadRequest) (*pr
 	}
 
 	// Write to PhotoDirectory table (if directory exists)
-	photoDirectory := createPhotoDirectory(objectID, userID)
+	photoDirectory := createPhotoDirectory(objectID)
 	if photoDirectory != nil {
 		// Use FirstOrCreate to avoid duplicate directory entries
 		if err := s.DB.FirstOrCreate(photoDirectory, database.PhotoDirectory{Path: photoDirectory.Path}).Error; err != nil {
@@ -139,7 +139,7 @@ func createPhotoObject(objectID string, attrs *storage.ObjectAttrs, userID uint,
 
 // createPhotoDirectory creates a PhotoDirectory from the given object ID and user ID.
 // It extracts the directory path from the object ID.
-func createPhotoDirectory(objectID string, userID uint) *database.PhotoDirectory {
+func createPhotoDirectory(objectID string) *database.PhotoDirectory {
 	dir := ExtractDirectoryFromPath(objectID)
 	if dir == "" {
 		return nil

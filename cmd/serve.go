@@ -364,7 +364,11 @@ func getGrpcServer(_ context.Context, conn *gorm.DB, privateServer *pserver.Serv
 		GCSClient:  gcsClient,
 		BucketName: bucketName,
 	})
-	proto.RegisterLibraryServiceServer(grpcServer, &internal.LibraryServer{DB: conn})
+	proto.RegisterLibraryServiceServer(grpcServer, &internal.LibraryServer{
+		DB:         conn,
+		GCSClient:  gcsClient,
+		BucketName: bucketName,
+	})
 
 	return grpcServer
 }
