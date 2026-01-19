@@ -145,7 +145,6 @@ func createPhotoDirectory(objectID string, userID uint) *database.PhotoDirectory
 		return nil
 	}
 	return &database.PhotoDirectory{
-		Path:   dir,
-		UserID: userID,
+		Path: dir,
 	}
 }

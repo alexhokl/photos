@@ -26,7 +26,5 @@ type PhotoObject struct {
 
 type PhotoDirectory struct {
 	gorm.Model
-	Path   string `gorm:"not null;unique"`
-	UserID uint   `gorm:"not null"`
-	User   User   `gorm:"foreignKey:UserID"`
+	Path string `gorm:"not null;unique"`
 }
