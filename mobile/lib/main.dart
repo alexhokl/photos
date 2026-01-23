@@ -80,7 +80,6 @@ class _HomePageState extends State<HomePage> {
                 ),
               ),
               const PopupMenuItem(
-                enabled: false,
                 value: PhotoGridAction.upload,
                 child: ListTile(
                   leading: Icon(Icons.cloud_upload),

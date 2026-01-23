@@ -38,6 +38,11 @@ dependencies:
   # For accessing device photos
   photo_manager: ^3.6.0
 
+  # gRPC and Protocol Buffers for cloud communication
+  grpc: ^5.1.0
+  protobuf: ^6.0.0
+  fixnum: ^1.1.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

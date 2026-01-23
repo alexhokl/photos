@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:photo_manager/photo_manager.dart';
+import 'package:photos/services/upload_service.dart';
 
 class PhotoGrid extends StatefulWidget {
   final void Function(int selectedCount)? onSelectionChanged;
@@ -228,8 +229,52 @@ class PhotoGridState extends State<PhotoGrid> {
     }
   }
 
-  void _uploadSelectedPhotos() {
-    // TODO: Implement upload functionality
+  Future<void> _uploadSelectedPhotos() async {
+    final selectedPhotos = _selectedPhotos;
+    if (selectedPhotos.isEmpty) return;
+
+    final uploadService = UploadService();
+
+    try {
+      // Show upload progress dialog
+      if (!mounted) return;
+
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (dialogContext) => _UploadProgressDialog(
+          photos: selectedPhotos,
+          uploadService: uploadService,
+          onComplete: (results) {
+            Navigator.pop(dialogContext);
+            _showUploadResults(results);
+          },
+        ),
+      );
+    } finally {
+      await uploadService.dispose();
+    }
+  }
+
+  void _showUploadResults(List<UploadResult> results) {
+    final successCount = results.where((r) => r.success).length;
+    final failureCount = results.length - successCount;
+
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          failureCount == 0
+              ? 'Successfully uploaded $successCount photo${successCount == 1 ? '' : 's'}'
+              : 'Uploaded $successCount, failed $failureCount',
+        ),
+        duration: const Duration(seconds: 3),
+      ),
+    );
+
+    // Clear selection after upload
+    _clearSelection();
   }
 
   @override
@@ -370,6 +415,77 @@ class PhotoThumbnail extends StatelessWidget {
                 ),
               ),
             ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Dialog that shows upload progress
+class _UploadProgressDialog extends StatefulWidget {
+  final List<AssetEntity> photos;
+  final UploadService uploadService;
+  final void Function(List<UploadResult> results) onComplete;
+
+  const _UploadProgressDialog({
+    required this.photos,
+    required this.uploadService,
+    required this.onComplete,
+  });
+
+  @override
+  State<_UploadProgressDialog> createState() => _UploadProgressDialogState();
+}
+
+class _UploadProgressDialogState extends State<_UploadProgressDialog> {
+  int _completed = 0;
+  int _total = 0;
+  String _currentFileName = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _total = widget.photos.length;
+    _startUpload();
+  }
+
+  Future<void> _startUpload() async {
+    final results = await widget.uploadService.uploadPhotos(
+      widget.photos,
+      onProgress: (completed, total) {
+        if (mounted) {
+          setState(() {
+            _completed = completed;
+            _currentFileName = completed < widget.photos.length
+                ? widget.photos[completed].title ?? 'Photo ${completed + 1}'
+                : '';
+          });
+        }
+      },
+    );
+    widget.onComplete(results);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final progress = _total > 0 ? _completed / _total : 0.0;
+
+    return AlertDialog(
+      title: const Text('Uploading Photos'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          LinearProgressIndicator(value: progress),
+          const SizedBox(height: 16),
+          Text('$_completed of $_total'),
+          if (_currentFileName.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(
+              _currentFileName,
+              style: Theme.of(context).textTheme.bodySmall,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
         ],
       ),
     );

@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:photo_manager/photo_manager.dart';
+import 'package:photos/services/upload_service.dart';
 import 'package:photos/widgets/photo_info_view.dart';
 
 enum PhotoViewerAction { info, delete, upload }
@@ -42,6 +43,56 @@ class _PhotoViewerState extends State<PhotoViewer> {
     }
   }
 
+  Future<void> _uploadPhoto() async {
+    final uploadService = UploadService();
+
+    try {
+      // Show uploading indicator
+      if (!mounted) return;
+
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('Uploading'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const CircularProgressIndicator(),
+              const SizedBox(height: 16),
+              Text(widget.asset.title ?? 'Photo'),
+            ],
+          ),
+        ),
+      );
+
+      final response = await uploadService.uploadPhoto(widget.asset);
+
+      if (!mounted) return;
+      Navigator.pop(context); // Close progress dialog
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Uploaded: ${response.photo.objectId}'),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    } on UploadException catch (e) {
+      if (!mounted) return;
+      Navigator.pop(context); // Close progress dialog
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Upload failed: ${e.message}'),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    } finally {
+      await uploadService.dispose();
+    }
+  }
+
   void _onMenuAction(PhotoViewerAction action) {
     switch (action) {
       case PhotoViewerAction.delete:
@@ -56,7 +107,7 @@ class _PhotoViewerState extends State<PhotoViewer> {
         );
         break;
       case PhotoViewerAction.upload:
-        // Not implemented yet
+        _uploadPhoto();
         break;
     }
   }
@@ -94,7 +145,6 @@ class _PhotoViewerState extends State<PhotoViewer> {
                 ),
               ),
               const PopupMenuItem(
-                enabled: false,
                 value: PhotoViewerAction.upload,
                 child: ListTile(
                   leading: Icon(Icons.cloud_upload),
