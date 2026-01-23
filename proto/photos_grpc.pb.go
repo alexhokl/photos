@@ -11,6 +11,7 @@ import (
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
+	emptypb "google.golang.org/protobuf/types/known/emptypb"
 )
 
 // This is a compile-time assertion to ensure that this generated file
@@ -252,6 +253,7 @@ const (
 	LibraryService_GenerateSignedUrl_FullMethodName   = "/photos.LibraryService/GenerateSignedUrl"
 	LibraryService_PhotoExists_FullMethodName         = "/photos.LibraryService/PhotoExists"
 	LibraryService_ListDirectories_FullMethodName     = "/photos.LibraryService/ListDirectories"
+	LibraryService_SyncDatabase_FullMethodName        = "/photos.LibraryService/SyncDatabase"
 )
 
 // LibraryServiceClient is the client API for LibraryService service.
@@ -274,6 +276,8 @@ type LibraryServiceClient interface {
 	PhotoExists(ctx context.Context, in *PhotoExistsRequest, opts ...grpc.CallOption) (*PhotoExistsResponse, error)
 	// ListDirectories lists virtual directories (common prefixes) in a bucket
 	ListDirectories(ctx context.Context, in *ListDirectoriesRequest, opts ...grpc.CallOption) (*ListDirectoriesResponse, error)
+	// SyncDatabase syncs the photo database with the storage backend
+	SyncDatabase(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
 }
 
 type libraryServiceClient struct {
@@ -364,6 +368,16 @@ func (c *libraryServiceClient) ListDirectories(ctx context.Context, in *ListDire
 	return out, nil
 }
 
+func (c *libraryServiceClient) SyncDatabase(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, LibraryService_SyncDatabase_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // LibraryServiceServer is the server API for LibraryService service.
 // All implementations must embed UnimplementedLibraryServiceServer
 // for forward compatibility.
@@ -384,6 +398,8 @@ type LibraryServiceServer interface {
 	PhotoExists(context.Context, *PhotoExistsRequest) (*PhotoExistsResponse, error)
 	// ListDirectories lists virtual directories (common prefixes) in a bucket
 	ListDirectories(context.Context, *ListDirectoriesRequest) (*ListDirectoriesResponse, error)
+	// SyncDatabase syncs the photo database with the storage backend
+	SyncDatabase(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
 	mustEmbedUnimplementedLibraryServiceServer()
 }
 
@@ -417,6 +433,9 @@ func (UnimplementedLibraryServiceServer) PhotoExists(context.Context, *PhotoExis
 }
 func (UnimplementedLibraryServiceServer) ListDirectories(context.Context, *ListDirectoriesRequest) (*ListDirectoriesResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListDirectories not implemented")
+}
+func (UnimplementedLibraryServiceServer) SyncDatabase(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method SyncDatabase not implemented")
 }
 func (UnimplementedLibraryServiceServer) mustEmbedUnimplementedLibraryServiceServer() {}
 func (UnimplementedLibraryServiceServer) testEmbeddedByValue()                        {}
@@ -583,6 +602,24 @@ func _LibraryService_ListDirectories_Handler(srv interface{}, ctx context.Contex
 	return interceptor(ctx, in, info, handler)
 }
 
+func _LibraryService_SyncDatabase_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(emptypb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LibraryServiceServer).SyncDatabase(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LibraryService_SyncDatabase_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LibraryServiceServer).SyncDatabase(ctx, req.(*emptypb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // LibraryService_ServiceDesc is the grpc.ServiceDesc for LibraryService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -621,6 +658,10 @@ var LibraryService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ListDirectories",
 			Handler:    _LibraryService_ListDirectories_Handler,
+		},
+		{
+			MethodName: "SyncDatabase",
+			Handler:    _LibraryService_SyncDatabase_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

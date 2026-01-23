@@ -3,6 +3,7 @@ syntax = "proto3";
 package photos;
 
 import "google/api/annotations.proto";
+import "google/protobuf/empty.proto";
 
 option go_package = "photos/proto";
 
@@ -242,6 +243,13 @@ service LibraryService {
   rpc ListDirectories(ListDirectoriesRequest) returns (ListDirectoriesResponse) {
     option (google.api.http) = {
       get: "/v1/directories"
+    };
+  }
+
+  // SyncDatabase syncs the photo database with the storage backend
+  rpc SyncDatabase(google.protobuf.Empty) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      post: "/v1/photos/sync"
     };
   }
 }

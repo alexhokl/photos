@@ -10,6 +10,7 @@ import (
 	_ "google.golang.org/genproto/googleapis/api/annotations"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	emptypb "google.golang.org/protobuf/types/known/emptypb"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
@@ -1391,7 +1392,7 @@ var File_proto_photos_proto protoreflect.FileDescriptor
 
 const file_proto_photos_proto_rawDesc = "" +
 	"\n" +
-	"\x12proto/photos.proto\x12\x06photos\x1a\x1cgoogle/api/annotations.proto\"\xdb\x01\n" +
+	"\x12proto/photos.proto\x12\x06photos\x1a\x1cgoogle/api/annotations.proto\x1a\x1bgoogle/protobuf/empty.proto\"\xdb\x01\n" +
 	"\x05Photo\x12\x1b\n" +
 	"\tobject_id\x18\x01 \x01(\tR\bobjectId\x12\x1a\n" +
 	"\bfilename\x18\x02 \x01(\tR\bfilename\x12!\n" +
@@ -1479,7 +1480,7 @@ const file_proto_photos_proto_rawDesc = "" +
 	"\x06Upload\x12\x15.photos.UploadRequest\x1a\x16.photos.UploadResponse\"\x1c\x82\xd3\xe4\x93\x02\x16:\x01*\"\x11/v1/photos/upload\x12f\n" +
 	"\bDownload\x12\x17.photos.DownloadRequest\x1a\x18.photos.DownloadResponse\"'\x82\xd3\xe4\x93\x02!\x12\x1f/v1/photos/{object_id}/download\x12K\n" +
 	"\x0fStreamingUpload\x12\x1e.photos.StreamingUploadRequest\x1a\x16.photos.UploadResponse(\x01\x12Z\n" +
-	"\x11StreamingDownload\x12 .photos.StreamingDownloadRequest\x1a!.photos.StreamingDownloadResponse0\x012\x93\a\n" +
+	"\x11StreamingDownload\x12 .photos.StreamingDownloadRequest\x1a!.photos.StreamingDownloadResponse0\x012\xec\a\n" +
 	"\x0eLibraryService\x12f\n" +
 	"\vDeletePhoto\x12\x1a.photos.DeletePhotoRequest\x1a\x1b.photos.DeletePhotoResponse\"\x1e\x82\xd3\xe4\x93\x02\x18*\x16/v1/photos/{object_id}\x12]\n" +
 	"\bGetPhoto\x12\x17.photos.GetPhotoRequest\x1a\x18.photos.GetPhotoResponse\"\x1e\x82\xd3\xe4\x93\x02\x18\x12\x16/v1/photos/{object_id}\x12W\n" +
@@ -1490,7 +1491,8 @@ const file_proto_photos_proto_rawDesc = "" +
 	"\x13UpdatePhotoMetadata\x12\".photos.UpdatePhotoMetadataRequest\x1a#.photos.UpdatePhotoMetadataResponse\"*\x82\xd3\xe4\x93\x02$:\x01*2\x1f/v1/photos/{object_id}/metadata\x12\x86\x01\n" +
 	"\x11GenerateSignedUrl\x12 .photos.GenerateSignedUrlRequest\x1a!.photos.GenerateSignedUrlResponse\",\x82\xd3\xe4\x93\x02&:\x01*\"!/v1/photos/{object_id}/signed-url\x12m\n" +
 	"\vPhotoExists\x12\x1a.photos.PhotoExistsRequest\x1a\x1b.photos.PhotoExistsResponse\"%\x82\xd3\xe4\x93\x02\x1f\x12\x1d/v1/photos/{object_id}/exists\x12k\n" +
-	"\x0fListDirectories\x12\x1e.photos.ListDirectoriesRequest\x1a\x1f.photos.ListDirectoriesResponse\"\x17\x82\xd3\xe4\x93\x02\x11\x12\x0f/v1/directoriesB\x0eZ\fphotos/protob\x06proto3"
+	"\x0fListDirectories\x12\x1e.photos.ListDirectoriesRequest\x1a\x1f.photos.ListDirectoriesResponse\"\x17\x82\xd3\xe4\x93\x02\x11\x12\x0f/v1/directories\x12W\n" +
+	"\fSyncDatabase\x12\x16.google.protobuf.Empty\x1a\x16.google.protobuf.Empty\"\x17\x82\xd3\xe4\x93\x02\x11\"\x0f/v1/photos/syncB\x0eZ\fphotos/protob\x06proto3"
 
 var (
 	file_proto_photos_proto_rawDescOnce sync.Once
@@ -1532,6 +1534,7 @@ var file_proto_photos_proto_goTypes = []any{
 	(*StreamingDownloadRequest)(nil),    // 23: photos.StreamingDownloadRequest
 	(*StreamingDownloadResponse)(nil),   // 24: photos.StreamingDownloadResponse
 	nil,                                 // 25: photos.UpdatePhotoMetadataRequest.CustomMetadataEntry
+	(*emptypb.Empty)(nil),               // 26: google.protobuf.Empty
 }
 var file_proto_photos_proto_depIdxs = []int32{
 	0,  // 0: photos.UploadResponse.photo:type_name -> photos.Photo
@@ -1555,20 +1558,22 @@ var file_proto_photos_proto_depIdxs = []int32{
 	15, // 18: photos.LibraryService.GenerateSignedUrl:input_type -> photos.GenerateSignedUrlRequest
 	17, // 19: photos.LibraryService.PhotoExists:input_type -> photos.PhotoExistsRequest
 	19, // 20: photos.LibraryService.ListDirectories:input_type -> photos.ListDirectoriesRequest
-	2,  // 21: photos.ByteService.Upload:output_type -> photos.UploadResponse
-	4,  // 22: photos.ByteService.Download:output_type -> photos.DownloadResponse
-	2,  // 23: photos.ByteService.StreamingUpload:output_type -> photos.UploadResponse
-	24, // 24: photos.ByteService.StreamingDownload:output_type -> photos.StreamingDownloadResponse
-	6,  // 25: photos.LibraryService.DeletePhoto:output_type -> photos.DeletePhotoResponse
-	8,  // 26: photos.LibraryService.GetPhoto:output_type -> photos.GetPhotoResponse
-	10, // 27: photos.LibraryService.ListPhotos:output_type -> photos.ListPhotosResponse
-	12, // 28: photos.LibraryService.CopyPhoto:output_type -> photos.CopyPhotoResponse
-	14, // 29: photos.LibraryService.UpdatePhotoMetadata:output_type -> photos.UpdatePhotoMetadataResponse
-	16, // 30: photos.LibraryService.GenerateSignedUrl:output_type -> photos.GenerateSignedUrlResponse
-	18, // 31: photos.LibraryService.PhotoExists:output_type -> photos.PhotoExistsResponse
-	20, // 32: photos.LibraryService.ListDirectories:output_type -> photos.ListDirectoriesResponse
-	21, // [21:33] is the sub-list for method output_type
-	9,  // [9:21] is the sub-list for method input_type
+	26, // 21: photos.LibraryService.SyncDatabase:input_type -> google.protobuf.Empty
+	2,  // 22: photos.ByteService.Upload:output_type -> photos.UploadResponse
+	4,  // 23: photos.ByteService.Download:output_type -> photos.DownloadResponse
+	2,  // 24: photos.ByteService.StreamingUpload:output_type -> photos.UploadResponse
+	24, // 25: photos.ByteService.StreamingDownload:output_type -> photos.StreamingDownloadResponse
+	6,  // 26: photos.LibraryService.DeletePhoto:output_type -> photos.DeletePhotoResponse
+	8,  // 27: photos.LibraryService.GetPhoto:output_type -> photos.GetPhotoResponse
+	10, // 28: photos.LibraryService.ListPhotos:output_type -> photos.ListPhotosResponse
+	12, // 29: photos.LibraryService.CopyPhoto:output_type -> photos.CopyPhotoResponse
+	14, // 30: photos.LibraryService.UpdatePhotoMetadata:output_type -> photos.UpdatePhotoMetadataResponse
+	16, // 31: photos.LibraryService.GenerateSignedUrl:output_type -> photos.GenerateSignedUrlResponse
+	18, // 32: photos.LibraryService.PhotoExists:output_type -> photos.PhotoExistsResponse
+	20, // 33: photos.LibraryService.ListDirectories:output_type -> photos.ListDirectoriesResponse
+	26, // 34: photos.LibraryService.SyncDatabase:output_type -> google.protobuf.Empty
+	22, // [22:35] is the sub-list for method output_type
+	9,  // [9:22] is the sub-list for method input_type
 	9,  // [9:9] is the sub-list for extension type_name
 	9,  // [9:9] is the sub-list for extension extendee
 	0,  // [0:9] is the sub-list for field type_name

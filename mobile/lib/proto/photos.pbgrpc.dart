@@ -15,6 +15,7 @@ import 'dart:core' as $core;
 
 import 'package:grpc/service_api.dart' as $grpc;
 import 'package:protobuf/protobuf.dart' as $pb;
+import 'package:protobuf/well_known_types/google/protobuf/empty.pb.dart' as $1;
 
 import 'photos.pb.dart' as $0;
 
@@ -236,6 +237,14 @@ class LibraryServiceClient extends $grpc.Client {
     return $createUnaryCall(_$listDirectories, request, options: options);
   }
 
+  /// SyncDatabase syncs the photo database with the storage backend
+  $grpc.ResponseFuture<$1.Empty> syncDatabase(
+    $1.Empty request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createUnaryCall(_$syncDatabase, request, options: options);
+  }
+
   // method descriptors
 
   static final _$deletePhoto =
@@ -278,6 +287,10 @@ class LibraryServiceClient extends $grpc.Client {
           '/photos.LibraryService/ListDirectories',
           ($0.ListDirectoriesRequest value) => value.writeToBuffer(),
           $0.ListDirectoriesResponse.fromBuffer);
+  static final _$syncDatabase = $grpc.ClientMethod<$1.Empty, $1.Empty>(
+      '/photos.LibraryService/SyncDatabase',
+      ($1.Empty value) => value.writeToBuffer(),
+      $1.Empty.fromBuffer);
 }
 
 @$pb.GrpcServiceName('photos.LibraryService')
@@ -351,6 +364,13 @@ abstract class LibraryServiceBase extends $grpc.Service {
         ($core.List<$core.int> value) =>
             $0.ListDirectoriesRequest.fromBuffer(value),
         ($0.ListDirectoriesResponse value) => value.writeToBuffer()));
+    $addMethod($grpc.ServiceMethod<$1.Empty, $1.Empty>(
+        'SyncDatabase',
+        syncDatabase_Pre,
+        false,
+        false,
+        ($core.List<$core.int> value) => $1.Empty.fromBuffer(value),
+        ($1.Empty value) => value.writeToBuffer()));
   }
 
   $async.Future<$0.DeletePhotoResponse> deletePhoto_Pre($grpc.ServiceCall $call,
@@ -419,4 +439,12 @@ abstract class LibraryServiceBase extends $grpc.Service {
 
   $async.Future<$0.ListDirectoriesResponse> listDirectories(
       $grpc.ServiceCall call, $0.ListDirectoriesRequest request);
+
+  $async.Future<$1.Empty> syncDatabase_Pre(
+      $grpc.ServiceCall $call, $async.Future<$1.Empty> $request) async {
+    return syncDatabase($call, await $request);
+  }
+
+  $async.Future<$1.Empty> syncDatabase(
+      $grpc.ServiceCall call, $1.Empty request);
 }

@@ -100,6 +100,30 @@
         ]
       }
     },
+    "/v1/photos/sync": {
+      "post": {
+        "summary": "SyncDatabase syncs the photo database with the storage backend",
+        "operationId": "LibraryService_SyncDatabase",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "type": "object",
+              "properties": {}
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "tags": [
+          "LibraryService"
+        ]
+      }
+    },
     "/v1/photos/upload": {
       "post": {
         "summary": "Upload uploads a new photo",
