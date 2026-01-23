@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/md5"
 	"encoding/base64"
+	"io"
 	"log/slog"
 	"path"
 	"time"
@@ -147,4 +148,83 @@ func createPhotoDirectory(objectID string) *database.PhotoDirectory {
 	return &database.PhotoDirectory{
 		Path: dir,
 	}
+}
+
+// Download downloads a file from Google Cloud Storage.
+// The object_id in DownloadRequest corresponds to the object ID in the bucket.
+func (s *BytesServer) Download(ctx context.Context, req *proto.DownloadRequest) (*proto.DownloadResponse, error) {
+	_, ok := ctx.Value(contextKeyUser{}).(uint)
+	if !ok {
+		return nil, status.Errorf(codes.Unauthenticated, "authentication required")
+	}
+
+	if err := validateDownloadRequest(req); err != nil {
+		return nil, err
+	}
+
+	objectID := req.GetObjectId()
+
+	slog.Info(
+		"Downloading file from bucket",
+		slog.String("object_id", objectID),
+	)
+
+	bucket := s.GCSClient.Bucket(s.BucketName)
+	obj := bucket.Object(objectID)
+
+	// Get object attributes
+	attrs, err := obj.Attrs(ctx)
+	if err != nil {
+		if err == storage.ErrObjectNotExist {
+			return nil, status.Errorf(codes.NotFound, "object not found: %s", objectID)
+		}
+		return nil, status.Errorf(codes.Internal, "failed to get object attributes: %v", err)
+	}
+
+	// Read object data
+	reader, err := obj.NewReader(ctx)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to create reader for object: %v", err)
+	}
+	defer func() { _ = reader.Close() }()
+
+	data, err := io.ReadAll(reader)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to read object data: %v", err)
+	}
+
+	// Compute MD5 hash of the downloaded data
+	md5Hash := md5.Sum(data)
+	md5HashBase64 := base64.StdEncoding.EncodeToString(md5Hash[:])
+
+	slog.Info(
+		"Downloaded file from bucket",
+		slog.String("object_id", objectID),
+		slog.Int("size_bytes", len(data)),
+	)
+
+	photo := &proto.Photo{
+		ObjectId:    objectID,
+		Filename:    objectID,
+		ContentType: attrs.ContentType,
+		SizeBytes:   attrs.Size,
+		CreatedAt:   attrs.Created.Format(time.RFC3339),
+		UpdatedAt:   attrs.Updated.Format(time.RFC3339),
+		Md5Hash:     md5HashBase64,
+	}
+
+	return &proto.DownloadResponse{
+		Photo: photo,
+		Data:  data,
+	}, nil
+}
+
+func validateDownloadRequest(req *proto.DownloadRequest) error {
+	if req == nil {
+		return status.Errorf(codes.InvalidArgument, "request not specified")
+	}
+	if req.GetObjectId() == "" {
+		return status.Errorf(codes.InvalidArgument, "object_id is required")
+	}
+	return nil
 }
