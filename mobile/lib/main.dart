@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:photo_manager/photo_manager.dart';
 import 'package:photos/widgets/photo_grid.dart';
 import 'package:photos/widgets/photo_viewer.dart';
+import 'package:photos/widgets/settings_page.dart';
 
 void main() {
   runApp(const MyApp());
@@ -91,15 +92,19 @@ class _HomePageState extends State<HomePage> {
           ),
         ],
       ),
-      body: PhotoGrid(
-        key: _photoGridKey,
-        onSelectionChanged: _onSelectionChanged,
-        onPhotoTap: _onPhotoTap,
-      ),
+      body: _selectedIndex == 0
+          ? PhotoGrid(
+              key: _photoGridKey,
+              onSelectionChanged: _onSelectionChanged,
+              onPhotoTap: _onPhotoTap,
+            )
+          : _selectedIndex == 2
+          ? const SettingsPage()
+          : const SizedBox(),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _selectedIndex,
         onDestinationSelected: (int index) {
-          if (index == 0) {
+          if (index == 0 || index == 2) {
             setState(() {
               _selectedIndex = index;
             });
@@ -119,6 +124,11 @@ class _HomePageState extends State<HomePage> {
             selectedIcon: const Icon(Icons.cloud),
             label: 'Cloud',
             enabled: false,
+          ),
+          const NavigationDestination(
+            icon: Icon(Icons.settings_outlined),
+            selectedIcon: Icon(Icons.settings),
+            label: 'Settings',
           ),
         ],
       ),

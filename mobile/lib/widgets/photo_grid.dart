@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:photo_manager/photo_manager.dart';
 import 'package:photos/services/upload_service.dart';
+import 'package:photos/widgets/settings_page.dart';
 
 class PhotoGrid extends StatefulWidget {
   final void Function(int selectedCount)? onSelectionChanged;
@@ -233,7 +234,8 @@ class PhotoGridState extends State<PhotoGrid> {
     final selectedPhotos = _selectedPhotos;
     if (selectedPhotos.isEmpty) return;
 
-    final uploadService = UploadService();
+    final config = await BackendConfig.load();
+    final uploadService = UploadService(host: config.host, port: config.port);
 
     try {
       // Show upload progress dialog

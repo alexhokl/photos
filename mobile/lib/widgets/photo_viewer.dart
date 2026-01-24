@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:photo_manager/photo_manager.dart';
 import 'package:photos/services/upload_service.dart';
 import 'package:photos/widgets/photo_info_view.dart';
+import 'package:photos/widgets/settings_page.dart';
 
 enum PhotoViewerAction { info, delete, upload }
 
@@ -44,7 +45,8 @@ class _PhotoViewerState extends State<PhotoViewer> {
   }
 
   Future<void> _uploadPhoto() async {
-    final uploadService = UploadService();
+    final config = await BackendConfig.load();
+    final uploadService = UploadService(host: config.host, port: config.port);
 
     try {
       // Show uploading indicator

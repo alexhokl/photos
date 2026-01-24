@@ -43,6 +43,9 @@ dependencies:
   protobuf: ^6.0.0
   fixnum: ^1.1.0
 
+  # For persisting app settings
+  shared_preferences: ^2.5.3
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
