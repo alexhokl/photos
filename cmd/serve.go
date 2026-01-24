@@ -353,6 +353,8 @@ func getGrpcServer(_ context.Context, conn *gorm.DB, privateServer *pserver.Serv
 		authenticationInterceptor = internal.NewTailscaleAuthenticationInterceptor(conn, privateServer).Intercept
 	}
 	grpcServer := grpc.NewServer(
+		grpc.MaxRecvMsgSize(10*1024*1024), // 10 MB
+		grpc.MaxSendMsgSize(10*1024*1024), // 10 MB
 		grpc.ChainUnaryInterceptor(
 			internal.ErrorLoggingInterceptor,
 			authenticationInterceptor,
