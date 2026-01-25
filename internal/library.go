@@ -131,6 +131,39 @@ func (s *LibraryServer) GetPhoto(ctx context.Context, req *proto.GetPhotoRequest
 	}, nil
 }
 
+// PhotoExists checks if a photo exists by ID.
+func (s *LibraryServer) PhotoExists(ctx context.Context, req *proto.PhotoExistsRequest) (*proto.PhotoExistsResponse, error) {
+	userID, ok := ctx.Value(contextKeyUser{}).(uint)
+	if !ok {
+		return nil, status.Errorf(codes.Unauthenticated, "authentication required")
+	}
+
+	objectID := req.GetObjectId()
+	if objectID == "" {
+		return nil, status.Errorf(codes.InvalidArgument, "object_id is required")
+	}
+
+	// Check if the photo exists in the database for this user
+	var count int64
+	if err := s.DB.Model(&database.PhotoObject{}).
+		Where("object_id = ? AND user_id = ?", objectID, userID).
+		Count(&count).Error; err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to check photo existence: %v", err)
+	}
+
+	exists := count > 0
+
+	slog.Info("Checked photo existence",
+		slog.String("object_id", objectID),
+		slog.Bool("exists", exists),
+		slog.Uint64("user_id", uint64(userID)),
+	)
+
+	return &proto.PhotoExistsResponse{
+		Exists: exists,
+	}, nil
+}
+
 // ListPhotos returns a paginated list of photos with optional prefix filtering.
 // Photos in sub-directories (virtual) are not included.
 func (s *LibraryServer) ListPhotos(ctx context.Context, req *proto.ListPhotosRequest) (*proto.ListPhotosResponse, error) {
