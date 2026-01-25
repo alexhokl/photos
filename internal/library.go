@@ -164,6 +164,110 @@ func (s *LibraryServer) PhotoExists(ctx context.Context, req *proto.PhotoExistsR
 	}, nil
 }
 
+// CopyPhoto copies a photo to a new location in the storage bucket.
+func (s *LibraryServer) CopyPhoto(ctx context.Context, req *proto.CopyPhotoRequest) (*proto.CopyPhotoResponse, error) {
+	userID, ok := ctx.Value(contextKeyUser{}).(uint)
+	if !ok {
+		return nil, status.Errorf(codes.Unauthenticated, "authentication required")
+	}
+
+	sourceObjectID := req.GetSourceObjectId()
+	destObjectID := req.GetDestinationObjectId()
+
+	if sourceObjectID == "" {
+		return nil, status.Errorf(codes.InvalidArgument, "source_object_id is required")
+	}
+	if destObjectID == "" {
+		return nil, status.Errorf(codes.InvalidArgument, "destination_object_id is required")
+	}
+	if sourceObjectID == destObjectID {
+		return nil, status.Errorf(codes.InvalidArgument, "source and destination cannot be the same")
+	}
+
+	// Verify the source photo exists and belongs to the user
+	var sourcePhoto database.PhotoObject
+	if err := s.DB.Where("object_id = ? AND user_id = ?", sourceObjectID, userID).First(&sourcePhoto).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, status.Errorf(codes.NotFound, "source photo not found: %s", sourceObjectID)
+		}
+		return nil, status.Errorf(codes.Internal, "failed to query source photo: %v", err)
+	}
+
+	// Check if destination already exists
+	var destCount int64
+	if err := s.DB.Model(&database.PhotoObject{}).
+		Where("object_id = ? AND user_id = ?", destObjectID, userID).
+		Count(&destCount).Error; err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to check destination: %v", err)
+	}
+	if destCount > 0 {
+		return nil, status.Errorf(codes.AlreadyExists, "destination photo already exists: %s", destObjectID)
+	}
+
+	// Copy the object in GCS
+	bucket := s.GCSClient.Bucket(s.BucketName)
+	srcObj := bucket.Object(sourceObjectID)
+	dstObj := bucket.Object(destObjectID)
+
+	copier := dstObj.CopierFrom(srcObj)
+	attrs, err := copier.Run(ctx)
+	if err != nil {
+		if err == storage.ErrObjectNotExist {
+			return nil, status.Errorf(codes.NotFound, "source photo not found in storage: %s", sourceObjectID)
+		}
+		return nil, status.Errorf(codes.Internal, "failed to copy photo in storage: %v", err)
+	}
+
+	// Compute MD5 hash from attributes
+	md5HashBase64 := base64.StdEncoding.EncodeToString(attrs.MD5)
+
+	// Create database record for the copied photo
+	destPhoto := &database.PhotoObject{
+		ObjectID:    destObjectID,
+		ContentType: attrs.ContentType,
+		MD5Hash:     md5HashBase64,
+		UserID:      userID,
+	}
+
+	if err := s.DB.Create(destPhoto).Error; err != nil {
+		// Try to clean up the GCS object if database insert fails
+		_ = dstObj.Delete(ctx)
+		return nil, status.Errorf(codes.Internal, "failed to create photo record: %v", err)
+	}
+
+	// Create directory entry if applicable
+	dir := ExtractDirectoryFromPath(destObjectID)
+	if dir != "" {
+		photoDir := &database.PhotoDirectory{Path: dir}
+		if err := s.DB.FirstOrCreate(photoDir, database.PhotoDirectory{Path: dir}).Error; err != nil {
+			slog.Warn("failed to create photo directory for copy",
+				slog.String("path", dir),
+				slog.String("error", err.Error()),
+			)
+		}
+	}
+
+	slog.Info("Copied photo",
+		slog.String("source", sourceObjectID),
+		slog.String("destination", destObjectID),
+		slog.Uint64("user_id", uint64(userID)),
+	)
+
+	photo := &proto.Photo{
+		ObjectId:    destObjectID,
+		Filename:    destObjectID,
+		ContentType: attrs.ContentType,
+		SizeBytes:   attrs.Size,
+		Md5Hash:     md5HashBase64,
+		CreatedAt:   attrs.Created.Format(time.RFC3339),
+		UpdatedAt:   attrs.Updated.Format(time.RFC3339),
+	}
+
+	return &proto.CopyPhotoResponse{
+		Photo: photo,
+	}, nil
+}
+
 // ListPhotos returns a paginated list of photos with optional prefix filtering.
 // Photos in sub-directories (virtual) are not included.
 func (s *LibraryServer) ListPhotos(ctx context.Context, req *proto.ListPhotosRequest) (*proto.ListPhotosResponse, error) {
