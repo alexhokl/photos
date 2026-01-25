@@ -60,8 +60,12 @@ void main() {
       expect(PhotoViewerAction.values, contains(PhotoViewerAction.upload));
     });
 
-    test('has exactly 3 values', () {
-      expect(PhotoViewerAction.values.length, equals(3));
+    test('has rename value', () {
+      expect(PhotoViewerAction.values, contains(PhotoViewerAction.rename));
+    });
+
+    test('has exactly 4 values', () {
+      expect(PhotoViewerAction.values.length, equals(4));
     });
 
     test('info has index 0', () {
@@ -75,65 +79,80 @@ void main() {
     test('upload has index 2', () {
       expect(PhotoViewerAction.upload.index, equals(2));
     });
+
+    test('rename has index 3', () {
+      expect(PhotoViewerAction.rename.index, equals(3));
+    });
   });
 
   group('PhotoViewer context menu', () {
-    testWidgets('context menu contains Info, Delete, and Upload options', (
-      tester,
-    ) async {
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            appBar: AppBar(
-              actions: [
-                PopupMenuButton<PhotoViewerAction>(
-                  icon: const Icon(Icons.more_vert),
-                  itemBuilder: (context) => [
-                    const PopupMenuItem(
-                      value: PhotoViewerAction.info,
-                      child: ListTile(
-                        leading: Icon(Icons.info_outline),
-                        title: Text('Info'),
-                        contentPadding: EdgeInsets.zero,
+    testWidgets(
+      'context menu contains Info, Rename, Delete, and Upload options',
+      (tester) async {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              appBar: AppBar(
+                actions: [
+                  PopupMenuButton<PhotoViewerAction>(
+                    icon: const Icon(Icons.more_vert),
+                    itemBuilder: (context) => [
+                      const PopupMenuItem(
+                        value: PhotoViewerAction.info,
+                        child: ListTile(
+                          leading: Icon(Icons.info_outline),
+                          title: Text('Info'),
+                          contentPadding: EdgeInsets.zero,
+                        ),
                       ),
-                    ),
-                    const PopupMenuItem(
-                      value: PhotoViewerAction.delete,
-                      child: ListTile(
-                        leading: Icon(Icons.delete),
-                        title: Text('Delete'),
-                        contentPadding: EdgeInsets.zero,
+                      const PopupMenuItem(
+                        value: PhotoViewerAction.rename,
+                        child: ListTile(
+                          leading: Icon(Icons.edit),
+                          title: Text('Rename'),
+                          contentPadding: EdgeInsets.zero,
+                        ),
                       ),
-                    ),
-                    const PopupMenuItem(
-                      enabled: false,
-                      value: PhotoViewerAction.upload,
-                      child: ListTile(
-                        leading: Icon(Icons.cloud_upload),
-                        title: Text('Upload'),
-                        contentPadding: EdgeInsets.zero,
+                      const PopupMenuItem(
+                        value: PhotoViewerAction.delete,
+                        child: ListTile(
+                          leading: Icon(Icons.delete),
+                          title: Text('Delete'),
+                          contentPadding: EdgeInsets.zero,
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-              ],
+                      const PopupMenuItem(
+                        enabled: false,
+                        value: PhotoViewerAction.upload,
+                        child: ListTile(
+                          leading: Icon(Icons.cloud_upload),
+                          title: Text('Upload'),
+                          contentPadding: EdgeInsets.zero,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              body: const Center(child: Text('Test')),
             ),
-            body: const Center(child: Text('Test')),
           ),
-        ),
-      );
+        );
 
-      // Open the popup menu
-      await tester.tap(find.byType(PopupMenuButton<PhotoViewerAction>));
-      await tester.pumpAndSettle();
+        // Open the popup menu
+        await tester.tap(find.byType(PopupMenuButton<PhotoViewerAction>));
+        await tester.pumpAndSettle();
 
-      expect(find.text('Info'), findsOneWidget);
-      expect(find.text('Delete'), findsOneWidget);
-      expect(find.text('Upload'), findsOneWidget);
-      expect(find.byIcon(Icons.info_outline), findsOneWidget);
-      expect(find.byIcon(Icons.delete), findsOneWidget);
-      expect(find.byIcon(Icons.cloud_upload), findsOneWidget);
-    });
+        expect(find.text('Info'), findsOneWidget);
+        expect(find.text('Rename'), findsOneWidget);
+        expect(find.text('Delete'), findsOneWidget);
+        expect(find.text('Upload'), findsOneWidget);
+        expect(find.byIcon(Icons.info_outline), findsOneWidget);
+        expect(find.byIcon(Icons.edit), findsOneWidget);
+        expect(find.byIcon(Icons.delete), findsOneWidget);
+        expect(find.byIcon(Icons.cloud_upload), findsOneWidget);
+      },
+    );
 
     testWidgets('Info menu item triggers correct action', (tester) async {
       PhotoViewerAction? selectedAction;
@@ -203,6 +222,41 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(selectedAction, equals(PhotoViewerAction.delete));
+    });
+
+    testWidgets('Rename menu item triggers correct action', (tester) async {
+      PhotoViewerAction? selectedAction;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            appBar: AppBar(
+              actions: [
+                PopupMenuButton<PhotoViewerAction>(
+                  onSelected: (action) {
+                    selectedAction = action;
+                  },
+                  itemBuilder: (context) => [
+                    const PopupMenuItem(
+                      value: PhotoViewerAction.rename,
+                      child: Text('Rename'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            body: const Center(child: Text('Test')),
+          ),
+        ),
+      );
+
+      await tester.tap(find.byType(PopupMenuButton<PhotoViewerAction>));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Rename'));
+      await tester.pumpAndSettle();
+
+      expect(selectedAction, equals(PhotoViewerAction.rename));
     });
 
     testWidgets('Upload menu item is disabled', (tester) async {

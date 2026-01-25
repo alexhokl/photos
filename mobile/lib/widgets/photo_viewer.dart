@@ -6,7 +6,7 @@ import 'package:photos/services/upload_service.dart';
 import 'package:photos/widgets/photo_info_view.dart';
 import 'package:photos/widgets/settings_page.dart';
 
-enum PhotoViewerAction { info, delete, upload }
+enum PhotoViewerAction { info, delete, upload, rename }
 
 class PhotoViewer extends StatefulWidget {
   final AssetEntity asset;
@@ -41,6 +41,92 @@ class _PhotoViewerState extends State<PhotoViewer> {
     final result = await PhotoManager.editor.deleteWithIds([widget.asset.id]);
     if (result.isNotEmpty && mounted) {
       Navigator.pop(context, true);
+    }
+  }
+
+  Future<void> _renamePhoto() async {
+    final currentTitle = widget.asset.title ?? '';
+    // Extract base name without extension
+    final lastDot = currentTitle.lastIndexOf('.');
+    final baseName = lastDot != -1
+        ? currentTitle.substring(0, lastDot)
+        : currentTitle;
+    final extension = lastDot != -1 ? currentTitle.substring(lastDot) : '';
+
+    final controller = TextEditingController(text: baseName);
+
+    final newName = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Rename Photo'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(
+            labelText: 'File name',
+            hintText: 'Enter new file name',
+          ),
+          onSubmitted: (value) => Navigator.pop(dialogContext, value),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, controller.text),
+            child: const Text('Rename'),
+          ),
+        ],
+      ),
+    );
+
+    if (newName == null || newName.isEmpty || newName == baseName) {
+      return;
+    }
+
+    final newFileName = '$newName$extension';
+
+    try {
+      // Get the original image bytes
+      final imageBytes = await widget.asset.originBytes;
+      if (imageBytes == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Could not access photo data'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return;
+      }
+
+      // Save as new file with the new name using MediaStore API
+      await PhotoManager.editor.saveImage(imageBytes, filename: newFileName);
+
+      // Delete the original file
+      await PhotoManager.editor.deleteWithIds([widget.asset.id]);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Renamed to $newFileName'),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+        Navigator.pop(context, true);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Rename failed: $e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
     }
   }
 
@@ -114,6 +200,9 @@ class _PhotoViewerState extends State<PhotoViewer> {
       case PhotoViewerAction.upload:
         _uploadPhoto();
         break;
+      case PhotoViewerAction.rename:
+        _renamePhoto();
+        break;
     }
   }
 
@@ -138,6 +227,14 @@ class _PhotoViewerState extends State<PhotoViewer> {
                 child: ListTile(
                   leading: Icon(Icons.info_outline),
                   title: Text('Info'),
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+              const PopupMenuItem(
+                value: PhotoViewerAction.rename,
+                child: ListTile(
+                  leading: Icon(Icons.edit),
+                  title: Text('Rename'),
                   contentPadding: EdgeInsets.zero,
                 ),
               ),
