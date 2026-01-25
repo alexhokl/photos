@@ -1,8 +1,12 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:grpc/grpc.dart';
 import 'package:photo_manager/photo_manager.dart';
 import 'package:photos/proto/photos.pbgrpc.dart';
+
+/// Default chunk size for streaming uploads (64 KB)
+const int _defaultChunkSize = 64 * 1024;
 
 /// Service for uploading photos to the cloud via gRPC
 class UploadService {
@@ -15,7 +19,14 @@ class UploadService {
   final String host;
   final int port;
 
-  UploadService({this.host = _defaultHost, this.port = _defaultPort});
+  /// Chunk size for streaming uploads in bytes
+  final int chunkSize;
+
+  UploadService({
+    this.host = _defaultHost,
+    this.port = _defaultPort,
+    this.chunkSize = _defaultChunkSize,
+  });
 
   /// Determine if a secure (TLS) connection is required based on the host.
   /// Returns false for localhost/loopback addresses, true otherwise.
@@ -50,12 +61,14 @@ class UploadService {
     }
   }
 
-  /// Upload a single photo asset to the cloud
+  /// Upload a single photo asset to the cloud using streaming
   /// Returns the uploaded photo metadata on success
   /// If [directoryPrefix] is provided, the photo will be uploaded to that directory
+  /// Optional [onChunkProgress] callback reports progress as (bytesSent, totalBytes)
   Future<UploadResponse> uploadPhoto(
     AssetEntity asset, {
     String? directoryPrefix,
+    void Function(int bytesSent, int totalBytes)? onChunkProgress,
   }) async {
     _ensureInitialized();
 
@@ -83,18 +96,60 @@ class UploadService {
       objectId = filename;
     }
 
-    final request = UploadRequest(
-      objectId: objectId,
-      contentType: mimeType,
-      data: data,
-    );
-
     try {
-      final response = await _client!.upload(request);
+      final response = await _streamingUpload(
+        objectId: objectId,
+        contentType: mimeType,
+        data: data,
+        onChunkProgress: onChunkProgress,
+      );
       return response;
     } on GrpcError catch (e) {
       throw UploadException('gRPC error: ${e.message}', grpcError: e);
     }
+  }
+
+  /// Perform a streaming upload to the server
+  Future<UploadResponse> _streamingUpload({
+    required String objectId,
+    required String contentType,
+    required Uint8List data,
+    void Function(int bytesSent, int totalBytes)? onChunkProgress,
+  }) async {
+    // Create a stream controller for sending requests
+    final controller = StreamController<StreamingUploadRequest>();
+
+    // Start the streaming call
+    final responseFuture = _client!.streamingUpload(controller.stream);
+
+    // Send metadata as the first message
+    final metadataRequest = StreamingUploadRequest(
+      metadata: PhotoMetadata(filename: objectId, contentType: contentType),
+    );
+    controller.add(metadataRequest);
+
+    // Send data in chunks
+    final totalBytes = data.length;
+    int bytesSent = 0;
+
+    while (bytesSent < totalBytes) {
+      final end = (bytesSent + chunkSize > totalBytes)
+          ? totalBytes
+          : bytesSent + chunkSize;
+      final chunk = data.sublist(bytesSent, end);
+
+      final chunkRequest = StreamingUploadRequest(chunk: chunk);
+      controller.add(chunkRequest);
+
+      bytesSent = end;
+      onChunkProgress?.call(bytesSent, totalBytes);
+    }
+
+    // Close the stream to signal completion
+    await controller.close();
+
+    // Wait for the response
+    return await responseFuture;
   }
 
   /// Upload multiple photo assets to the cloud
@@ -102,13 +157,17 @@ class UploadService {
   Future<List<UploadResult>> uploadPhotos(
     List<AssetEntity> assets, {
     void Function(int completed, int total)? onProgress,
+    String? directoryPrefix,
   }) async {
     final results = <UploadResult>[];
 
     for (var i = 0; i < assets.length; i++) {
       final asset = assets[i];
       try {
-        final response = await uploadPhoto(asset);
+        final response = await uploadPhoto(
+          asset,
+          directoryPrefix: directoryPrefix,
+        );
         results.add(UploadResult.success(asset, response));
       } catch (e) {
         results.add(UploadResult.failure(asset, e.toString()));
