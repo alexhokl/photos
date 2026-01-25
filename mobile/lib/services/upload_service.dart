@@ -17,15 +17,34 @@ class UploadService {
 
   UploadService({this.host = _defaultHost, this.port = _defaultPort});
 
+  /// Determine if a secure (TLS) connection is required based on the host.
+  /// Returns false for localhost/loopback addresses, true otherwise.
+  /// This matches the server-side logic in cmd/security.go.
+  bool _requireSecureConnection() {
+    if (host.isEmpty ||
+        host == 'localhost' ||
+        host == '127.0.0.1' ||
+        host == '::1') {
+      return false;
+    }
+    return true;
+  }
+
+  /// Get the appropriate channel credentials based on the host.
+  ChannelCredentials _getCredentials() {
+    if (_requireSecureConnection()) {
+      return const ChannelCredentials.secure();
+    }
+    return const ChannelCredentials.insecure();
+  }
+
   /// Initialize the gRPC channel and client
   void _ensureInitialized() {
     if (_channel == null) {
       _channel = ClientChannel(
         host,
         port: port,
-        options: const ChannelOptions(
-          credentials: ChannelCredentials.insecure(),
-        ),
+        options: ChannelOptions(credentials: _getCredentials()),
       );
       _client = ByteServiceClient(_channel!);
     }
