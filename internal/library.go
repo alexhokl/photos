@@ -268,6 +268,74 @@ func (s *LibraryServer) CopyPhoto(ctx context.Context, req *proto.CopyPhotoReque
 	}, nil
 }
 
+// GenerateSignedUrl creates a time-limited signed URL for photo access.
+func (s *LibraryServer) GenerateSignedUrl(ctx context.Context, req *proto.GenerateSignedUrlRequest) (*proto.GenerateSignedUrlResponse, error) {
+	userID, ok := ctx.Value(contextKeyUser{}).(uint)
+	if !ok {
+		return nil, status.Errorf(codes.Unauthenticated, "authentication required")
+	}
+
+	objectID := req.GetObjectId()
+	if objectID == "" {
+		return nil, status.Errorf(codes.InvalidArgument, "object_id is required")
+	}
+
+	expirationSeconds := req.GetExpirationSeconds()
+	if expirationSeconds <= 0 {
+		expirationSeconds = 3600 // Default to 1 hour
+	}
+	if expirationSeconds > 604800 { // 7 days max
+		return nil, status.Errorf(codes.InvalidArgument, "expiration_seconds cannot exceed 604800 (7 days)")
+	}
+
+	method := req.GetMethod()
+	if method == "" {
+		method = "GET"
+	}
+	// Validate method
+	switch method {
+	case "GET", "PUT", "DELETE", "HEAD":
+		// Valid methods
+	default:
+		return nil, status.Errorf(codes.InvalidArgument, "invalid method: %s (must be GET, PUT, DELETE, or HEAD)", method)
+	}
+
+	// Verify the photo exists and belongs to the user
+	var count int64
+	if err := s.DB.Model(&database.PhotoObject{}).
+		Where("object_id = ? AND user_id = ?", objectID, userID).
+		Count(&count).Error; err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to verify photo ownership: %v", err)
+	}
+	if count == 0 {
+		return nil, status.Errorf(codes.NotFound, "photo not found: %s", objectID)
+	}
+
+	// Generate signed URL
+	bucket := s.GCSClient.Bucket(s.BucketName)
+	expiresAt := time.Now().Add(time.Duration(expirationSeconds) * time.Second)
+
+	signedURL, err := bucket.SignedURL(objectID, &storage.SignedURLOptions{
+		Method:  method,
+		Expires: expiresAt,
+	})
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to generate signed URL: %v", err)
+	}
+
+	slog.Info("Generated signed URL",
+		slog.String("object_id", objectID),
+		slog.String("method", method),
+		slog.Int64("expiration_seconds", expirationSeconds),
+		slog.Uint64("user_id", uint64(userID)),
+	)
+
+	return &proto.GenerateSignedUrlResponse{
+		SignedUrl: signedURL,
+		ExpiresAt: expiresAt.Format(time.RFC3339),
+	}, nil
+}
+
 // ListPhotos returns a paginated list of photos with optional prefix filtering.
 // Photos in sub-directories (virtual) are not included.
 func (s *LibraryServer) ListPhotos(ctx context.Context, req *proto.ListPhotosRequest) (*proto.ListPhotosResponse, error) {
@@ -549,6 +617,93 @@ func (s *LibraryServer) SyncDatabase(ctx context.Context, _ *emptypb.Empty) (*em
 	)
 
 	return &emptypb.Empty{}, nil
+}
+
+// UpdatePhotoMetadata updates metadata for a photo in both GCS and the database.
+func (s *LibraryServer) UpdatePhotoMetadata(ctx context.Context, req *proto.UpdatePhotoMetadataRequest) (*proto.UpdatePhotoMetadataResponse, error) {
+	userID, ok := ctx.Value(contextKeyUser{}).(uint)
+	if !ok {
+		return nil, status.Errorf(codes.Unauthenticated, "authentication required")
+	}
+
+	objectID := req.GetObjectId()
+	if objectID == "" {
+		return nil, status.Errorf(codes.InvalidArgument, "object_id is required")
+	}
+
+	customMetadata := req.GetCustomMetadata()
+	contentType := req.GetContentType()
+
+	// Check if there's anything to update
+	if len(customMetadata) == 0 && contentType == "" {
+		return nil, status.Errorf(codes.InvalidArgument, "at least one of custom_metadata or content_type must be provided")
+	}
+
+	// Query the photo from the database to verify ownership
+	var photoObject database.PhotoObject
+	if err := s.DB.Where("object_id = ? AND user_id = ?", objectID, userID).First(&photoObject).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, status.Errorf(codes.NotFound, "photo not found: %s", objectID)
+		}
+		return nil, status.Errorf(codes.Internal, "failed to query photo: %v", err)
+	}
+
+	// Update GCS object metadata
+	bucket := s.GCSClient.Bucket(s.BucketName)
+	obj := bucket.Object(objectID)
+
+	// Build the update attributes
+	attrsToUpdate := storage.ObjectAttrsToUpdate{}
+	if len(customMetadata) > 0 {
+		attrsToUpdate.Metadata = customMetadata
+	}
+	if contentType != "" {
+		attrsToUpdate.ContentType = contentType
+	}
+
+	// Update GCS object
+	_, err := obj.Update(ctx, attrsToUpdate)
+	if err != nil {
+		if err == storage.ErrObjectNotExist {
+			return nil, status.Errorf(codes.NotFound, "photo not found in storage: %s", objectID)
+		}
+		return nil, status.Errorf(codes.Internal, "failed to update object metadata: %v", err)
+	}
+
+	// Update database if content type changed
+	if contentType != "" && contentType != photoObject.ContentType {
+		if err := s.DB.Model(&photoObject).Update("content_type", contentType).Error; err != nil {
+			return nil, status.Errorf(codes.Internal, "failed to update database: %v", err)
+		}
+		photoObject.ContentType = contentType
+	}
+
+	// Get updated attributes from GCS
+	attrs, err := obj.Attrs(ctx)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to get updated attributes: %v", err)
+	}
+
+	photo := &proto.Photo{
+		ObjectId:    photoObject.ObjectID,
+		Filename:    photoObject.ObjectID,
+		ContentType: photoObject.ContentType,
+		SizeBytes:   attrs.Size,
+		Md5Hash:     photoObject.MD5Hash,
+		CreatedAt:   photoObject.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:   photoObject.UpdatedAt.Format(time.RFC3339),
+	}
+
+	slog.Info("Updated photo metadata",
+		slog.String("object_id", objectID),
+		slog.String("content_type", contentType),
+		slog.Int("custom_metadata_count", len(customMetadata)),
+		slog.Uint64("user_id", uint64(userID)),
+	)
+
+	return &proto.UpdatePhotoMetadataResponse{
+		Photo: photo,
+	}, nil
 }
 
 // getGCSObjectsMap reads from the specified bucket and returns a map of object IDs to their attributes.
