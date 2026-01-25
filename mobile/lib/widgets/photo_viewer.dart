@@ -68,7 +68,10 @@ class _PhotoViewerState extends State<PhotoViewer> {
         ),
       );
 
-      final response = await uploadService.uploadPhoto(widget.asset);
+      final response = await uploadService.uploadPhoto(
+        widget.asset,
+        directoryPrefix: config.defaultDirectory,
+      );
 
       if (!mounted) return;
       Navigator.pop(context); // Close progress dialog

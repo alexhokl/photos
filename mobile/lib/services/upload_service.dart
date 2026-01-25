@@ -52,7 +52,11 @@ class UploadService {
 
   /// Upload a single photo asset to the cloud
   /// Returns the uploaded photo metadata on success
-  Future<UploadResponse> uploadPhoto(AssetEntity asset) async {
+  /// If [directoryPrefix] is provided, the photo will be uploaded to that directory
+  Future<UploadResponse> uploadPhoto(
+    AssetEntity asset, {
+    String? directoryPrefix,
+  }) async {
     _ensureInitialized();
 
     // Get the original file bytes
@@ -65,7 +69,19 @@ class UploadService {
     final mimeType = asset.mimeType ?? 'image/jpeg';
 
     // Use the asset title/filename or generate one from id
-    final objectId = asset.title ?? '${asset.id}.jpg';
+    final filename = asset.title ?? '${asset.id}.jpg';
+
+    // Prepend directory prefix if provided
+    String objectId;
+    if (directoryPrefix != null && directoryPrefix.isNotEmpty) {
+      // Ensure prefix ends with / and doesn't start with /
+      final normalizedPrefix = directoryPrefix.endsWith('/')
+          ? directoryPrefix
+          : '$directoryPrefix/';
+      objectId = '$normalizedPrefix$filename';
+    } else {
+      objectId = filename;
+    }
 
     final request = UploadRequest(
       objectId: objectId,
