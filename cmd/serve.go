@@ -349,8 +349,11 @@ func validateFlags(opts serveOptions) error {
 
 func getGrpcServer(_ context.Context, conn *gorm.DB, privateServer *pserver.Server, gcsClient *storage.Client, bucketName string) *grpc.Server {
 	authenticationInterceptor := internal.DummyAuthenticationInterceptor
+	streamAuthenticationInterceptor := internal.DummyStreamAuthenticationInterceptor
 	if privateServer != nil {
-		authenticationInterceptor = internal.NewTailscaleAuthenticationInterceptor(conn, privateServer).Intercept
+		tailscaleInterceptor := internal.NewTailscaleAuthenticationInterceptor(conn, privateServer)
+		authenticationInterceptor = tailscaleInterceptor.Intercept
+		streamAuthenticationInterceptor = tailscaleInterceptor.InterceptStream
 	}
 	grpcServer := grpc.NewServer(
 		grpc.MaxRecvMsgSize(10*1024*1024), // 10 MB
@@ -358,6 +361,9 @@ func getGrpcServer(_ context.Context, conn *gorm.DB, privateServer *pserver.Serv
 		grpc.ChainUnaryInterceptor(
 			internal.ErrorLoggingInterceptor,
 			authenticationInterceptor,
+		),
+		grpc.ChainStreamInterceptor(
+			streamAuthenticationInterceptor,
 		),
 	)
 

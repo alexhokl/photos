@@ -116,3 +116,80 @@ func getOrCreateUser(db *gorm.DB, username string) (*database.User, error) {
 	}
 	return &user, nil
 }
+
+// InterceptStream is a streaming interceptor that authenticates requests using Tailscale APIs
+func (i *TailscaleAuthenticationInterceptor) InterceptStream(
+	srv any,
+	ss grpc.ServerStream,
+	info *grpc.StreamServerInfo,
+	handler grpc.StreamHandler,
+) error {
+	ctx := ss.Context()
+
+	p, ok := peer.FromContext(ctx)
+	if !ok {
+		slog.Error("could not get peer from context")
+		return status.Errorf(codes.Internal, "An issue with tailscale")
+	}
+
+	ipAddress, _, err := net.SplitHostPort(p.Addr.String())
+	if err != nil {
+		slog.Error(
+			"unable to parse IP from address string",
+			slog.String("addr", p.Addr.String()),
+			slog.String("error", err.Error()),
+		)
+		return status.Errorf(codes.Internal, "An issue with tailscale")
+	}
+
+	userID, ok := getAddressInfo(i.db, ipAddress)
+	if ok {
+		ctx = context.WithValue(ctx, contextKeyUser{}, uint(userID))
+		wrapped := &wrappedServerStream{ServerStream: ss, ctx: ctx}
+		return handler(srv, wrapped)
+	}
+
+	userInfo, err := i.privateServer.GetCallerIdentityFromRemoteIPAddress(ctx, ipAddress)
+	if err != nil {
+		slog.Error(
+			"unable to get caller identity from remote IP address",
+			slog.String("ip", ipAddress),
+			slog.String("error", err.Error()),
+		)
+		return status.Errorf(codes.Unauthenticated, "Unauthenticated")
+	}
+
+	slog.Info(
+		"about to search for user",
+		slog.String("ip", ipAddress),
+		slog.String("user", userInfo.UserProfile.LoginName),
+	)
+
+	user, err := getOrCreateUser(i.db, userInfo.UserProfile.LoginName)
+	if err != nil {
+		slog.Error(
+			"unable to get or create user",
+			slog.String("user", userInfo.UserProfile.LoginName),
+			slog.String("error", err.Error()),
+		)
+		return status.Errorf(codes.Internal, "An issue with tailscale")
+	}
+
+	addr := database.TailscaleAddress{
+		Address: ipAddress,
+		UserID:  user.ID,
+	}
+	if err := i.db.Create(&addr).Error; err != nil {
+		slog.Error(
+			"unable to create tailscale address",
+			slog.String("ip", ipAddress),
+			slog.String("user", userInfo.UserProfile.LoginName),
+			slog.String("error", err.Error()),
+		)
+		return status.Errorf(codes.Internal, "An issue with tailscale")
+	}
+
+	ctx = context.WithValue(ctx, contextKeyUser{}, user.ID)
+	wrapped := &wrappedServerStream{ServerStream: ss, ctx: ctx}
+	return handler(srv, wrapped)
+}
