@@ -78,6 +78,59 @@ func (s *LibraryServer) ListDirectories(ctx context.Context, req *proto.ListDire
 	}, nil
 }
 
+// GetPhoto retrieves photo metadata by ID.
+func (s *LibraryServer) GetPhoto(ctx context.Context, req *proto.GetPhotoRequest) (*proto.GetPhotoResponse, error) {
+	userID, ok := ctx.Value(contextKeyUser{}).(uint)
+	if !ok {
+		return nil, status.Errorf(codes.Unauthenticated, "authentication required")
+	}
+
+	objectID := req.GetObjectId()
+	if objectID == "" {
+		return nil, status.Errorf(codes.InvalidArgument, "object_id is required")
+	}
+
+	// Query the photo from the database
+	var photoObject database.PhotoObject
+	if err := s.DB.Where("object_id = ? AND user_id = ?", objectID, userID).First(&photoObject).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, status.Errorf(codes.NotFound, "photo not found: %s", objectID)
+		}
+		return nil, status.Errorf(codes.Internal, "failed to query photo: %v", err)
+	}
+
+	// Get additional attributes from GCS for size information
+	bucket := s.GCSClient.Bucket(s.BucketName)
+	obj := bucket.Object(objectID)
+
+	attrs, err := obj.Attrs(ctx)
+	if err != nil {
+		if err == storage.ErrObjectNotExist {
+			return nil, status.Errorf(codes.NotFound, "photo not found in storage: %s", objectID)
+		}
+		return nil, status.Errorf(codes.Internal, "failed to get photo attributes: %v", err)
+	}
+
+	photo := &proto.Photo{
+		ObjectId:    photoObject.ObjectID,
+		Filename:    photoObject.ObjectID,
+		ContentType: photoObject.ContentType,
+		SizeBytes:   attrs.Size,
+		Md5Hash:     photoObject.MD5Hash,
+		CreatedAt:   photoObject.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:   photoObject.UpdatedAt.Format(time.RFC3339),
+	}
+
+	slog.Info("Retrieved photo metadata",
+		slog.String("object_id", objectID),
+		slog.Uint64("user_id", uint64(userID)),
+	)
+
+	return &proto.GetPhotoResponse{
+		Photo: photo,
+	}, nil
+}
+
 // ListPhotos returns a paginated list of photos with optional prefix filtering.
 // Photos in sub-directories (virtual) are not included.
 func (s *LibraryServer) ListPhotos(ctx context.Context, req *proto.ListPhotosRequest) (*proto.ListPhotosResponse, error) {
