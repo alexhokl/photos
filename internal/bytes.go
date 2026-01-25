@@ -352,3 +352,107 @@ func (s *BytesServer) StreamingUpload(stream grpc.ClientStreamingServer[proto.St
 		Photo: photo,
 	})
 }
+
+const defaultDownloadChunkSize = 64 * 1024 // 64 KB
+
+// StreamingDownload downloads a file from Google Cloud Storage using server-side streaming.
+// The first message contains Photo metadata, subsequent messages contain data chunks.
+func (s *BytesServer) StreamingDownload(req *proto.StreamingDownloadRequest, stream grpc.ServerStreamingServer[proto.StreamingDownloadResponse]) error {
+	ctx := stream.Context()
+
+	_, ok := ctx.Value(contextKeyUser{}).(uint)
+	if !ok {
+		return status.Errorf(codes.Unauthenticated, "authentication required")
+	}
+
+	if req == nil {
+		return status.Errorf(codes.InvalidArgument, "request not specified")
+	}
+
+	objectID := req.GetObjectId()
+	if objectID == "" {
+		return status.Errorf(codes.InvalidArgument, "object_id is required")
+	}
+
+	slog.Info(
+		"Starting streaming download from bucket",
+		slog.String("object_id", objectID),
+	)
+
+	bucket := s.GCSClient.Bucket(s.BucketName)
+	obj := bucket.Object(objectID)
+
+	// Get object attributes
+	attrs, err := obj.Attrs(ctx)
+	if err != nil {
+		if err == storage.ErrObjectNotExist {
+			return status.Errorf(codes.NotFound, "object not found: %s", objectID)
+		}
+		return status.Errorf(codes.Internal, "failed to get object attributes: %v", err)
+	}
+
+	// Create reader for streaming
+	reader, err := obj.NewReader(ctx)
+	if err != nil {
+		return status.Errorf(codes.Internal, "failed to create reader for object: %v", err)
+	}
+	defer func() { _ = reader.Close() }()
+
+	// Compute MD5 hash from stored attributes (GCS stores MD5 hash)
+	md5HashBase64 := base64.StdEncoding.EncodeToString(attrs.MD5)
+
+	// Send metadata as the first message
+	photo := &proto.Photo{
+		ObjectId:    objectID,
+		Filename:    objectID,
+		ContentType: attrs.ContentType,
+		SizeBytes:   attrs.Size,
+		CreatedAt:   attrs.Created.Format(time.RFC3339),
+		UpdatedAt:   attrs.Updated.Format(time.RFC3339),
+		Md5Hash:     md5HashBase64,
+	}
+
+	metadataResp := &proto.StreamingDownloadResponse{
+		Data: &proto.StreamingDownloadResponse_Metadata{
+			Metadata: photo,
+		},
+	}
+
+	if err := stream.Send(metadataResp); err != nil {
+		return status.Errorf(codes.Internal, "failed to send metadata: %v", err)
+	}
+
+	// Stream data in chunks
+	buffer := make([]byte, defaultDownloadChunkSize)
+	totalBytes := int64(0)
+
+	for {
+		n, err := reader.Read(buffer)
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return status.Errorf(codes.Internal, "failed to read from GCS: %v", err)
+		}
+
+		chunkResp := &proto.StreamingDownloadResponse{
+			Data: &proto.StreamingDownloadResponse_Chunk{
+				Chunk: buffer[:n],
+			},
+		}
+
+		if err := stream.Send(chunkResp); err != nil {
+			return status.Errorf(codes.Internal, "failed to send chunk: %v", err)
+		}
+
+		totalBytes += int64(n)
+	}
+
+	slog.Info(
+		"Completed streaming download from bucket",
+		slog.String("object_id", objectID),
+		slog.Int64("size_bytes", totalBytes),
+	)
+
+	return nil
+}
