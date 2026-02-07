@@ -238,6 +238,47 @@ final $typed_data.Uint8List copyPhotoResponseDescriptor = $convert.base64Decode(
     'ChFDb3B5UGhvdG9SZXNwb25zZRIjCgVwaG90bxgBIAEoCzINLnBob3Rvcy5QaG90b1IFcGhvdG'
     '8=');
 
+@$core.Deprecated('Use renamePhotoRequestDescriptor instead')
+const RenamePhotoRequest$json = {
+  '1': 'RenamePhotoRequest',
+  '2': [
+    {'1': 'source_object_id', '3': 1, '4': 1, '5': 9, '10': 'sourceObjectId'},
+    {
+      '1': 'destination_object_id',
+      '3': 2,
+      '4': 1,
+      '5': 9,
+      '10': 'destinationObjectId'
+    },
+  ],
+};
+
+/// Descriptor for `RenamePhotoRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List renamePhotoRequestDescriptor = $convert.base64Decode(
+    'ChJSZW5hbWVQaG90b1JlcXVlc3QSKAoQc291cmNlX29iamVjdF9pZBgBIAEoCVIOc291cmNlT2'
+    'JqZWN0SWQSMgoVZGVzdGluYXRpb25fb2JqZWN0X2lkGAIgASgJUhNkZXN0aW5hdGlvbk9iamVj'
+    'dElk');
+
+@$core.Deprecated('Use renamePhotoResponseDescriptor instead')
+const RenamePhotoResponse$json = {
+  '1': 'RenamePhotoResponse',
+  '2': [
+    {
+      '1': 'photo',
+      '3': 1,
+      '4': 1,
+      '5': 11,
+      '6': '.photos.Photo',
+      '10': 'photo'
+    },
+  ],
+};
+
+/// Descriptor for `RenamePhotoResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List renamePhotoResponseDescriptor = $convert.base64Decode(
+    'ChNSZW5hbWVQaG90b1Jlc3BvbnNlEiMKBXBob3RvGAEgASgLMg0ucGhvdG9zLlBob3RvUgVwaG'
+    '90bw==');
+
 @$core.Deprecated('Use updatePhotoMetadataRequestDescriptor instead')
 const UpdatePhotoMetadataRequest$json = {
   '1': 'UpdatePhotoMetadataRequest',

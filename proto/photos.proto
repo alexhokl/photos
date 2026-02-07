@@ -85,6 +85,17 @@ message CopyPhotoResponse {
   Photo photo = 1;
 }
 
+// RenamePhotoRequest specifies source and destination for rename operation
+message RenamePhotoRequest {
+  string source_object_id = 1;
+  string destination_object_id = 2;
+}
+
+// RenamePhotoResponse returns the renamed photo metadata
+message RenamePhotoResponse {
+  Photo photo = 1;
+}
+
 // UpdatePhotoMetadataRequest specifies metadata updates for a photo
 message UpdatePhotoMetadataRequest {
   string object_id = 1;
@@ -212,6 +223,14 @@ service LibraryService {
   rpc CopyPhoto(CopyPhotoRequest) returns (CopyPhotoResponse) {
     option (google.api.http) = {
       post: "/v1/photos/{source_object_id}/copy"
+      body: "*"
+    };
+  }
+
+  // RenamePhoto renames a photo by moving it to a new object ID
+  rpc RenamePhoto(RenamePhotoRequest) returns (RenamePhotoResponse) {
+    option (google.api.http) = {
+      post: "/v1/photos/{source_object_id}/rename"
       body: "*"
     };
   }

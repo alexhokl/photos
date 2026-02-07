@@ -260,6 +260,51 @@ func local_request_LibraryService_CopyPhoto_0(ctx context.Context, marshaler run
 	return msg, metadata, err
 }
 
+func request_LibraryService_RenamePhoto_0(ctx context.Context, marshaler runtime.Marshaler, client LibraryServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var (
+		protoReq RenamePhotoRequest
+		metadata runtime.ServerMetadata
+		err      error
+	)
+	if err := marshaler.NewDecoder(req.Body).Decode(&protoReq); err != nil && !errors.Is(err, io.EOF) {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+	if req.Body != nil {
+		_, _ = io.Copy(io.Discard, req.Body)
+	}
+	val, ok := pathParams["source_object_id"]
+	if !ok {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "source_object_id")
+	}
+	protoReq.SourceObjectId, err = runtime.String(val)
+	if err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "source_object_id", err)
+	}
+	msg, err := client.RenamePhoto(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
+	return msg, metadata, err
+}
+
+func local_request_LibraryService_RenamePhoto_0(ctx context.Context, marshaler runtime.Marshaler, server LibraryServiceServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var (
+		protoReq RenamePhotoRequest
+		metadata runtime.ServerMetadata
+		err      error
+	)
+	if err := marshaler.NewDecoder(req.Body).Decode(&protoReq); err != nil && !errors.Is(err, io.EOF) {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+	val, ok := pathParams["source_object_id"]
+	if !ok {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "source_object_id")
+	}
+	protoReq.SourceObjectId, err = runtime.String(val)
+	if err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "source_object_id", err)
+	}
+	msg, err := server.RenamePhoto(ctx, &protoReq)
+	return msg, metadata, err
+}
+
 func request_LibraryService_UpdatePhotoMetadata_0(ctx context.Context, marshaler runtime.Marshaler, client LibraryServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
 	var (
 		protoReq UpdatePhotoMetadataRequest
@@ -581,6 +626,26 @@ func RegisterLibraryServiceHandlerServer(ctx context.Context, mux *runtime.Serve
 		}
 		forward_LibraryService_CopyPhoto_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 	})
+	mux.Handle(http.MethodPost, pattern_LibraryService_RenamePhoto_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+		ctx, cancel := context.WithCancel(req.Context())
+		defer cancel()
+		var stream runtime.ServerTransportStream
+		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
+		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
+		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/photos.LibraryService/RenamePhoto", runtime.WithHTTPPathPattern("/v1/photos/{source_object_id}/rename"))
+		if err != nil {
+			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		resp, md, err := local_request_LibraryService_RenamePhoto_0(annotatedContext, inboundMarshaler, server, req, pathParams)
+		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
+		annotatedContext = runtime.NewServerMetadataContext(annotatedContext, md)
+		if err != nil {
+			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		forward_LibraryService_RenamePhoto_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+	})
 	mux.Handle(http.MethodPatch, pattern_LibraryService_UpdatePhotoMetadata_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
@@ -872,6 +937,23 @@ func RegisterLibraryServiceHandlerClient(ctx context.Context, mux *runtime.Serve
 		}
 		forward_LibraryService_CopyPhoto_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 	})
+	mux.Handle(http.MethodPost, pattern_LibraryService_RenamePhoto_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+		ctx, cancel := context.WithCancel(req.Context())
+		defer cancel()
+		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
+		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/photos.LibraryService/RenamePhoto", runtime.WithHTTPPathPattern("/v1/photos/{source_object_id}/rename"))
+		if err != nil {
+			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		resp, md, err := request_LibraryService_RenamePhoto_0(annotatedContext, inboundMarshaler, client, req, pathParams)
+		annotatedContext = runtime.NewServerMetadataContext(annotatedContext, md)
+		if err != nil {
+			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		forward_LibraryService_RenamePhoto_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+	})
 	mux.Handle(http.MethodPatch, pattern_LibraryService_UpdatePhotoMetadata_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
@@ -965,6 +1047,7 @@ var (
 	pattern_LibraryService_GetPhoto_0            = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 1, 0, 4, 1, 5, 2}, []string{"v1", "photos", "object_id"}, ""))
 	pattern_LibraryService_ListPhotos_0          = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"v1", "photos"}, ""))
 	pattern_LibraryService_CopyPhoto_0           = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 1, 0, 4, 1, 5, 2, 2, 3}, []string{"v1", "photos", "source_object_id", "copy"}, ""))
+	pattern_LibraryService_RenamePhoto_0         = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 1, 0, 4, 1, 5, 2, 2, 3}, []string{"v1", "photos", "source_object_id", "rename"}, ""))
 	pattern_LibraryService_UpdatePhotoMetadata_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 1, 0, 4, 1, 5, 2, 2, 3}, []string{"v1", "photos", "object_id", "metadata"}, ""))
 	pattern_LibraryService_GenerateSignedUrl_0   = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 1, 0, 4, 1, 5, 2, 2, 3}, []string{"v1", "photos", "object_id", "signed-url"}, ""))
 	pattern_LibraryService_PhotoExists_0         = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 1, 0, 4, 1, 5, 2, 2, 3}, []string{"v1", "photos", "object_id", "exists"}, ""))
@@ -977,6 +1060,7 @@ var (
 	forward_LibraryService_GetPhoto_0            = runtime.ForwardResponseMessage
 	forward_LibraryService_ListPhotos_0          = runtime.ForwardResponseMessage
 	forward_LibraryService_CopyPhoto_0           = runtime.ForwardResponseMessage
+	forward_LibraryService_RenamePhoto_0         = runtime.ForwardResponseMessage
 	forward_LibraryService_UpdatePhotoMetadata_0 = runtime.ForwardResponseMessage
 	forward_LibraryService_GenerateSignedUrl_0   = runtime.ForwardResponseMessage
 	forward_LibraryService_PhotoExists_0         = runtime.ForwardResponseMessage

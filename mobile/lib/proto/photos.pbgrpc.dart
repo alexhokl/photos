@@ -205,6 +205,14 @@ class LibraryServiceClient extends $grpc.Client {
     return $createUnaryCall(_$copyPhoto, request, options: options);
   }
 
+  /// RenamePhoto renames a photo by moving it to a new object ID
+  $grpc.ResponseFuture<$0.RenamePhotoResponse> renamePhoto(
+    $0.RenamePhotoRequest request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createUnaryCall(_$renamePhoto, request, options: options);
+  }
+
   /// UpdatePhotoMetadata updates metadata for a photo
   $grpc.ResponseFuture<$0.UpdatePhotoMetadataResponse> updatePhotoMetadata(
     $0.UpdatePhotoMetadataRequest request, {
@@ -267,6 +275,11 @@ class LibraryServiceClient extends $grpc.Client {
           '/photos.LibraryService/CopyPhoto',
           ($0.CopyPhotoRequest value) => value.writeToBuffer(),
           $0.CopyPhotoResponse.fromBuffer);
+  static final _$renamePhoto =
+      $grpc.ClientMethod<$0.RenamePhotoRequest, $0.RenamePhotoResponse>(
+          '/photos.LibraryService/RenamePhoto',
+          ($0.RenamePhotoRequest value) => value.writeToBuffer(),
+          $0.RenamePhotoResponse.fromBuffer);
   static final _$updatePhotoMetadata = $grpc.ClientMethod<
           $0.UpdatePhotoMetadataRequest, $0.UpdatePhotoMetadataResponse>(
       '/photos.LibraryService/UpdatePhotoMetadata',
@@ -328,6 +341,15 @@ abstract class LibraryServiceBase extends $grpc.Service {
         false,
         ($core.List<$core.int> value) => $0.CopyPhotoRequest.fromBuffer(value),
         ($0.CopyPhotoResponse value) => value.writeToBuffer()));
+    $addMethod(
+        $grpc.ServiceMethod<$0.RenamePhotoRequest, $0.RenamePhotoResponse>(
+            'RenamePhoto',
+            renamePhoto_Pre,
+            false,
+            false,
+            ($core.List<$core.int> value) =>
+                $0.RenamePhotoRequest.fromBuffer(value),
+            ($0.RenamePhotoResponse value) => value.writeToBuffer()));
     $addMethod($grpc.ServiceMethod<$0.UpdatePhotoMetadataRequest,
             $0.UpdatePhotoMetadataResponse>(
         'UpdatePhotoMetadata',
@@ -404,6 +426,14 @@ abstract class LibraryServiceBase extends $grpc.Service {
 
   $async.Future<$0.CopyPhotoResponse> copyPhoto(
       $grpc.ServiceCall call, $0.CopyPhotoRequest request);
+
+  $async.Future<$0.RenamePhotoResponse> renamePhoto_Pre($grpc.ServiceCall $call,
+      $async.Future<$0.RenamePhotoRequest> $request) async {
+    return renamePhoto($call, await $request);
+  }
+
+  $async.Future<$0.RenamePhotoResponse> renamePhoto(
+      $grpc.ServiceCall call, $0.RenamePhotoRequest request);
 
   $async.Future<$0.UpdatePhotoMetadataResponse> updatePhotoMetadata_Pre(
       $grpc.ServiceCall $call,

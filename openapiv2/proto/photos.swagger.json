@@ -395,6 +395,45 @@
           "LibraryService"
         ]
       }
+    },
+    "/v1/photos/{sourceObjectId}/rename": {
+      "post": {
+        "summary": "RenamePhoto renames a photo by moving it to a new object ID",
+        "operationId": "LibraryService_RenamePhoto",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/photosRenamePhotoResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "sourceObjectId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/LibraryServiceRenamePhotoBody"
+            }
+          }
+        ],
+        "tags": [
+          "LibraryService"
+        ]
+      }
     }
   },
   "definitions": {
@@ -419,6 +458,15 @@
         }
       },
       "title": "GenerateSignedUrlRequest specifies parameters for signed URL generation"
+    },
+    "LibraryServiceRenamePhotoBody": {
+      "type": "object",
+      "properties": {
+        "destinationObjectId": {
+          "type": "string"
+        }
+      },
+      "title": "RenamePhotoRequest specifies source and destination for rename operation"
     },
     "LibraryServiceUpdatePhotoMetadataBody": {
       "type": "object",
@@ -563,6 +611,15 @@
         }
       },
       "title": "PhotoMetadata contains info about the photo being uploaded"
+    },
+    "photosRenamePhotoResponse": {
+      "type": "object",
+      "properties": {
+        "photo": {
+          "$ref": "#/definitions/photosPhoto"
+        }
+      },
+      "title": "RenamePhotoResponse returns the renamed photo metadata"
     },
     "photosStreamingDownloadResponse": {
       "type": "object",

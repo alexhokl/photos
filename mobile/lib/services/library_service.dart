@@ -189,13 +189,23 @@ class LibraryService {
     }
   }
 
-  /// Rename a photo by copying it to a new object ID and deleting the original.
+  /// Rename a photo by moving it to a new object ID on the server.
   /// The [newObjectId] is the full destination path including directory prefix.
   /// Returns the renamed photo metadata.
   Future<Photo> renamePhoto(String sourceObjectId, String newObjectId) async {
-    final photo = await copyPhoto(sourceObjectId, newObjectId);
-    await deletePhoto(sourceObjectId);
-    return photo;
+    _ensureInitialized();
+
+    final request = RenamePhotoRequest(
+      sourceObjectId: sourceObjectId,
+      destinationObjectId: newObjectId,
+    );
+
+    try {
+      final response = await _client!.renamePhoto(request);
+      return response.photo;
+    } on GrpcError catch (e) {
+      throw LibraryException('gRPC error: ${e.message}', grpcError: e);
+    }
   }
 
   /// Close the gRPC channel

@@ -892,6 +892,131 @@ class CopyPhotoResponse extends $pb.GeneratedMessage {
   Photo ensurePhoto() => $_ensure(0);
 }
 
+/// RenamePhotoRequest specifies source and destination for rename operation
+class RenamePhotoRequest extends $pb.GeneratedMessage {
+  factory RenamePhotoRequest({
+    $core.String? sourceObjectId,
+    $core.String? destinationObjectId,
+  }) {
+    final result = create();
+    if (sourceObjectId != null) result.sourceObjectId = sourceObjectId;
+    if (destinationObjectId != null)
+      result.destinationObjectId = destinationObjectId;
+    return result;
+  }
+
+  RenamePhotoRequest._();
+
+  factory RenamePhotoRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory RenamePhotoRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'RenamePhotoRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'photos'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'sourceObjectId')
+    ..aOS(2, _omitFieldNames ? '' : 'destinationObjectId')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  RenamePhotoRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  RenamePhotoRequest copyWith(void Function(RenamePhotoRequest) updates) =>
+      super.copyWith((message) => updates(message as RenamePhotoRequest))
+          as RenamePhotoRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static RenamePhotoRequest create() => RenamePhotoRequest._();
+  @$core.override
+  RenamePhotoRequest createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static RenamePhotoRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<RenamePhotoRequest>(create);
+  static RenamePhotoRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get sourceObjectId => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set sourceObjectId($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasSourceObjectId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSourceObjectId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get destinationObjectId => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set destinationObjectId($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasDestinationObjectId() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearDestinationObjectId() => $_clearField(2);
+}
+
+/// RenamePhotoResponse returns the renamed photo metadata
+class RenamePhotoResponse extends $pb.GeneratedMessage {
+  factory RenamePhotoResponse({
+    Photo? photo,
+  }) {
+    final result = create();
+    if (photo != null) result.photo = photo;
+    return result;
+  }
+
+  RenamePhotoResponse._();
+
+  factory RenamePhotoResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory RenamePhotoResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'RenamePhotoResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'photos'),
+      createEmptyInstance: create)
+    ..aOM<Photo>(1, _omitFieldNames ? '' : 'photo', subBuilder: Photo.create)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  RenamePhotoResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  RenamePhotoResponse copyWith(void Function(RenamePhotoResponse) updates) =>
+      super.copyWith((message) => updates(message as RenamePhotoResponse))
+          as RenamePhotoResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static RenamePhotoResponse create() => RenamePhotoResponse._();
+  @$core.override
+  RenamePhotoResponse createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static RenamePhotoResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<RenamePhotoResponse>(create);
+  static RenamePhotoResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  Photo get photo => $_getN(0);
+  @$pb.TagNumber(1)
+  set photo(Photo value) => $_setField(1, value);
+  @$pb.TagNumber(1)
+  $core.bool hasPhoto() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearPhoto() => $_clearField(1);
+  @$pb.TagNumber(1)
+  Photo ensurePhoto() => $_ensure(0);
+}
+
 /// UpdatePhotoMetadataRequest specifies metadata updates for a photo
 class UpdatePhotoMetadataRequest extends $pb.GeneratedMessage {
   factory UpdatePhotoMetadataRequest({

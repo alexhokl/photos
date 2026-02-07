@@ -268,6 +268,151 @@ func (s *LibraryServer) CopyPhoto(ctx context.Context, req *proto.CopyPhotoReque
 	}, nil
 }
 
+// RenamePhoto renames a photo by copying it to a new object ID and deleting the original.
+// This is performed atomically on the server side.
+func (s *LibraryServer) RenamePhoto(ctx context.Context, req *proto.RenamePhotoRequest) (*proto.RenamePhotoResponse, error) {
+	userID, ok := ctx.Value(contextKeyUser{}).(uint)
+	if !ok {
+		return nil, status.Errorf(codes.Unauthenticated, "authentication required")
+	}
+
+	sourceObjectID := req.GetSourceObjectId()
+	destObjectID := req.GetDestinationObjectId()
+
+	if sourceObjectID == "" {
+		return nil, status.Errorf(codes.InvalidArgument, "source_object_id is required")
+	}
+	if destObjectID == "" {
+		return nil, status.Errorf(codes.InvalidArgument, "destination_object_id is required")
+	}
+	if sourceObjectID == destObjectID {
+		return nil, status.Errorf(codes.InvalidArgument, "source and destination cannot be the same")
+	}
+
+	// Verify the source photo exists and belongs to the user
+	var sourcePhoto database.PhotoObject
+	if err := s.DB.Where("object_id = ? AND user_id = ?", sourceObjectID, userID).First(&sourcePhoto).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, status.Errorf(codes.NotFound, "source photo not found: %s", sourceObjectID)
+		}
+		return nil, status.Errorf(codes.Internal, "failed to query source photo: %v", err)
+	}
+
+	// Check if destination already exists
+	var destCount int64
+	if err := s.DB.Model(&database.PhotoObject{}).
+		Where("object_id = ? AND user_id = ?", destObjectID, userID).
+		Count(&destCount).Error; err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to check destination: %v", err)
+	}
+	if destCount > 0 {
+		return nil, status.Errorf(codes.AlreadyExists, "destination photo already exists: %s", destObjectID)
+	}
+
+	// Copy the object in GCS
+	bucket := s.GCSClient.Bucket(s.BucketName)
+	srcObj := bucket.Object(sourceObjectID)
+	dstObj := bucket.Object(destObjectID)
+
+	copier := dstObj.CopierFrom(srcObj)
+	attrs, err := copier.Run(ctx)
+	if err != nil {
+		if err == storage.ErrObjectNotExist {
+			return nil, status.Errorf(codes.NotFound, "source photo not found in storage: %s", sourceObjectID)
+		}
+		return nil, status.Errorf(codes.Internal, "failed to copy photo in storage: %v", err)
+	}
+
+	// Compute MD5 hash from attributes
+	md5HashBase64 := base64.StdEncoding.EncodeToString(attrs.MD5)
+
+	// Create database record for the destination photo
+	destPhoto := &database.PhotoObject{
+		ObjectID:    destObjectID,
+		ContentType: attrs.ContentType,
+		MD5Hash:     md5HashBase64,
+		UserID:      userID,
+	}
+
+	if err := s.DB.Create(destPhoto).Error; err != nil {
+		// Try to clean up the GCS object if database insert fails
+		_ = dstObj.Delete(ctx)
+		return nil, status.Errorf(codes.Internal, "failed to create photo record: %v", err)
+	}
+
+	// Create directory entry for destination if applicable
+	destDir := ExtractDirectoryFromPath(destObjectID)
+	if destDir != "" {
+		photoDir := &database.PhotoDirectory{Path: destDir}
+		if err := s.DB.FirstOrCreate(photoDir, database.PhotoDirectory{Path: destDir}).Error; err != nil {
+			slog.Warn("failed to create photo directory for rename",
+				slog.String("path", destDir),
+				slog.String("error", err.Error()),
+			)
+		}
+	}
+
+	// Delete the source object from GCS
+	if err := srcObj.Delete(ctx); err != nil {
+		if err != storage.ErrObjectNotExist {
+			slog.Warn("failed to delete source photo from storage during rename",
+				slog.String("object_id", sourceObjectID),
+				slog.String("error", err.Error()),
+			)
+		}
+	}
+
+	// Delete the source database record
+	if err := s.DB.Delete(&sourcePhoto).Error; err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to delete source photo from database: %v", err)
+	}
+
+	// Check if the source directory is now empty and clean up
+	sourceDir := ExtractDirectoryFromPath(sourceObjectID)
+	if sourceDir != "" {
+		var count int64
+		if err := s.DB.Model(&database.PhotoObject{}).
+			Where("object_id LIKE ? AND object_id != ?", sourceDir+"/%", sourceObjectID).
+			Count(&count).Error; err != nil {
+			slog.Warn("failed to count photos in source directory during rename",
+				slog.String("path", sourceDir),
+				slog.String("error", err.Error()),
+			)
+		} else if count == 0 {
+			if err := s.DB.Where("path = ?", sourceDir).Delete(&database.PhotoDirectory{}).Error; err != nil {
+				slog.Warn("failed to delete empty source directory during rename",
+					slog.String("path", sourceDir),
+					slog.String("error", err.Error()),
+				)
+			} else {
+				slog.Info("Deleted empty directory after rename",
+					slog.String("path", sourceDir),
+				)
+			}
+		}
+	}
+
+	slog.Info("Renamed photo",
+		slog.String("source", sourceObjectID),
+		slog.String("destination", destObjectID),
+		slog.Uint64("user_id", uint64(userID)),
+	)
+
+	photo := &proto.Photo{
+		ObjectId:    destObjectID,
+		Filename:    destObjectID,
+		ContentType: attrs.ContentType,
+		SizeBytes:   attrs.Size,
+		Md5Hash:     md5HashBase64,
+		CreatedAt:   attrs.Created.Format(time.RFC3339),
+		UpdatedAt:   attrs.Updated.Format(time.RFC3339),
+	}
+
+	return &proto.RenamePhotoResponse{
+		Photo: photo,
+	}, nil
+}
+
 // GenerateSignedUrl creates a time-limited signed URL for photo access.
 func (s *LibraryServer) GenerateSignedUrl(ctx context.Context, req *proto.GenerateSignedUrlRequest) (*proto.GenerateSignedUrlResponse, error) {
 	userID, ok := ctx.Value(contextKeyUser{}).(uint)
