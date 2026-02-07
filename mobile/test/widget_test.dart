@@ -1,11 +1,18 @@
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:photos/main.dart';
 import 'package:photos/widgets/photo_grid.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
+import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 void main() {
   group('MyApp', () {
+    setUp(() {
+      SharedPreferences.setMockInitialValues({});
+      SharedPreferencesAsyncPlatform.instance =
+          InMemorySharedPreferencesAsync.empty();
+    });
     testWidgets('renders MaterialApp with correct title', (tester) async {
       await tester.pumpWidget(const MyApp());
 
@@ -29,6 +36,12 @@ void main() {
   });
 
   group('HomePage', () {
+    setUp(() {
+      SharedPreferences.setMockInitialValues({});
+      SharedPreferencesAsyncPlatform.instance =
+          InMemorySharedPreferencesAsync.empty();
+    });
+
     testWidgets('renders app bar with correct title', (tester) async {
       await tester.pumpWidget(
         const MaterialApp(home: HomePage(title: 'Test Photos')),
@@ -284,6 +297,12 @@ void main() {
   });
 
   group('Theme and styling', () {
+    setUp(() {
+      SharedPreferences.setMockInitialValues({});
+      SharedPreferencesAsyncPlatform.instance =
+          InMemorySharedPreferencesAsync.empty();
+    });
+
     testWidgets('MyApp uses Material Design', (tester) async {
       await tester.pumpWidget(const MyApp());
 

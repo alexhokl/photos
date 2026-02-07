@@ -152,18 +152,22 @@ class _HomePageState extends State<HomePage> {
         title: Text(widget.title),
         actions: _buildAppBarActions(),
       ),
-      body: _selectedIndex == 0
-          ? PhotoGrid(
-              key: _photoGridKey,
-              onSelectionChanged: _onDeviceSelectionChanged,
-              onPhotoTap: _onPhotoTap,
-            )
-          : _selectedIndex == 1
-          ? CloudPhotoGrid(
-              key: _cloudPhotoGridKey,
-              onSelectionChanged: _onCloudSelectionChanged,
-            )
-          : const SettingsPage(),
+      body: IndexedStack(
+        index: _selectedIndex,
+        children: [
+          PhotoGrid(
+            key: _photoGridKey,
+            onSelectionChanged: _onDeviceSelectionChanged,
+            onPhotoTap: _onPhotoTap,
+          ),
+          CloudPhotoGrid(
+            key: _cloudPhotoGridKey,
+            onSelectionChanged: _onCloudSelectionChanged,
+            isActive: _selectedIndex == 1,
+          ),
+          SettingsPage(isActive: _selectedIndex == 2),
+        ],
+      ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _selectedIndex,
         onDestinationSelected: (int index) {

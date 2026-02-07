@@ -48,7 +48,9 @@ class BackendConfig {
 }
 
 class SettingsPage extends StatefulWidget {
-  const SettingsPage({super.key});
+  const SettingsPage({super.key, this.isActive = true});
+
+  final bool isActive;
 
   static const String backendUrlKey = 'backend_url';
   static const String defaultBackendUrl = 'https://photos.a-b.ts.net';
@@ -66,11 +68,24 @@ class _SettingsPageState extends State<SettingsPage> {
   List<String> _directorySuggestions = [];
   bool _isLoadingDirectories = false;
   String? _directoryError;
+  bool _hasInitiallyLoaded = false;
 
   @override
   void initState() {
     super.initState();
-    _initPreferences();
+    if (widget.isActive) {
+      _hasInitiallyLoaded = true;
+      _initPreferences();
+    }
+  }
+
+  @override
+  void didUpdateWidget(SettingsPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.isActive && !_hasInitiallyLoaded) {
+      _hasInitiallyLoaded = true;
+      _initPreferences();
+    }
   }
 
   Future<void> _initPreferences() async {

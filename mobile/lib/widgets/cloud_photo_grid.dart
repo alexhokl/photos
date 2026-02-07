@@ -9,8 +9,13 @@ enum CloudPhotoGridAction { delete, download, copy, move }
 
 class CloudPhotoGrid extends StatefulWidget {
   final void Function(int selectedCount)? onSelectionChanged;
+  final bool isActive;
 
-  const CloudPhotoGrid({super.key, this.onSelectionChanged});
+  const CloudPhotoGrid({
+    super.key,
+    this.onSelectionChanged,
+    this.isActive = true,
+  });
 
   @override
   State<CloudPhotoGrid> createState() => CloudPhotoGridState();
@@ -33,6 +38,8 @@ class CloudPhotoGridState extends State<CloudPhotoGrid> {
 
   static const int _pageSize = 50;
 
+  bool _hasInitiallyLoaded = false;
+
   bool get isSelectionMode => _isSelectionMode;
   int get selectedCount => _selectedObjectIds.length;
 
@@ -40,7 +47,19 @@ class CloudPhotoGridState extends State<CloudPhotoGrid> {
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
-    _loadInitialData();
+    if (widget.isActive) {
+      _hasInitiallyLoaded = true;
+      _loadInitialData();
+    }
+  }
+
+  @override
+  void didUpdateWidget(CloudPhotoGrid oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.isActive && !_hasInitiallyLoaded) {
+      _hasInitiallyLoaded = true;
+      _loadInitialData();
+    }
   }
 
   @override
