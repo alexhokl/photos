@@ -16,6 +16,19 @@ message Photo {
   string created_at = 5;
   string updated_at = 6;
   string md5_hash = 7;
+  // Location coordinates (decimal degrees)
+  double latitude = 8;
+  double longitude = 9;
+  bool has_location = 10;
+  // Date the photo was taken (RFC3339 format)
+  string date_taken = 11;
+  bool has_date_taken = 12;
+  // Image dimensions in pixels
+  int32 width = 13;
+  int32 height = 14;
+  bool has_dimensions = 15;
+  // Original filename before upload
+  string original_filename = 16;
 }
 
 // UploadRequest contains the photo data to upload

@@ -50,11 +50,15 @@ func (s *BytesServer) Upload(ctx context.Context, req *proto.UploadRequest) (*pr
 		slog.String("md5_hash", md5HashBase64),
 	)
 
+	// Extract photo metadata from EXIF data
+	photoMetadata := ExtractPhotoMetadata(data, objectID)
+
 	bucket := s.GCSClient.Bucket(s.BucketName)
 	obj := bucket.Object(objectID)
 
 	writer := obj.NewWriter(ctx)
 	writer.ContentType = req.GetContentType()
+	writer.Metadata = photoMetadata.ToGCSMetadata()
 
 	if _, err := writer.Write(data); err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to write data to GCS: %v", err)
@@ -91,13 +95,22 @@ func (s *BytesServer) Upload(ctx context.Context, req *proto.UploadRequest) (*pr
 	)
 
 	photo := &proto.Photo{
-		ObjectId:    objectID,
-		Filename:    objectID,
-		ContentType: attrs.ContentType,
-		SizeBytes:   attrs.Size,
-		CreatedAt:   attrs.Created.Format(time.RFC3339),
-		UpdatedAt:   attrs.Updated.Format(time.RFC3339),
-		Md5Hash:     md5HashBase64,
+		ObjectId:         objectID,
+		Filename:         objectID,
+		ContentType:      attrs.ContentType,
+		SizeBytes:        attrs.Size,
+		CreatedAt:        attrs.Created.Format(time.RFC3339),
+		UpdatedAt:        attrs.Updated.Format(time.RFC3339),
+		Md5Hash:          md5HashBase64,
+		Latitude:         photoMetadata.Latitude,
+		Longitude:        photoMetadata.Longitude,
+		HasLocation:      photoMetadata.HasLocation,
+		DateTaken:        photoMetadata.FormatDateTaken(),
+		HasDateTaken:     photoMetadata.HasDateTaken,
+		Width:            int32(photoMetadata.Width),
+		Height:           int32(photoMetadata.Height),
+		HasDimensions:    photoMetadata.HasDimensions,
+		OriginalFilename: photoMetadata.OriginalFilename,
 	}
 
 	return &proto.UploadResponse{
@@ -204,14 +217,26 @@ func (s *BytesServer) Download(ctx context.Context, req *proto.DownloadRequest) 
 		slog.Int("size_bytes", len(data)),
 	)
 
+	// Parse stored metadata from GCS object attributes
+	photoMetadata := ParseGCSMetadata(attrs.Metadata)
+
 	photo := &proto.Photo{
-		ObjectId:    objectID,
-		Filename:    objectID,
-		ContentType: attrs.ContentType,
-		SizeBytes:   attrs.Size,
-		CreatedAt:   attrs.Created.Format(time.RFC3339),
-		UpdatedAt:   attrs.Updated.Format(time.RFC3339),
-		Md5Hash:     md5HashBase64,
+		ObjectId:         objectID,
+		Filename:         objectID,
+		ContentType:      attrs.ContentType,
+		SizeBytes:        attrs.Size,
+		CreatedAt:        attrs.Created.Format(time.RFC3339),
+		UpdatedAt:        attrs.Updated.Format(time.RFC3339),
+		Md5Hash:          md5HashBase64,
+		Latitude:         photoMetadata.Latitude,
+		Longitude:        photoMetadata.Longitude,
+		HasLocation:      photoMetadata.HasLocation,
+		DateTaken:        photoMetadata.FormatDateTaken(),
+		HasDateTaken:     photoMetadata.HasDateTaken,
+		Width:            int32(photoMetadata.Width),
+		Height:           int32(photoMetadata.Height),
+		HasDimensions:    photoMetadata.HasDimensions,
+		OriginalFilename: photoMetadata.OriginalFilename,
 	}
 
 	return &proto.DownloadResponse{
@@ -265,16 +290,13 @@ func (s *BytesServer) StreamingUpload(stream grpc.ClientStreamingServer[proto.St
 		slog.String("content_type", contentType),
 	)
 
-	bucket := s.GCSClient.Bucket(s.BucketName)
-	obj := bucket.Object(objectID)
-
-	writer := obj.NewWriter(ctx)
-	writer.ContentType = contentType
-
 	// Create MD5 hasher to compute hash while streaming
 	md5Hasher := md5.New()
 
-	// Receive data chunks and write to GCS
+	// Collect all chunks to extract EXIF metadata
+	var allData []byte
+
+	// Receive data chunks
 	for {
 		msg, err := stream.Recv()
 		if err == io.EOF {
@@ -282,7 +304,6 @@ func (s *BytesServer) StreamingUpload(stream grpc.ClientStreamingServer[proto.St
 			break
 		}
 		if err != nil {
-			_ = writer.Close()
 			return status.Errorf(codes.Internal, "failed to receive chunk: %v", err)
 		}
 
@@ -292,14 +313,27 @@ func (s *BytesServer) StreamingUpload(stream grpc.ClientStreamingServer[proto.St
 			continue
 		}
 
-		// Write chunk to GCS
-		if _, err := writer.Write(chunk); err != nil {
-			_ = writer.Close()
-			return status.Errorf(codes.Internal, "failed to write chunk to GCS: %v", err)
-		}
+		// Collect data for EXIF extraction
+		allData = append(allData, chunk...)
 
 		// Update MD5 hash
-		md5Hasher.Write(chunk)
+		_, _ = md5Hasher.Write(chunk)
+	}
+
+	// Extract photo metadata from EXIF data
+	photoMetadata := ExtractPhotoMetadata(allData, objectID)
+
+	bucket := s.GCSClient.Bucket(s.BucketName)
+	obj := bucket.Object(objectID)
+
+	writer := obj.NewWriter(ctx)
+	writer.ContentType = contentType
+	writer.Metadata = photoMetadata.ToGCSMetadata()
+
+	// Write all data to GCS
+	if _, err := writer.Write(allData); err != nil {
+		_ = writer.Close()
+		return status.Errorf(codes.Internal, "failed to write data to GCS: %v", err)
 	}
 
 	if err := writer.Close(); err != nil {
@@ -339,13 +373,22 @@ func (s *BytesServer) StreamingUpload(stream grpc.ClientStreamingServer[proto.St
 	)
 
 	photo := &proto.Photo{
-		ObjectId:    objectID,
-		Filename:    objectID,
-		ContentType: attrs.ContentType,
-		SizeBytes:   attrs.Size,
-		CreatedAt:   attrs.Created.Format(time.RFC3339),
-		UpdatedAt:   attrs.Updated.Format(time.RFC3339),
-		Md5Hash:     md5HashBase64,
+		ObjectId:         objectID,
+		Filename:         objectID,
+		ContentType:      attrs.ContentType,
+		SizeBytes:        attrs.Size,
+		CreatedAt:        attrs.Created.Format(time.RFC3339),
+		UpdatedAt:        attrs.Updated.Format(time.RFC3339),
+		Md5Hash:          md5HashBase64,
+		Latitude:         photoMetadata.Latitude,
+		Longitude:        photoMetadata.Longitude,
+		HasLocation:      photoMetadata.HasLocation,
+		DateTaken:        photoMetadata.FormatDateTaken(),
+		HasDateTaken:     photoMetadata.HasDateTaken,
+		Width:            int32(photoMetadata.Width),
+		Height:           int32(photoMetadata.Height),
+		HasDimensions:    photoMetadata.HasDimensions,
+		OriginalFilename: photoMetadata.OriginalFilename,
 	}
 
 	return stream.SendAndClose(&proto.UploadResponse{
@@ -401,15 +444,27 @@ func (s *BytesServer) StreamingDownload(req *proto.StreamingDownloadRequest, str
 	// Compute MD5 hash from stored attributes (GCS stores MD5 hash)
 	md5HashBase64 := base64.StdEncoding.EncodeToString(attrs.MD5)
 
+	// Parse stored metadata from GCS object attributes
+	photoMetadata := ParseGCSMetadata(attrs.Metadata)
+
 	// Send metadata as the first message
 	photo := &proto.Photo{
-		ObjectId:    objectID,
-		Filename:    objectID,
-		ContentType: attrs.ContentType,
-		SizeBytes:   attrs.Size,
-		CreatedAt:   attrs.Created.Format(time.RFC3339),
-		UpdatedAt:   attrs.Updated.Format(time.RFC3339),
-		Md5Hash:     md5HashBase64,
+		ObjectId:         objectID,
+		Filename:         objectID,
+		ContentType:      attrs.ContentType,
+		SizeBytes:        attrs.Size,
+		CreatedAt:        attrs.Created.Format(time.RFC3339),
+		UpdatedAt:        attrs.Updated.Format(time.RFC3339),
+		Md5Hash:          md5HashBase64,
+		Latitude:         photoMetadata.Latitude,
+		Longitude:        photoMetadata.Longitude,
+		HasLocation:      photoMetadata.HasLocation,
+		DateTaken:        photoMetadata.FormatDateTaken(),
+		HasDateTaken:     photoMetadata.HasDateTaken,
+		Width:            int32(photoMetadata.Width),
+		Height:           int32(photoMetadata.Height),
+		HasDimensions:    photoMetadata.HasDimensions,
+		OriginalFilename: photoMetadata.OriginalFilename,
 	}
 
 	metadataResp := &proto.StreamingDownloadResponse{

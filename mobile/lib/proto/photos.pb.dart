@@ -27,6 +27,15 @@ class Photo extends $pb.GeneratedMessage {
     $core.String? createdAt,
     $core.String? updatedAt,
     $core.String? md5Hash,
+    $core.double? latitude,
+    $core.double? longitude,
+    $core.bool? hasLocation,
+    $core.String? dateTaken,
+    $core.bool? hasDateTaken_12,
+    $core.int? width,
+    $core.int? height,
+    $core.bool? hasDimensions,
+    $core.String? originalFilename,
   }) {
     final result = create();
     if (objectId != null) result.objectId = objectId;
@@ -36,6 +45,15 @@ class Photo extends $pb.GeneratedMessage {
     if (createdAt != null) result.createdAt = createdAt;
     if (updatedAt != null) result.updatedAt = updatedAt;
     if (md5Hash != null) result.md5Hash = md5Hash;
+    if (latitude != null) result.latitude = latitude;
+    if (longitude != null) result.longitude = longitude;
+    if (hasLocation != null) result.hasLocation = hasLocation;
+    if (dateTaken != null) result.dateTaken = dateTaken;
+    if (hasDateTaken_12 != null) result.hasDateTaken_12 = hasDateTaken_12;
+    if (width != null) result.width = width;
+    if (height != null) result.height = height;
+    if (hasDimensions != null) result.hasDimensions = hasDimensions;
+    if (originalFilename != null) result.originalFilename = originalFilename;
     return result;
   }
 
@@ -59,6 +77,15 @@ class Photo extends $pb.GeneratedMessage {
     ..aOS(5, _omitFieldNames ? '' : 'createdAt')
     ..aOS(6, _omitFieldNames ? '' : 'updatedAt')
     ..aOS(7, _omitFieldNames ? '' : 'md5Hash')
+    ..aD(8, _omitFieldNames ? '' : 'latitude')
+    ..aD(9, _omitFieldNames ? '' : 'longitude')
+    ..aOB(10, _omitFieldNames ? '' : 'hasLocation')
+    ..aOS(11, _omitFieldNames ? '' : 'dateTaken')
+    ..aOB(12, _omitFieldNames ? '' : 'hasDateTaken')
+    ..aI(13, _omitFieldNames ? '' : 'width')
+    ..aI(14, _omitFieldNames ? '' : 'height')
+    ..aOB(15, _omitFieldNames ? '' : 'hasDimensions')
+    ..aOS(16, _omitFieldNames ? '' : 'originalFilename')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -141,6 +168,91 @@ class Photo extends $pb.GeneratedMessage {
   $core.bool hasMd5Hash() => $_has(6);
   @$pb.TagNumber(7)
   void clearMd5Hash() => $_clearField(7);
+
+  /// Location coordinates (decimal degrees)
+  @$pb.TagNumber(8)
+  $core.double get latitude => $_getN(7);
+  @$pb.TagNumber(8)
+  set latitude($core.double value) => $_setDouble(7, value);
+  @$pb.TagNumber(8)
+  $core.bool hasLatitude() => $_has(7);
+  @$pb.TagNumber(8)
+  void clearLatitude() => $_clearField(8);
+
+  @$pb.TagNumber(9)
+  $core.double get longitude => $_getN(8);
+  @$pb.TagNumber(9)
+  set longitude($core.double value) => $_setDouble(8, value);
+  @$pb.TagNumber(9)
+  $core.bool hasLongitude() => $_has(8);
+  @$pb.TagNumber(9)
+  void clearLongitude() => $_clearField(9);
+
+  @$pb.TagNumber(10)
+  $core.bool get hasLocation => $_getBF(9);
+  @$pb.TagNumber(10)
+  set hasLocation($core.bool value) => $_setBool(9, value);
+  @$pb.TagNumber(10)
+  $core.bool hasHasLocation() => $_has(9);
+  @$pb.TagNumber(10)
+  void clearHasLocation() => $_clearField(10);
+
+  /// Date the photo was taken (RFC3339 format)
+  @$pb.TagNumber(11)
+  $core.String get dateTaken => $_getSZ(10);
+  @$pb.TagNumber(11)
+  set dateTaken($core.String value) => $_setString(10, value);
+  @$pb.TagNumber(11)
+  $core.bool hasDateTaken() => $_has(10);
+  @$pb.TagNumber(11)
+  void clearDateTaken() => $_clearField(11);
+
+  @$pb.TagNumber(12)
+  $core.bool get hasDateTaken_12 => $_getBF(11);
+  @$pb.TagNumber(12)
+  set hasDateTaken_12($core.bool value) => $_setBool(11, value);
+  @$pb.TagNumber(12)
+  $core.bool hasHasDateTaken_12() => $_has(11);
+  @$pb.TagNumber(12)
+  void clearHasDateTaken_12() => $_clearField(12);
+
+  /// Image dimensions in pixels
+  @$pb.TagNumber(13)
+  $core.int get width => $_getIZ(12);
+  @$pb.TagNumber(13)
+  set width($core.int value) => $_setSignedInt32(12, value);
+  @$pb.TagNumber(13)
+  $core.bool hasWidth() => $_has(12);
+  @$pb.TagNumber(13)
+  void clearWidth() => $_clearField(13);
+
+  @$pb.TagNumber(14)
+  $core.int get height => $_getIZ(13);
+  @$pb.TagNumber(14)
+  set height($core.int value) => $_setSignedInt32(13, value);
+  @$pb.TagNumber(14)
+  $core.bool hasHeight() => $_has(13);
+  @$pb.TagNumber(14)
+  void clearHeight() => $_clearField(14);
+
+  @$pb.TagNumber(15)
+  $core.bool get hasDimensions => $_getBF(14);
+  @$pb.TagNumber(15)
+  set hasDimensions($core.bool value) => $_setBool(14, value);
+  @$pb.TagNumber(15)
+  $core.bool hasHasDimensions() => $_has(14);
+  @$pb.TagNumber(15)
+  void clearHasDimensions() => $_clearField(15);
+
+  /// Original filename before upload
+  @$pb.TagNumber(16)
+  $core.String get originalFilename => $_getSZ(15);
+  @$pb.TagNumber(16)
+  set originalFilename($core.String value) => $_setString(15, value);
+  @$pb.TagNumber(16)
+  $core.bool hasOriginalFilename() => $_has(15);
+  @$pb.TagNumber(16)
+  void clearOriginalFilename() => $_clearField(16);
 }
 
 /// UploadRequest contains the photo data to upload

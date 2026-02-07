@@ -25,16 +25,29 @@ const (
 
 // Photo represents a stored photo with metadata
 type Photo struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	ObjectId      string                 `protobuf:"bytes,1,opt,name=object_id,json=objectId,proto3" json:"object_id,omitempty"`
-	Filename      string                 `protobuf:"bytes,2,opt,name=filename,proto3" json:"filename,omitempty"`
-	ContentType   string                 `protobuf:"bytes,3,opt,name=content_type,json=contentType,proto3" json:"content_type,omitempty"`
-	SizeBytes     int64                  `protobuf:"varint,4,opt,name=size_bytes,json=sizeBytes,proto3" json:"size_bytes,omitempty"`
-	CreatedAt     string                 `protobuf:"bytes,5,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
-	UpdatedAt     string                 `protobuf:"bytes,6,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
-	Md5Hash       string                 `protobuf:"bytes,7,opt,name=md5_hash,json=md5Hash,proto3" json:"md5_hash,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state       protoimpl.MessageState `protogen:"open.v1"`
+	ObjectId    string                 `protobuf:"bytes,1,opt,name=object_id,json=objectId,proto3" json:"object_id,omitempty"`
+	Filename    string                 `protobuf:"bytes,2,opt,name=filename,proto3" json:"filename,omitempty"`
+	ContentType string                 `protobuf:"bytes,3,opt,name=content_type,json=contentType,proto3" json:"content_type,omitempty"`
+	SizeBytes   int64                  `protobuf:"varint,4,opt,name=size_bytes,json=sizeBytes,proto3" json:"size_bytes,omitempty"`
+	CreatedAt   string                 `protobuf:"bytes,5,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	UpdatedAt   string                 `protobuf:"bytes,6,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	Md5Hash     string                 `protobuf:"bytes,7,opt,name=md5_hash,json=md5Hash,proto3" json:"md5_hash,omitempty"`
+	// Location coordinates (decimal degrees)
+	Latitude    float64 `protobuf:"fixed64,8,opt,name=latitude,proto3" json:"latitude,omitempty"`
+	Longitude   float64 `protobuf:"fixed64,9,opt,name=longitude,proto3" json:"longitude,omitempty"`
+	HasLocation bool    `protobuf:"varint,10,opt,name=has_location,json=hasLocation,proto3" json:"has_location,omitempty"`
+	// Date the photo was taken (RFC3339 format)
+	DateTaken    string `protobuf:"bytes,11,opt,name=date_taken,json=dateTaken,proto3" json:"date_taken,omitempty"`
+	HasDateTaken bool   `protobuf:"varint,12,opt,name=has_date_taken,json=hasDateTaken,proto3" json:"has_date_taken,omitempty"`
+	// Image dimensions in pixels
+	Width         int32 `protobuf:"varint,13,opt,name=width,proto3" json:"width,omitempty"`
+	Height        int32 `protobuf:"varint,14,opt,name=height,proto3" json:"height,omitempty"`
+	HasDimensions bool  `protobuf:"varint,15,opt,name=has_dimensions,json=hasDimensions,proto3" json:"has_dimensions,omitempty"`
+	// Original filename before upload
+	OriginalFilename string `protobuf:"bytes,16,opt,name=original_filename,json=originalFilename,proto3" json:"original_filename,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *Photo) Reset() {
@@ -112,6 +125,69 @@ func (x *Photo) GetUpdatedAt() string {
 func (x *Photo) GetMd5Hash() string {
 	if x != nil {
 		return x.Md5Hash
+	}
+	return ""
+}
+
+func (x *Photo) GetLatitude() float64 {
+	if x != nil {
+		return x.Latitude
+	}
+	return 0
+}
+
+func (x *Photo) GetLongitude() float64 {
+	if x != nil {
+		return x.Longitude
+	}
+	return 0
+}
+
+func (x *Photo) GetHasLocation() bool {
+	if x != nil {
+		return x.HasLocation
+	}
+	return false
+}
+
+func (x *Photo) GetDateTaken() string {
+	if x != nil {
+		return x.DateTaken
+	}
+	return ""
+}
+
+func (x *Photo) GetHasDateTaken() bool {
+	if x != nil {
+		return x.HasDateTaken
+	}
+	return false
+}
+
+func (x *Photo) GetWidth() int32 {
+	if x != nil {
+		return x.Width
+	}
+	return 0
+}
+
+func (x *Photo) GetHeight() int32 {
+	if x != nil {
+		return x.Height
+	}
+	return 0
+}
+
+func (x *Photo) GetHasDimensions() bool {
+	if x != nil {
+		return x.HasDimensions
+	}
+	return false
+}
+
+func (x *Photo) GetOriginalFilename() string {
+	if x != nil {
+		return x.OriginalFilename
 	}
 	return ""
 }
@@ -1490,7 +1566,7 @@ var File_proto_photos_proto protoreflect.FileDescriptor
 
 const file_proto_photos_proto_rawDesc = "" +
 	"\n" +
-	"\x12proto/photos.proto\x12\x06photos\x1a\x1cgoogle/api/annotations.proto\x1a\x1bgoogle/protobuf/empty.proto\"\xdb\x01\n" +
+	"\x12proto/photos.proto\x12\x06photos\x1a\x1cgoogle/api/annotations.proto\x1a\x1bgoogle/protobuf/empty.proto\"\xff\x03\n" +
 	"\x05Photo\x12\x1b\n" +
 	"\tobject_id\x18\x01 \x01(\tR\bobjectId\x12\x1a\n" +
 	"\bfilename\x18\x02 \x01(\tR\bfilename\x12!\n" +
@@ -1501,7 +1577,18 @@ const file_proto_photos_proto_rawDesc = "" +
 	"created_at\x18\x05 \x01(\tR\tcreatedAt\x12\x1d\n" +
 	"\n" +
 	"updated_at\x18\x06 \x01(\tR\tupdatedAt\x12\x19\n" +
-	"\bmd5_hash\x18\a \x01(\tR\amd5Hash\"c\n" +
+	"\bmd5_hash\x18\a \x01(\tR\amd5Hash\x12\x1a\n" +
+	"\blatitude\x18\b \x01(\x01R\blatitude\x12\x1c\n" +
+	"\tlongitude\x18\t \x01(\x01R\tlongitude\x12!\n" +
+	"\fhas_location\x18\n" +
+	" \x01(\bR\vhasLocation\x12\x1d\n" +
+	"\n" +
+	"date_taken\x18\v \x01(\tR\tdateTaken\x12$\n" +
+	"\x0ehas_date_taken\x18\f \x01(\bR\fhasDateTaken\x12\x14\n" +
+	"\x05width\x18\r \x01(\x05R\x05width\x12\x16\n" +
+	"\x06height\x18\x0e \x01(\x05R\x06height\x12%\n" +
+	"\x0ehas_dimensions\x18\x0f \x01(\bR\rhasDimensions\x12+\n" +
+	"\x11original_filename\x18\x10 \x01(\tR\x10originalFilename\"c\n" +
 	"\rUploadRequest\x12\x1b\n" +
 	"\tobject_id\x18\x01 \x01(\tR\bobjectId\x12!\n" +
 	"\fcontent_type\x18\x02 \x01(\tR\vcontentType\x12\x12\n" +

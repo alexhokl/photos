@@ -26,6 +26,21 @@ const Photo$json = {
     {'1': 'created_at', '3': 5, '4': 1, '5': 9, '10': 'createdAt'},
     {'1': 'updated_at', '3': 6, '4': 1, '5': 9, '10': 'updatedAt'},
     {'1': 'md5_hash', '3': 7, '4': 1, '5': 9, '10': 'md5Hash'},
+    {'1': 'latitude', '3': 8, '4': 1, '5': 1, '10': 'latitude'},
+    {'1': 'longitude', '3': 9, '4': 1, '5': 1, '10': 'longitude'},
+    {'1': 'has_location', '3': 10, '4': 1, '5': 8, '10': 'hasLocation'},
+    {'1': 'date_taken', '3': 11, '4': 1, '5': 9, '10': 'dateTaken'},
+    {'1': 'has_date_taken', '3': 12, '4': 1, '5': 8, '10': 'hasDateTaken'},
+    {'1': 'width', '3': 13, '4': 1, '5': 5, '10': 'width'},
+    {'1': 'height', '3': 14, '4': 1, '5': 5, '10': 'height'},
+    {'1': 'has_dimensions', '3': 15, '4': 1, '5': 8, '10': 'hasDimensions'},
+    {
+      '1': 'original_filename',
+      '3': 16,
+      '4': 1,
+      '5': 9,
+      '10': 'originalFilename'
+    },
   ],
 };
 
@@ -34,7 +49,13 @@ final $typed_data.Uint8List photoDescriptor = $convert.base64Decode(
     'CgVQaG90bxIbCglvYmplY3RfaWQYASABKAlSCG9iamVjdElkEhoKCGZpbGVuYW1lGAIgASgJUg'
     'hmaWxlbmFtZRIhCgxjb250ZW50X3R5cGUYAyABKAlSC2NvbnRlbnRUeXBlEh0KCnNpemVfYnl0'
     'ZXMYBCABKANSCXNpemVCeXRlcxIdCgpjcmVhdGVkX2F0GAUgASgJUgljcmVhdGVkQXQSHQoKdX'
-    'BkYXRlZF9hdBgGIAEoCVIJdXBkYXRlZEF0EhkKCG1kNV9oYXNoGAcgASgJUgdtZDVIYXNo');
+    'BkYXRlZF9hdBgGIAEoCVIJdXBkYXRlZEF0EhkKCG1kNV9oYXNoGAcgASgJUgdtZDVIYXNoEhoK'
+    'CGxhdGl0dWRlGAggASgBUghsYXRpdHVkZRIcCglsb25naXR1ZGUYCSABKAFSCWxvbmdpdHVkZR'
+    'IhCgxoYXNfbG9jYXRpb24YCiABKAhSC2hhc0xvY2F0aW9uEh0KCmRhdGVfdGFrZW4YCyABKAlS'
+    'CWRhdGVUYWtlbhIkCg5oYXNfZGF0ZV90YWtlbhgMIAEoCFIMaGFzRGF0ZVRha2VuEhQKBXdpZH'
+    'RoGA0gASgFUgV3aWR0aBIWCgZoZWlnaHQYDiABKAVSBmhlaWdodBIlCg5oYXNfZGltZW5zaW9u'
+    'cxgPIAEoCFINaGFzRGltZW5zaW9ucxIrChFvcmlnaW5hbF9maWxlbmFtZRgQIAEoCVIQb3JpZ2'
+    'luYWxGaWxlbmFtZQ==');
 
 @$core.Deprecated('Use uploadRequestDescriptor instead')
 const UploadRequest$json = {

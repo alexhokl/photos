@@ -111,14 +111,26 @@ func (s *LibraryServer) GetPhoto(ctx context.Context, req *proto.GetPhotoRequest
 		return nil, status.Errorf(codes.Internal, "failed to get photo attributes: %v", err)
 	}
 
+	// Parse stored metadata from GCS object attributes
+	photoMetadata := ParseGCSMetadata(attrs.Metadata)
+
 	photo := &proto.Photo{
-		ObjectId:    photoObject.ObjectID,
-		Filename:    photoObject.ObjectID,
-		ContentType: photoObject.ContentType,
-		SizeBytes:   attrs.Size,
-		Md5Hash:     photoObject.MD5Hash,
-		CreatedAt:   photoObject.CreatedAt.Format(time.RFC3339),
-		UpdatedAt:   photoObject.UpdatedAt.Format(time.RFC3339),
+		ObjectId:         photoObject.ObjectID,
+		Filename:         photoObject.ObjectID,
+		ContentType:      photoObject.ContentType,
+		SizeBytes:        attrs.Size,
+		Md5Hash:          photoObject.MD5Hash,
+		CreatedAt:        photoObject.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:        photoObject.UpdatedAt.Format(time.RFC3339),
+		Latitude:         photoMetadata.Latitude,
+		Longitude:        photoMetadata.Longitude,
+		HasLocation:      photoMetadata.HasLocation,
+		DateTaken:        photoMetadata.FormatDateTaken(),
+		HasDateTaken:     photoMetadata.HasDateTaken,
+		Width:            int32(photoMetadata.Width),
+		Height:           int32(photoMetadata.Height),
+		HasDimensions:    photoMetadata.HasDimensions,
+		OriginalFilename: photoMetadata.OriginalFilename,
 	}
 
 	slog.Info("Retrieved photo metadata",

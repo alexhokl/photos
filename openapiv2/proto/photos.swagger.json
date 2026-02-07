@@ -587,6 +587,41 @@
         },
         "md5Hash": {
           "type": "string"
+        },
+        "latitude": {
+          "type": "number",
+          "format": "double",
+          "title": "Location coordinates (decimal degrees)"
+        },
+        "longitude": {
+          "type": "number",
+          "format": "double"
+        },
+        "hasLocation": {
+          "type": "boolean"
+        },
+        "dateTaken": {
+          "type": "string",
+          "title": "Date the photo was taken (RFC3339 format)"
+        },
+        "hasDateTaken": {
+          "type": "boolean"
+        },
+        "width": {
+          "type": "integer",
+          "format": "int32",
+          "title": "Image dimensions in pixels"
+        },
+        "height": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "hasDimensions": {
+          "type": "boolean"
+        },
+        "originalFilename": {
+          "type": "string",
+          "title": "Original filename before upload"
         }
       },
       "title": "Photo represents a stored photo with metadata"

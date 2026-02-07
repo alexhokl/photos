@@ -5,6 +5,7 @@ go 1.25.5
 require (
 	cloud.google.com/go/storage v1.59.1
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.27.4
+	github.com/rwcarlsen/goexif v0.0.0-20190401172101-9e8deecbddbd
 	golang.org/x/sync v0.19.0
 	google.golang.org/api v0.260.0
 )

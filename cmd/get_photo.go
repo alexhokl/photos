@@ -56,13 +56,25 @@ func runGetPhoto(cmd *cobra.Command, args []string) error {
 
 	photo := resp.GetPhoto()
 	fmt.Printf("Photo Metadata\n")
-	fmt.Printf("  Object ID:    %s\n", photo.GetObjectId())
-	fmt.Printf("  Filename:     %s\n", photo.GetFilename())
-	fmt.Printf("  Content Type: %s\n", photo.GetContentType())
-	fmt.Printf("  Size:         %d bytes\n", photo.GetSizeBytes())
-	fmt.Printf("  MD5 Hash:     %s\n", photo.GetMd5Hash())
-	fmt.Printf("  Created At:   %s\n", photo.GetCreatedAt())
-	fmt.Printf("  Updated At:   %s\n", photo.GetUpdatedAt())
+	fmt.Printf("  Object ID:         %s\n", photo.GetObjectId())
+	fmt.Printf("  Filename:          %s\n", photo.GetFilename())
+	if photo.GetOriginalFilename() != "" {
+		fmt.Printf("  Original Filename: %s\n", photo.GetOriginalFilename())
+	}
+	fmt.Printf("  Content Type:      %s\n", photo.GetContentType())
+	fmt.Printf("  Size:              %d bytes\n", photo.GetSizeBytes())
+	if photo.GetHasDimensions() {
+		fmt.Printf("  Dimensions:        %d x %d pixels\n", photo.GetWidth(), photo.GetHeight())
+	}
+	if photo.GetHasDateTaken() {
+		fmt.Printf("  Date Taken:        %s\n", photo.GetDateTaken())
+	}
+	if photo.GetHasLocation() {
+		fmt.Printf("  Location:          %.6f, %.6f\n", photo.GetLatitude(), photo.GetLongitude())
+	}
+	fmt.Printf("  MD5 Hash:          %s\n", photo.GetMd5Hash())
+	fmt.Printf("  Created At:        %s\n", photo.GetCreatedAt())
+	fmt.Printf("  Updated At:        %s\n", photo.GetUpdatedAt())
 
 	return nil
 }
