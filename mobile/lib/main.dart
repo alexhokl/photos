@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:photo_manager/photo_manager.dart';
+import 'package:photos/widgets/cloud_photo_grid.dart';
 import 'package:photos/widgets/photo_grid.dart';
 import 'package:photos/widgets/photo_viewer.dart';
 import 'package:photos/widgets/settings_page.dart';
@@ -32,17 +33,30 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   int _selectedIndex = 0;
-  int _selectedPhotoCount = 0;
+  int _deviceSelectedCount = 0;
+  int _cloudSelectedCount = 0;
   final GlobalKey<PhotoGridState> _photoGridKey = GlobalKey<PhotoGridState>();
+  final GlobalKey<CloudPhotoGridState> _cloudPhotoGridKey =
+      GlobalKey<CloudPhotoGridState>();
 
-  void _onSelectionChanged(int count) {
+  void _onDeviceSelectionChanged(int count) {
     setState(() {
-      _selectedPhotoCount = count;
+      _deviceSelectedCount = count;
     });
   }
 
-  void _onMenuAction(PhotoGridAction action) {
+  void _onCloudSelectionChanged(int count) {
+    setState(() {
+      _cloudSelectedCount = count;
+    });
+  }
+
+  void _onDeviceMenuAction(PhotoGridAction action) {
     _photoGridKey.currentState?.performAction(action);
+  }
+
+  void _onCloudMenuAction(CloudPhotoGridAction action) {
+    _cloudPhotoGridKey.currentState?.performAction(action);
   }
 
   Future<void> _onPhotoTap(AssetEntity photo) async {
@@ -55,77 +69,120 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  List<Widget> _buildAppBarActions() {
+    if (_selectedIndex == 0) {
+      return [
+        PopupMenuButton<PhotoGridAction>(
+          enabled: _deviceSelectedCount > 0,
+          icon: Icon(
+            Icons.more_vert,
+            color: _deviceSelectedCount > 0
+                ? null
+                : Theme.of(context).disabledColor,
+          ),
+          onSelected: _onDeviceMenuAction,
+          itemBuilder: (context) => [
+            const PopupMenuItem(
+              value: PhotoGridAction.delete,
+              child: ListTile(
+                leading: Icon(Icons.delete),
+                title: Text('Delete'),
+                contentPadding: EdgeInsets.zero,
+              ),
+            ),
+            const PopupMenuItem(
+              value: PhotoGridAction.upload,
+              child: ListTile(
+                leading: Icon(Icons.cloud_upload),
+                title: Text('Upload'),
+                contentPadding: EdgeInsets.zero,
+              ),
+            ),
+          ],
+        ),
+      ];
+    } else if (_selectedIndex == 1) {
+      return [
+        PopupMenuButton<CloudPhotoGridAction>(
+          enabled: _cloudSelectedCount > 0,
+          icon: Icon(
+            Icons.more_vert,
+            color: _cloudSelectedCount > 0
+                ? null
+                : Theme.of(context).disabledColor,
+          ),
+          onSelected: _onCloudMenuAction,
+          itemBuilder: (context) => [
+            const PopupMenuItem(
+              value: CloudPhotoGridAction.delete,
+              child: ListTile(
+                leading: Icon(Icons.delete),
+                title: Text('Delete'),
+                contentPadding: EdgeInsets.zero,
+              ),
+            ),
+            const PopupMenuItem(
+              value: CloudPhotoGridAction.copy,
+              child: ListTile(
+                leading: Icon(Icons.copy),
+                title: Text('Copy to...'),
+                contentPadding: EdgeInsets.zero,
+              ),
+            ),
+            const PopupMenuItem(
+              value: CloudPhotoGridAction.move,
+              child: ListTile(
+                leading: Icon(Icons.drive_file_move),
+                title: Text('Move to...'),
+                contentPadding: EdgeInsets.zero,
+              ),
+            ),
+          ],
+        ),
+      ];
+    }
+    return [];
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         title: Text(widget.title),
-        actions: [
-          PopupMenuButton<PhotoGridAction>(
-            enabled: _selectedPhotoCount > 0,
-            icon: Icon(
-              Icons.more_vert,
-              color: _selectedPhotoCount > 0
-                  ? null
-                  : Theme.of(context).disabledColor,
-            ),
-            onSelected: _onMenuAction,
-            itemBuilder: (context) => [
-              const PopupMenuItem(
-                value: PhotoGridAction.delete,
-                child: ListTile(
-                  leading: Icon(Icons.delete),
-                  title: Text('Delete'),
-                  contentPadding: EdgeInsets.zero,
-                ),
-              ),
-              const PopupMenuItem(
-                value: PhotoGridAction.upload,
-                child: ListTile(
-                  leading: Icon(Icons.cloud_upload),
-                  title: Text('Upload'),
-                  contentPadding: EdgeInsets.zero,
-                ),
-              ),
-            ],
-          ),
-        ],
+        actions: _buildAppBarActions(),
       ),
       body: _selectedIndex == 0
           ? PhotoGrid(
               key: _photoGridKey,
-              onSelectionChanged: _onSelectionChanged,
+              onSelectionChanged: _onDeviceSelectionChanged,
               onPhotoTap: _onPhotoTap,
             )
-          : _selectedIndex == 2
-          ? const SettingsPage()
-          : const SizedBox(),
+          : _selectedIndex == 1
+          ? CloudPhotoGrid(
+              key: _cloudPhotoGridKey,
+              onSelectionChanged: _onCloudSelectionChanged,
+            )
+          : const SettingsPage(),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _selectedIndex,
         onDestinationSelected: (int index) {
-          if (index == 0 || index == 2) {
-            setState(() {
-              _selectedIndex = index;
-            });
-          }
+          setState(() {
+            _selectedIndex = index;
+          });
         },
-        destinations: [
-          const NavigationDestination(
+        destinations: const [
+          NavigationDestination(
             icon: Icon(Icons.phone_android),
             selectedIcon: Icon(Icons.phone_android),
             label: 'Device',
           ),
           NavigationDestination(
-            icon: Icon(
-              Icons.cloud_outlined,
-              color: Theme.of(context).disabledColor,
-            ),
-            selectedIcon: const Icon(Icons.cloud),
+            icon: Icon(Icons.cloud_outlined),
+            selectedIcon: Icon(Icons.cloud),
             label: 'Cloud',
-            enabled: false,
           ),
-          const NavigationDestination(
+          NavigationDestination(
             icon: Icon(Icons.settings_outlined),
             selectedIcon: Icon(Icons.settings),
             label: 'Settings',

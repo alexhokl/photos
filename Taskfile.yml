@@ -1,4 +1,3 @@
----
 version: "3"
 
 env:
@@ -17,7 +16,7 @@ tasks:
   test:
     desc: Test
     cmds:
-      # - go test ./...
+      - go test ./...
       - cd mobile && flutter test --no-pub --coverage
 
   coverage:

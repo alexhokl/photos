@@ -1,5 +1,22 @@
+import 'package:fixnum/fixnum.dart';
 import 'package:grpc/grpc.dart';
 import 'package:photos/proto/photos.pbgrpc.dart';
+
+/// Result of a paginated photo listing
+class ListPhotosResult {
+  final List<Photo> photos;
+  final String? nextPageToken;
+
+  ListPhotosResult({required this.photos, this.nextPageToken});
+}
+
+/// Result of a signed URL generation
+class SignedUrlResult {
+  final String signedUrl;
+  final String expiresAt;
+
+  SignedUrlResult({required this.signedUrl, required this.expiresAt});
+}
 
 /// Service for interacting with the photo library via gRPC
 class LibraryService {
@@ -63,6 +80,110 @@ class LibraryService {
     try {
       final response = await _client!.listDirectories(request);
       return response.prefixes.toList();
+    } on GrpcError catch (e) {
+      throw LibraryException('gRPC error: ${e.message}', grpcError: e);
+    }
+  }
+
+  /// List photos with optional prefix filtering and pagination
+  /// Returns a [ListPhotosResult] with photos and an optional next page token
+  Future<ListPhotosResult> listPhotos({
+    String prefix = '',
+    int pageSize = 50,
+    String? pageToken,
+  }) async {
+    _ensureInitialized();
+
+    final request = ListPhotosRequest(prefix: prefix, pageSize: pageSize);
+    if (pageToken != null && pageToken.isNotEmpty) {
+      request.pageToken = pageToken;
+    }
+
+    try {
+      final response = await _client!.listPhotos(request);
+      return ListPhotosResult(
+        photos: response.photos.toList(),
+        nextPageToken: response.nextPageToken.isEmpty
+            ? null
+            : response.nextPageToken,
+      );
+    } on GrpcError catch (e) {
+      throw LibraryException('gRPC error: ${e.message}', grpcError: e);
+    }
+  }
+
+  /// Get photo metadata by object ID
+  Future<Photo> getPhoto(String objectId) async {
+    _ensureInitialized();
+
+    final request = GetPhotoRequest(objectId: objectId);
+
+    try {
+      final response = await _client!.getPhoto(request);
+      return response.photo;
+    } on GrpcError catch (e) {
+      throw LibraryException('gRPC error: ${e.message}', grpcError: e);
+    }
+  }
+
+  /// Delete a photo from cloud storage by object ID
+  /// Returns true if the deletion was successful
+  Future<bool> deletePhoto(String objectId) async {
+    _ensureInitialized();
+
+    final request = DeletePhotoRequest(objectId: objectId);
+
+    try {
+      final response = await _client!.deletePhoto(request);
+      return response.success;
+    } on GrpcError catch (e) {
+      throw LibraryException('gRPC error: ${e.message}', grpcError: e);
+    }
+  }
+
+  /// Generate a time-limited signed URL for accessing a photo
+  /// [expirationSeconds] defaults to 3600 (1 hour), max 604800 (7 days)
+  /// [method] defaults to "GET"
+  Future<SignedUrlResult> generateSignedUrl(
+    String objectId, {
+    int expirationSeconds = 3600,
+    String method = 'GET',
+  }) async {
+    _ensureInitialized();
+
+    final request = GenerateSignedUrlRequest(
+      objectId: objectId,
+      expirationSeconds: Int64(expirationSeconds),
+      method: method,
+    );
+
+    try {
+      final response = await _client!.generateSignedUrl(request);
+      return SignedUrlResult(
+        signedUrl: response.signedUrl,
+        expiresAt: response.expiresAt,
+      );
+    } on GrpcError catch (e) {
+      throw LibraryException('gRPC error: ${e.message}', grpcError: e);
+    }
+  }
+
+  /// Copy a photo to a new location within the cloud storage bucket
+  /// Returns the copied photo metadata
+  Future<Photo> copyPhoto(
+    String sourceObjectId,
+    String destinationObjectId,
+  ) async {
+    _ensureInitialized();
+
+    final request = CopyPhotoRequest(
+      sourceObjectId: sourceObjectId,
+      destinationObjectId: destinationObjectId,
+    );
+
+    try {
+      final response = await _client!.copyPhoto(request);
+      return response.photo;
     } on GrpcError catch (e) {
       throw LibraryException('gRPC error: ${e.message}', grpcError: e);
     }

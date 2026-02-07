@@ -1,4 +1,3 @@
-import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -61,12 +60,12 @@ void main() {
       expect(find.byType(NavigationBar), findsOneWidget);
     });
 
-    testWidgets('bottom navigation has two destinations', (tester) async {
+    testWidgets('bottom navigation has three destinations', (tester) async {
       await tester.pumpWidget(
         const MaterialApp(home: HomePage(title: 'Photos')),
       );
 
-      expect(find.byType(NavigationDestination), findsNWidgets(2));
+      expect(find.byType(NavigationDestination), findsNWidgets(3));
     });
 
     testWidgets('bottom navigation shows Device label', (tester) async {
@@ -165,7 +164,7 @@ void main() {
       expect(navigationBar.selectedIndex, equals(0));
     });
 
-    testWidgets('Cloud destination is visually disabled', (tester) async {
+    testWidgets('Cloud destination is enabled', (tester) async {
       await tester.pumpWidget(
         MaterialApp(
           theme: ThemeData(
@@ -180,7 +179,7 @@ void main() {
         find.byType(NavigationDestination),
       );
       final cloudDestination = destinations.elementAt(1);
-      expect(cloudDestination.enabled, isFalse);
+      expect(cloudDestination.enabled, isTrue);
       expect(cloudDestination.label, equals('Cloud'));
     });
   });
