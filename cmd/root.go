@@ -23,8 +23,12 @@ var rootCmd = &cobra.Command{
 	Use:          AppName,
 	Short:        "A CLI application manages running server and client of photos",
 	SilenceUsage: true,
-	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		bindEnvironmentVariablesToRootOptions(&rootOpts)
+		if rootOpts.serviceURI == "" {
+			return fmt.Errorf("required flag \"service\" not set (use --service flag, PHOTOS_SERVICE env var, or set \"service\" in config file)")
+		}
+		return nil
 	},
 }
 
@@ -45,7 +49,9 @@ func init() {
 	flags := rootCmd.Flags()
 	flags.BoolP("toggle", "t", false, "Help message for toggle")
 
-	_ = rootCmd.MarkFlagRequired("service")
+	_ = viper.BindPFlag("service", persistentFlags.Lookup("service"))
+	_ = viper.BindPFlag("insecure", persistentFlags.Lookup("insecure"))
+	_ = viper.BindPFlag("config", persistentFlags.Lookup("config"))
 }
 
 func initConfig() {

@@ -51,7 +51,7 @@ var serveCmd = &cobra.Command{
 	Short: "Starts a server of photos",
 	RunE:  runServe,
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
-		bindEnvironmentVariablesToServeOptions(&serveOpts)
+		bindEnvironmentVariablesToServeOptions(cmd, &serveOpts)
 	},
 }
 
@@ -71,13 +71,23 @@ func init() {
 	flags.StringVar(&serveOpts.GCSCredentials, "gcs-credentials", "", "Path to GCS service account credentials JSON file (optional, uses ADC if not set)")
 	flags.StringVar(&serveOpts.GCSPrefix, "gcs-prefix", "", "Object prefix/folder path within the bucket (optional)")
 
-	_ = serveCmd.MarkFlagRequired("database")
-	_ = serveCmd.MarkFlagRequired("gcs-bucket")
+	_ = viper.BindPFlag("port", flags.Lookup("port"))
+	_ = viper.BindPFlag("proxy_port", flags.Lookup("proxy-port"))
+	_ = viper.BindPFlag("database", flags.Lookup("database"))
+	_ = viper.BindPFlag("hostname", flags.Lookup("hostname"))
+	_ = viper.BindPFlag("ts_auth_key", flags.Lookup("ts-auth-key"))
+	_ = viper.BindPFlag("ts_state_dir", flags.Lookup("ts-state-dir"))
+	_ = viper.BindPFlag("gcs_bucket", flags.Lookup("gcs-bucket"))
+	_ = viper.BindPFlag("gcs_project", flags.Lookup("gcs-project"))
+	_ = viper.BindPFlag("gcs_credentials", flags.Lookup("gcs-credentials"))
+	_ = viper.BindPFlag("gcs_prefix", flags.Lookup("gcs-prefix"))
 }
 
-func bindEnvironmentVariablesToServeOptions(opts *serveOptions) {
-	if opts.TailscaleStateDirectory == "" {
-		opts.TailscaleStateDirectory = viper.GetString("ts_state_dir")
+func bindEnvironmentVariablesToServeOptions(cmd *cobra.Command, opts *serveOptions) {
+	if !cmd.Flags().Changed("ts-state-dir") {
+		if v := viper.GetString("ts_state_dir"); v != "" {
+			opts.TailscaleStateDirectory = v
+		}
 	}
 	if opts.TailscaleAuthKey == "" {
 		opts.TailscaleAuthKey = viper.GetString("ts_auth_key")
@@ -88,11 +98,15 @@ func bindEnvironmentVariablesToServeOptions(opts *serveOptions) {
 	if opts.DatebaseFilePath == "" {
 		opts.DatebaseFilePath = viper.GetString("database")
 	}
-	if opts.Port == 0 {
-		opts.Port = viper.GetInt("port")
+	if !cmd.Flags().Changed("port") {
+		if v := viper.GetInt("port"); v != 0 {
+			opts.Port = v
+		}
 	}
-	if opts.ProxyPort == 0 {
-		opts.ProxyPort = viper.GetInt("proxy_port")
+	if !cmd.Flags().Changed("proxy-port") {
+		if v := viper.GetInt("proxy_port"); v != 0 {
+			opts.ProxyPort = v
+		}
 	}
 	if opts.GCSBucket == "" {
 		opts.GCSBucket = viper.GetString("gcs_bucket")
