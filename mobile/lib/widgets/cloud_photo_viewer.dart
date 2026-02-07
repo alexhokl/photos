@@ -7,7 +7,7 @@ import 'package:photos/services/library_service.dart';
 import 'package:photos/widgets/cloud_photo_info_view.dart';
 import 'package:photos/widgets/settings_page.dart';
 
-enum CloudPhotoViewerAction { info, delete, download, copy, move }
+enum CloudPhotoViewerAction { info, delete, download, copy, move, rename }
 
 class CloudPhotoViewer extends StatefulWidget {
   final Photo photo;
@@ -203,6 +203,86 @@ class _CloudPhotoViewerState extends State<CloudPhotoViewer> {
     }
   }
 
+  Future<void> _renamePhoto() async {
+    final objectId = widget.photo.objectId;
+    final currentFilename = objectId.split('/').last;
+
+    // Extract base name without extension
+    final lastDot = currentFilename.lastIndexOf('.');
+    final baseName = lastDot != -1
+        ? currentFilename.substring(0, lastDot)
+        : currentFilename;
+    final extension = lastDot != -1 ? currentFilename.substring(lastDot) : '';
+
+    final controller = TextEditingController(text: baseName);
+
+    final newName = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Rename Photo'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(
+            labelText: 'File name',
+            hintText: 'Enter new file name',
+          ),
+          onSubmitted: (value) => Navigator.pop(dialogContext, value),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, controller.text),
+            child: const Text('Rename'),
+          ),
+        ],
+      ),
+    );
+
+    if (newName == null || newName.isEmpty || newName == baseName) {
+      return;
+    }
+
+    final newFilename = '$newName$extension';
+
+    // Build the new object ID by replacing only the filename part
+    final parts = objectId.split('/');
+    parts[parts.length - 1] = newFilename;
+    final newObjectId = parts.join('/');
+
+    LibraryService? libraryService;
+    try {
+      final config = await BackendConfig.load();
+      libraryService = LibraryService(host: config.host, port: config.port);
+      await libraryService.renamePhoto(objectId, newObjectId);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Renamed to $newFilename'),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+        Navigator.pop(context, true);
+      }
+    } on LibraryException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Rename failed: ${e.message}'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    } finally {
+      await libraryService?.dispose();
+    }
+  }
+
   void _onMenuAction(CloudPhotoViewerAction action) {
     switch (action) {
       case CloudPhotoViewerAction.info:
@@ -224,6 +304,9 @@ class _CloudPhotoViewerState extends State<CloudPhotoViewer> {
         break;
       case CloudPhotoViewerAction.move:
         _copyOrMovePhoto(move: true);
+        break;
+      case CloudPhotoViewerAction.rename:
+        _renamePhoto();
         break;
     }
   }
@@ -249,6 +332,14 @@ class _CloudPhotoViewerState extends State<CloudPhotoViewer> {
                 child: ListTile(
                   leading: Icon(Icons.info_outline),
                   title: Text('Info'),
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+              const PopupMenuItem(
+                value: CloudPhotoViewerAction.rename,
+                child: ListTile(
+                  leading: Icon(Icons.edit),
+                  title: Text('Rename'),
                   contentPadding: EdgeInsets.zero,
                 ),
               ),

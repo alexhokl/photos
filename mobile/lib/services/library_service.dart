@@ -189,6 +189,15 @@ class LibraryService {
     }
   }
 
+  /// Rename a photo by copying it to a new object ID and deleting the original.
+  /// The [newObjectId] is the full destination path including directory prefix.
+  /// Returns the renamed photo metadata.
+  Future<Photo> renamePhoto(String sourceObjectId, String newObjectId) async {
+    final photo = await copyPhoto(sourceObjectId, newObjectId);
+    await deletePhoto(sourceObjectId);
+    return photo;
+  }
+
   /// Close the gRPC channel
   Future<void> dispose() async {
     await _channel?.shutdown();

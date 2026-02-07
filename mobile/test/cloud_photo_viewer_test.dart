@@ -40,8 +40,15 @@ void main() {
       );
     });
 
-    test('has exactly 5 values', () {
-      expect(CloudPhotoViewerAction.values.length, equals(5));
+    test('has rename value', () {
+      expect(
+        CloudPhotoViewerAction.values,
+        contains(CloudPhotoViewerAction.rename),
+      );
+    });
+
+    test('has exactly 6 values', () {
+      expect(CloudPhotoViewerAction.values.length, equals(6));
     });
 
     test('info has index 0', () {
@@ -62,6 +69,10 @@ void main() {
 
     test('move has index 4', () {
       expect(CloudPhotoViewerAction.move.index, equals(4));
+    });
+
+    test('rename has index 5', () {
+      expect(CloudPhotoViewerAction.rename.index, equals(5));
     });
   });
 
@@ -132,7 +143,7 @@ void main() {
   });
 
   group('CloudPhotoViewer context menu', () {
-    testWidgets('context menu contains all five options', (tester) async {
+    testWidgets('context menu contains all six options', (tester) async {
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
@@ -146,6 +157,14 @@ void main() {
                       child: ListTile(
                         leading: Icon(Icons.info_outline),
                         title: Text('Info'),
+                        contentPadding: EdgeInsets.zero,
+                      ),
+                    ),
+                    PopupMenuItem(
+                      value: CloudPhotoViewerAction.rename,
+                      child: ListTile(
+                        leading: Icon(Icons.edit),
+                        title: Text('Rename'),
                         contentPadding: EdgeInsets.zero,
                       ),
                     ),
@@ -194,11 +213,13 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Info'), findsOneWidget);
+      expect(find.text('Rename'), findsOneWidget);
       expect(find.text('Save to Device'), findsOneWidget);
       expect(find.text('Copy to...'), findsOneWidget);
       expect(find.text('Move to...'), findsOneWidget);
       expect(find.text('Delete'), findsOneWidget);
       expect(find.byIcon(Icons.info_outline), findsOneWidget);
+      expect(find.byIcon(Icons.edit), findsOneWidget);
       expect(find.byIcon(Icons.download), findsOneWidget);
       expect(find.byIcon(Icons.copy), findsOneWidget);
       expect(find.byIcon(Icons.drive_file_move_outlined), findsOneWidget);
@@ -378,6 +399,41 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(selectedAction, equals(CloudPhotoViewerAction.move));
+    });
+
+    testWidgets('Rename menu item triggers correct action', (tester) async {
+      CloudPhotoViewerAction? selectedAction;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            appBar: AppBar(
+              actions: [
+                PopupMenuButton<CloudPhotoViewerAction>(
+                  onSelected: (action) {
+                    selectedAction = action;
+                  },
+                  itemBuilder: (context) => const [
+                    PopupMenuItem(
+                      value: CloudPhotoViewerAction.rename,
+                      child: Text('Rename'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            body: const Center(child: Text('Test')),
+          ),
+        ),
+      );
+
+      await tester.tap(find.byType(PopupMenuButton<CloudPhotoViewerAction>));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Rename'));
+      await tester.pumpAndSettle();
+
+      expect(selectedAction, equals(CloudPhotoViewerAction.rename));
     });
 
     testWidgets('context menu has more_vert icon', (tester) async {
