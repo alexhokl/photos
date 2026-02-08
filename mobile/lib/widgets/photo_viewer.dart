@@ -122,13 +122,15 @@ class _PhotoViewerState extends State<PhotoViewer> {
   }
 
   Future<void> _deletePhoto() async {
-    final result = await PhotoManager.editor.deleteWithIds([_currentAsset.id]);
+    final deletedId = _currentAsset.id;
+    final result = await PhotoManager.editor.deleteWithIds([deletedId]);
     if (result.isNotEmpty && mounted) {
-      Navigator.pop(context, true);
+      Navigator.pop(context, deletedId);
     }
   }
 
   Future<void> _renamePhoto() async {
+    final renamedId = _currentAsset.id;
     final currentTitle = _currentAsset.title ?? '';
     // Extract base name without extension
     final lastDot = currentTitle.lastIndexOf('.');
@@ -190,7 +192,7 @@ class _PhotoViewerState extends State<PhotoViewer> {
       await PhotoManager.editor.saveImage(imageBytes, filename: newFileName);
 
       // Delete the original file
-      await PhotoManager.editor.deleteWithIds([_currentAsset.id]);
+      await PhotoManager.editor.deleteWithIds([renamedId]);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -199,7 +201,7 @@ class _PhotoViewerState extends State<PhotoViewer> {
             duration: const Duration(seconds: 2),
           ),
         );
-        Navigator.pop(context, true);
+        Navigator.pop(context, renamedId);
       }
     } catch (e) {
       if (mounted) {

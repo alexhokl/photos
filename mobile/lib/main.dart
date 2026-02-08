@@ -63,15 +63,15 @@ class _HomePageState extends State<HomePage> {
     final gridState = _photoGridKey.currentState;
     if (gridState == null) return;
 
-    final deleted = await Navigator.push<bool>(
+    final deletedPhotoId = await Navigator.push<String>(
       context,
       MaterialPageRoute(
         builder: (context) =>
             PhotoViewer(assets: gridState.photos, initialIndex: index),
       ),
     );
-    if (deleted == true) {
-      _photoGridKey.currentState?.removePhoto(photo.id);
+    if (deletedPhotoId != null) {
+      _photoGridKey.currentState?.removePhoto(deletedPhotoId);
     }
   }
 
