@@ -1,0 +1,23 @@
+logsBucket: "gs://craffy-build-logs"
+
+options:
+  machineType: E2_MEDIUM # 1 vCPU
+  # logging: CLOUD_LOGGING_ONLY
+  logging: GCS_ONLY
+
+timeout: "1200s" # 20 minutes
+
+steps:
+  - name: "gcr.io/cloud-builders/docker"
+    id: Build
+    args:
+      - "build"
+      - "-t"
+      - "asia-east1-docker.pkg.dev/$PROJECT_ID/private/photos:$TAG_NAME"
+      - "."
+
+  - name: "gcr.io/cloud-builders/docker"
+    id: Push to Container registry
+    args:
+      - "push"
+      - "asia-east1-docker.pkg.dev/$PROJECT_ID/private/photos:$TAG_NAME"
