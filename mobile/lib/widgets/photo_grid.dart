@@ -251,9 +251,10 @@ class PhotoGridState extends State<PhotoGrid> {
           photos: selectedPhotos,
           uploadService: uploadService,
           directoryPrefix: config.defaultDirectory,
+          deleteAfterUpload: config.deleteAfterUpload,
           onComplete: (results) {
             Navigator.pop(dialogContext);
-            _showUploadResults(results);
+            _showUploadResults(results, config.deleteAfterUpload);
           },
         ),
       );
@@ -262,25 +263,42 @@ class PhotoGridState extends State<PhotoGrid> {
     }
   }
 
-  void _showUploadResults(List<UploadResult> results) {
+  void _showUploadResults(List<UploadResult> results, bool deleteAfterUpload) {
     final successCount = results.where((r) => r.success).length;
     final failureCount = results.length - successCount;
 
     if (!mounted) return;
 
+    String message;
+    if (failureCount == 0) {
+      if (deleteAfterUpload) {
+        message =
+            'Successfully uploaded and deleted $successCount photo${successCount == 1 ? '' : 's'}';
+      } else {
+        message =
+            'Successfully uploaded $successCount photo${successCount == 1 ? '' : 's'}';
+      }
+    } else {
+      message = 'Uploaded $successCount, failed $failureCount';
+    }
+
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          failureCount == 0
-              ? 'Successfully uploaded $successCount photo${successCount == 1 ? '' : 's'}'
-              : 'Uploaded $successCount, failed $failureCount',
-        ),
-        duration: const Duration(seconds: 3),
-      ),
+      SnackBar(content: Text(message), duration: const Duration(seconds: 3)),
     );
 
     // Clear selection after upload
     _clearSelection();
+
+    // Remove successfully uploaded photos from the grid if they were deleted
+    if (deleteAfterUpload) {
+      setState(() {
+        final deletedIds = results
+            .where((r) => r.success)
+            .map((r) => r.asset.id)
+            .toSet();
+        _photos.removeWhere((p) => deletedIds.contains(p.id));
+      });
+    }
   }
 
   @override
@@ -432,6 +450,7 @@ class _UploadProgressDialog extends StatefulWidget {
   final List<AssetEntity> photos;
   final UploadService uploadService;
   final String? directoryPrefix;
+  final bool deleteAfterUpload;
   final void Function(List<UploadResult> results) onComplete;
 
   const _UploadProgressDialog({
@@ -439,6 +458,7 @@ class _UploadProgressDialog extends StatefulWidget {
     required this.uploadService,
     required this.onComplete,
     this.directoryPrefix,
+    this.deleteAfterUpload = false,
   });
 
   @override
@@ -472,6 +492,18 @@ class _UploadProgressDialogState extends State<_UploadProgressDialog> {
         }
       },
     );
+
+    // Delete successfully uploaded photos if setting is enabled
+    if (widget.deleteAfterUpload) {
+      final successfulIds = results
+          .where((r) => r.success)
+          .map((r) => r.asset.id)
+          .toList();
+      if (successfulIds.isNotEmpty) {
+        await PhotoManager.editor.deleteWithIds(successfulIds);
+      }
+    }
+
     widget.onComplete(results);
   }
 

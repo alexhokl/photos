@@ -7,16 +7,22 @@ class BackendConfig {
   final String host;
   final int port;
   final String defaultDirectory;
+  final bool deleteAfterUpload;
 
   const BackendConfig({
     required this.host,
     required this.port,
     this.defaultDirectory = '',
+    this.deleteAfterUpload = false,
   });
 
   /// Parse a URL string into host and port
   /// Defaults to port 443 for https, 80 for http if not specified
-  factory BackendConfig.fromUrl(String url, {String defaultDirectory = ''}) {
+  factory BackendConfig.fromUrl(
+    String url, {
+    String defaultDirectory = '',
+    bool deleteAfterUpload = false,
+  }) {
     final uri = Uri.parse(url);
     final host = uri.host;
     int port;
@@ -32,6 +38,7 @@ class BackendConfig {
       host: host,
       port: port,
       defaultDirectory: defaultDirectory,
+      deleteAfterUpload: deleteAfterUpload,
     );
   }
 
@@ -43,7 +50,13 @@ class BackendConfig {
         SettingsPage.defaultBackendUrl;
     final defaultDir =
         await prefs.getString(SettingsPage.defaultDirectoryKey) ?? '';
-    return BackendConfig.fromUrl(url, defaultDirectory: defaultDir);
+    final deleteAfterUpload =
+        await prefs.getBool(SettingsPage.deleteAfterUploadKey) ?? false;
+    return BackendConfig.fromUrl(
+      url,
+      defaultDirectory: defaultDir,
+      deleteAfterUpload: deleteAfterUpload,
+    );
   }
 }
 
@@ -55,6 +68,7 @@ class SettingsPage extends StatefulWidget {
   static const String backendUrlKey = 'backend_url';
   static const String defaultBackendUrl = 'https://photos.a-b.ts.net';
   static const String defaultDirectoryKey = 'default_directory';
+  static const String deleteAfterUploadKey = 'delete_after_upload';
 
   @override
   State<SettingsPage> createState() => _SettingsPageState();
@@ -69,6 +83,7 @@ class _SettingsPageState extends State<SettingsPage> {
   bool _isLoadingDirectories = false;
   String? _directoryError;
   bool _hasInitiallyLoaded = false;
+  bool _deleteAfterUpload = false;
 
   @override
   void initState() {
@@ -94,9 +109,13 @@ class _SettingsPageState extends State<SettingsPage> {
     final savedDirectory = await _prefs.getString(
       SettingsPage.defaultDirectoryKey,
     );
+    final deleteAfterUpload = await _prefs.getBool(
+      SettingsPage.deleteAfterUploadKey,
+    );
     setState(() {
       _backendUrlController.text = savedUrl ?? SettingsPage.defaultBackendUrl;
       _directoryController.text = savedDirectory ?? '';
+      _deleteAfterUpload = deleteAfterUpload ?? false;
       _isLoading = false;
     });
     // Load directory suggestions after preferences are loaded
@@ -111,6 +130,10 @@ class _SettingsPageState extends State<SettingsPage> {
 
   Future<void> _saveDefaultDirectory(String directory) async {
     await _prefs.setString(SettingsPage.defaultDirectoryKey, directory);
+  }
+
+  Future<void> _saveDeleteAfterUpload(bool value) async {
+    await _prefs.setBool(SettingsPage.deleteAfterUploadKey, value);
   }
 
   Future<void> _loadDirectorySuggestions() async {
@@ -275,6 +298,21 @@ class _SettingsPageState extends State<SettingsPage> {
                     ),
                   );
                 },
+          ),
+          const SizedBox(height: 16),
+          SwitchListTile(
+            title: const Text('Delete after upload'),
+            subtitle: const Text(
+              'Automatically delete photos from device after successful upload',
+            ),
+            value: _deleteAfterUpload,
+            onChanged: (value) {
+              setState(() {
+                _deleteAfterUpload = value;
+              });
+              _saveDeleteAfterUpload(value);
+            },
+            contentPadding: EdgeInsets.zero,
           ),
         ],
       ),

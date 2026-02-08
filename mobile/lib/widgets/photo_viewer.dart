@@ -219,6 +219,7 @@ class _PhotoViewerState extends State<PhotoViewer> {
   Future<void> _uploadPhoto() async {
     final config = await BackendConfig.load();
     final uploadService = UploadService(host: config.host, port: config.port);
+    final uploadedAssetId = _currentAsset.id;
 
     try {
       // Show uploading indicator
@@ -245,15 +246,26 @@ class _PhotoViewerState extends State<PhotoViewer> {
         directoryPrefix: config.defaultDirectory,
       );
 
+      // Delete from device if setting is enabled
+      if (config.deleteAfterUpload) {
+        await PhotoManager.editor.deleteWithIds([uploadedAssetId]);
+      }
+
       if (!mounted) return;
       Navigator.pop(context); // Close progress dialog
 
+      final message = config.deleteAfterUpload
+          ? 'Uploaded and deleted: ${response.photo.objectId}'
+          : 'Uploaded: ${response.photo.objectId}';
+
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Uploaded: ${response.photo.objectId}'),
-          duration: const Duration(seconds: 2),
-        ),
+        SnackBar(content: Text(message), duration: const Duration(seconds: 2)),
       );
+
+      // Navigate back if photo was deleted
+      if (config.deleteAfterUpload && mounted) {
+        Navigator.pop(context, uploadedAssetId);
+      }
     } on UploadException catch (e) {
       if (!mounted) return;
       Navigator.pop(context); // Close progress dialog
