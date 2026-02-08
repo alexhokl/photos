@@ -43,6 +43,12 @@ class CloudPhotoGridState extends State<CloudPhotoGrid> {
   bool get isSelectionMode => _isSelectionMode;
   int get selectedCount => _selectedObjectIds.length;
 
+  /// Returns an unmodifiable view of the current photos list.
+  List<Photo> get photos => List.unmodifiable(_photos);
+
+  /// Returns an unmodifiable view of the signed URL cache.
+  Map<String, String> get signedUrls => Map.unmodifiable(_signedUrlCache);
+
   @override
   void initState() {
     super.initState();
@@ -492,15 +498,18 @@ class CloudPhotoGridState extends State<CloudPhotoGrid> {
     );
   }
 
-  Future<void> _onPhotoTap(Photo photo) async {
+  Future<void> _onPhotoTap(Photo photo, int index) async {
     final signedUrl = _signedUrlCache[photo.objectId];
     if (signedUrl == null) return;
 
     final deleted = await Navigator.push<bool>(
       context,
       MaterialPageRoute(
-        builder: (context) =>
-            CloudPhotoViewer(photo: photo, signedUrl: signedUrl),
+        builder: (context) => CloudPhotoViewer(
+          photos: _photos,
+          signedUrls: _signedUrlCache,
+          initialIndex: index,
+        ),
       ),
     );
 
@@ -595,7 +604,7 @@ class CloudPhotoGridState extends State<CloudPhotoGrid> {
                       if (_isSelectionMode) {
                         _toggleSelection(photo);
                       } else {
-                        _onPhotoTap(photo);
+                        _onPhotoTap(photo, index);
                       }
                     },
                     onLongPress: () => _enterSelectionMode(photo),

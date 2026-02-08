@@ -7,7 +7,7 @@ import 'package:photos/widgets/settings_page.dart';
 
 class PhotoGrid extends StatefulWidget {
   final void Function(int selectedCount)? onSelectionChanged;
-  final void Function(AssetEntity photo)? onPhotoTap;
+  final void Function(AssetEntity photo, int index)? onPhotoTap;
 
   const PhotoGrid({super.key, this.onSelectionChanged, this.onPhotoTap});
 
@@ -34,6 +34,9 @@ class PhotoGridState extends State<PhotoGrid> {
   final ScrollController _scrollController = ScrollController();
 
   bool get isSelectionMode => _isSelectionMode;
+
+  /// Returns an unmodifiable view of the current photos list.
+  List<AssetEntity> get photos => List.unmodifiable(_photos);
 
   @override
   void initState() {
@@ -355,7 +358,7 @@ class PhotoGridState extends State<PhotoGrid> {
             if (_isSelectionMode) {
               _toggleSelection(photo);
             } else {
-              widget.onPhotoTap?.call(photo);
+              widget.onPhotoTap?.call(photo, index);
             }
           },
           onLongPress: () => _enterSelectionMode(photo),

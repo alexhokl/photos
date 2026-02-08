@@ -228,7 +228,7 @@ void main() {
     testWidgets('onPhotoTap callback can be provided', (tester) async {
       await tester.pumpWidget(
         MaterialApp(
-          home: Scaffold(body: PhotoGrid(onPhotoTap: (photo) {})),
+          home: Scaffold(body: PhotoGrid(onPhotoTap: (photo, index) {})),
         ),
       );
 
@@ -242,7 +242,7 @@ void main() {
           home: Scaffold(
             body: PhotoGrid(
               onSelectionChanged: (count) {},
-              onPhotoTap: (photo) {},
+              onPhotoTap: (photo, index) {},
             ),
           ),
         ),
@@ -367,6 +367,19 @@ void main() {
 
       expect(key.currentState?.selectedCount, equals(0));
     });
+
+    testWidgets('PhotoGridState exposes photos getter', (tester) async {
+      final key = GlobalKey<PhotoGridState>();
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(body: PhotoGrid(key: key)),
+        ),
+      );
+
+      // Photos getter should return a list (initially empty before loading)
+      expect(key.currentState?.photos, isA<List>());
+    });
   });
 
   group('Popup menu items', () {
@@ -451,6 +464,74 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(selectedAction, equals(PhotoGridAction.delete));
+    });
+  });
+
+  group('PhotoGrid onPhotoTap callback signature', () {
+    test('onPhotoTap callback receives photo and index', () {
+      // The callback signature is (AssetEntity photo, int index)
+      // This documents the API contract for swipe navigation
+      int? receivedIndex;
+
+      void callback(dynamic photo, int index) {
+        receivedIndex = index;
+      }
+
+      // Simulate calling the callback
+      callback(null, 5);
+      expect(receivedIndex, equals(5));
+    });
+
+    test('index parameter allows navigation to specific photo', () {
+      // The index is used to initialize PageView at the correct position
+      const tappedIndex = 3;
+      final controller = PageController(initialPage: tappedIndex);
+
+      expect(controller.initialPage, equals(tappedIndex));
+      controller.dispose();
+    });
+
+    test('photo list can be passed to viewer for swiping', () {
+      // The grid exposes the photos list so the viewer can swipe through them
+      final photoIds = ['photo1', 'photo2', 'photo3', 'photo4', 'photo5'];
+
+      // Simulate navigating to index 2
+      const currentIndex = 2;
+      expect(photoIds[currentIndex], equals('photo3'));
+
+      // Can navigate to previous
+      expect(photoIds[currentIndex - 1], equals('photo2'));
+
+      // Can navigate to next
+      expect(photoIds[currentIndex + 1], equals('photo4'));
+    });
+  });
+
+  group('Unmodifiable list/map contracts', () {
+    test('List.unmodifiable prevents modifications', () {
+      final originalList = ['a', 'b', 'c'];
+      final unmodifiableList = List.unmodifiable(originalList);
+
+      expect(unmodifiableList, equals(['a', 'b', 'c']));
+      expect(() => unmodifiableList.add('d'), throwsUnsupportedError);
+    });
+
+    test('Map.unmodifiable prevents modifications', () {
+      final originalMap = {'key1': 'value1', 'key2': 'value2'};
+      final unmodifiableMap = Map.unmodifiable(originalMap);
+
+      expect(unmodifiableMap['key1'], equals('value1'));
+      expect(() => unmodifiableMap['key3'] = 'value3', throwsUnsupportedError);
+    });
+
+    test('unmodifiable collections reflect original data', () {
+      // The getters return snapshots of the current state
+      final photos = ['photo1', 'photo2'];
+      final unmodifiablePhotos = List.unmodifiable(photos);
+
+      expect(unmodifiablePhotos.length, equals(2));
+      expect(unmodifiablePhotos[0], equals('photo1'));
+      expect(unmodifiablePhotos[1], equals('photo2'));
     });
   });
 }

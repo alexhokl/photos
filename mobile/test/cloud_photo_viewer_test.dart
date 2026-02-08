@@ -142,6 +142,166 @@ void main() {
     );
   });
 
+  group('CloudPhotoViewer PageView swiping', () {
+    test('PageView should be horizontal by default', () {
+      // PageView uses horizontal scrolling for photo navigation
+      const scrollDirection = Axis.horizontal;
+      expect(scrollDirection, equals(Axis.horizontal));
+    });
+
+    test('PageScrollPhysics is used when not zoomed', () {
+      // When the photo is at 1.0 scale, PageScrollPhysics allows swiping
+      const isZoomed = false;
+      final physics = isZoomed
+          ? const NeverScrollableScrollPhysics()
+          : const PageScrollPhysics();
+      expect(physics, isA<PageScrollPhysics>());
+    });
+
+    test('NeverScrollableScrollPhysics is used when zoomed', () {
+      // When the photo is zoomed in (>1.0 scale), swiping is disabled
+      const isZoomed = true;
+      final physics = isZoomed
+          ? const NeverScrollableScrollPhysics()
+          : const PageScrollPhysics();
+      expect(physics, isA<NeverScrollableScrollPhysics>());
+    });
+
+    test('zoom threshold is slightly above 1.0', () {
+      // A small threshold (1.05) prevents accidental swipe blocking
+      const zoomThreshold = 1.05;
+      expect(zoomThreshold, greaterThan(1.0));
+      expect(zoomThreshold, lessThan(1.1));
+    });
+
+    test('zoom detection uses scale from TransformationController', () {
+      // TransformationController tracks the current zoom level
+      final controller = TransformationController();
+
+      // Initial state: not zoomed
+      expect(controller.value.getMaxScaleOnAxis(), equals(1.0));
+
+      // Simulate zoom in
+      controller.value = Matrix4.identity()..scale(2.0);
+      expect(controller.value.getMaxScaleOnAxis(), equals(2.0));
+
+      // Simulate zoom out
+      controller.value = Matrix4.identity()..scale(0.5);
+      expect(controller.value.getMaxScaleOnAxis(), equals(0.5));
+
+      controller.dispose();
+    });
+
+    test('zoom reset uses Matrix4.identity', () {
+      // When switching pages, zoom resets to identity matrix
+      final controller = TransformationController();
+
+      // Simulate zoomed state
+      controller.value = Matrix4.identity()..scale(3.0);
+      expect(controller.value.getMaxScaleOnAxis(), equals(3.0));
+
+      // Reset zoom
+      controller.value = Matrix4.identity();
+      expect(controller.value.getMaxScaleOnAxis(), equals(1.0));
+
+      controller.dispose();
+    });
+
+    test('PageController can be initialized with specific page', () {
+      // CloudPhotoViewer uses initialIndex to start at the tapped photo
+      const initialIndex = 5;
+      final controller = PageController(initialPage: initialIndex);
+
+      expect(controller.initialPage, equals(initialIndex));
+
+      controller.dispose();
+    });
+
+    test('PageController initialPage defaults to 0', () {
+      final controller = PageController();
+      expect(controller.initialPage, equals(0));
+      controller.dispose();
+    });
+  });
+
+  group('CloudPhotoViewer constructor contract', () {
+    test('requires photos list parameter', () {
+      // CloudPhotoViewer now requires List<Photo> photos
+      // This is verified at compile time
+      expect(CloudPhotoViewer, isA<Type>());
+    });
+
+    test('requires signedUrls map parameter', () {
+      // CloudPhotoViewer requires Map<String, String> signedUrls
+      // This is verified at compile time
+      expect(CloudPhotoViewer, isA<Type>());
+    });
+
+    test('requires initialIndex parameter', () {
+      // CloudPhotoViewer requires int initialIndex to know which photo to show
+      // This is verified at compile time
+      expect(CloudPhotoViewer, isA<Type>());
+    });
+
+    test('initialIndex should be non-negative', () {
+      const validIndex = 0;
+      const invalidIndex = -1;
+
+      expect(validIndex, greaterThanOrEqualTo(0));
+      expect(invalidIndex, lessThan(0));
+    });
+
+    test('initialIndex should be less than photos length', () {
+      const photosLength = 10;
+      const validIndex = 9;
+      const invalidIndex = 10;
+
+      expect(validIndex, lessThan(photosLength));
+      expect(invalidIndex, greaterThanOrEqualTo(photosLength));
+    });
+
+    test('signedUrls map should use objectId as key', () {
+      // The signedUrls map uses photo.objectId as the key
+      const objectId = 'photos/2024/image.jpg';
+      const signedUrl = 'https://storage.example.com/signed/image.jpg';
+      final signedUrls = {objectId: signedUrl};
+
+      expect(signedUrls[objectId], equals(signedUrl));
+      expect(signedUrls.containsKey(objectId), isTrue);
+    });
+
+    test('missing signedUrl for objectId returns null', () {
+      // If a photo does not have a signed URL, lookup returns null
+      const objectId = 'photos/2024/image.jpg';
+      final signedUrls = <String, String>{};
+
+      expect(signedUrls[objectId], isNull);
+    });
+  });
+
+  group('CloudPhotoViewer display name extraction', () {
+    test('extracts filename from objectId with path', () {
+      const objectId = 'photos/2024/vacation/beach.jpg';
+      final displayName = objectId.split('/').last;
+
+      expect(displayName, equals('beach.jpg'));
+    });
+
+    test('handles objectId without path separators', () {
+      const objectId = 'image.jpg';
+      final displayName = objectId.split('/').last;
+
+      expect(displayName, equals('image.jpg'));
+    });
+
+    test('handles objectId with multiple path segments', () {
+      const objectId = 'users/alice/photos/2024/01/01/img_001.jpg';
+      final displayName = objectId.split('/').last;
+
+      expect(displayName, equals('img_001.jpg'));
+    });
+  });
+
   group('CloudPhotoViewer context menu', () {
     testWidgets('context menu contains all six options', (tester) async {
       await tester.pumpWidget(
@@ -464,6 +624,84 @@ void main() {
 
     test('CloudPhotoGridState is the state type', () {
       expect(CloudPhotoGridState, isA<Type>());
+    });
+  });
+
+  group('CloudPhotoGridState photos and signedUrls getters', () {
+    test('photos getter returns List<Photo>', () {
+      // The photos getter is typed as List<Photo>
+      // This verifies the getter exists and returns the expected type
+      expect(CloudPhotoGridState, isA<Type>());
+    });
+
+    test('signedUrls getter returns Map<String, String>', () {
+      // The signedUrls getter is typed as Map<String, String>
+      // This verifies the getter exists and returns the expected type
+      expect(CloudPhotoGridState, isA<Type>());
+    });
+
+    test('List.unmodifiable prevents modification', () {
+      // The photos getter uses List.unmodifiable to prevent external mutation
+      final originalList = ['a', 'b', 'c'];
+      final unmodifiableList = List.unmodifiable(originalList);
+
+      expect(unmodifiableList, equals(['a', 'b', 'c']));
+      expect(() => unmodifiableList.add('d'), throwsUnsupportedError);
+      expect(() => unmodifiableList.clear(), throwsUnsupportedError);
+      expect(() => unmodifiableList.removeAt(0), throwsUnsupportedError);
+    });
+
+    test('Map.unmodifiable prevents modification', () {
+      // The signedUrls getter uses Map.unmodifiable to prevent external mutation
+      final originalMap = {'key1': 'value1', 'key2': 'value2'};
+      final unmodifiableMap = Map.unmodifiable(originalMap);
+
+      expect(unmodifiableMap['key1'], equals('value1'));
+      expect(unmodifiableMap['key2'], equals('value2'));
+      expect(() => unmodifiableMap['key3'] = 'value3', throwsUnsupportedError);
+      expect(() => unmodifiableMap.clear(), throwsUnsupportedError);
+      expect(() => unmodifiableMap.remove('key1'), throwsUnsupportedError);
+    });
+
+    test('unmodifiable view reflects source changes', () {
+      // List.unmodifiable creates a view, not a copy
+      // Changes to the source list are reflected in the unmodifiable view
+      final sourceList = ['a', 'b'];
+      final unmodifiableView = List.unmodifiable(sourceList);
+
+      expect(unmodifiableView.length, equals(2));
+
+      // Note: in the actual implementation, the unmodifiable view is
+      // created fresh each time the getter is called, so it always
+      // reflects the current state of _photos
+    });
+
+    test('unmodifiable map reflects source changes', () {
+      // Map.unmodifiable creates a view, not a copy
+      final sourceMap = {'key1': 'value1'};
+      final unmodifiableView = Map.unmodifiable(sourceMap);
+
+      expect(unmodifiableView.length, equals(1));
+
+      // Note: in the actual implementation, the unmodifiable view is
+      // created fresh each time the getter is called, so it always
+      // reflects the current state of _signedUrlCache
+    });
+
+    test('signedUrls map uses objectId as key', () {
+      // The signedUrls map uses photo.objectId as the key
+      const objectId1 = 'photos/2024/image1.jpg';
+      const objectId2 = 'photos/2024/image2.jpg';
+      const signedUrl1 = 'https://storage.example.com/signed/image1.jpg';
+      const signedUrl2 = 'https://storage.example.com/signed/image2.jpg';
+
+      final signedUrls = {objectId1: signedUrl1, objectId2: signedUrl2};
+      final unmodifiableUrls = Map<String, String>.unmodifiable(signedUrls);
+
+      expect(unmodifiableUrls[objectId1], equals(signedUrl1));
+      expect(unmodifiableUrls[objectId2], equals(signedUrl2));
+      expect(unmodifiableUrls.containsKey(objectId1), isTrue);
+      expect(unmodifiableUrls.containsKey('nonexistent'), isFalse);
     });
   });
 

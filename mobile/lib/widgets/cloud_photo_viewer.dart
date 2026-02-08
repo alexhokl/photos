@@ -10,13 +10,15 @@ import 'package:photos/widgets/settings_page.dart';
 enum CloudPhotoViewerAction { info, delete, download, copy, move, rename }
 
 class CloudPhotoViewer extends StatefulWidget {
-  final Photo photo;
-  final String signedUrl;
+  final List<Photo> photos;
+  final Map<String, String> signedUrls;
+  final int initialIndex;
 
   const CloudPhotoViewer({
     super.key,
-    required this.photo,
-    required this.signedUrl,
+    required this.photos,
+    required this.signedUrls,
+    required this.initialIndex,
   });
 
   @override
@@ -24,6 +26,59 @@ class CloudPhotoViewer extends StatefulWidget {
 }
 
 class _CloudPhotoViewerState extends State<CloudPhotoViewer> {
+  late PageController _pageController;
+  late int _currentIndex;
+  final Map<int, TransformationController> _transformationControllers = {};
+  bool _isZoomed = false;
+
+  Photo get _currentPhoto => widget.photos[_currentIndex];
+
+  @override
+  void initState() {
+    super.initState();
+    _currentIndex = widget.initialIndex;
+    _pageController = PageController(initialPage: _currentIndex);
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    for (final controller in _transformationControllers.values) {
+      controller.dispose();
+    }
+    super.dispose();
+  }
+
+  TransformationController _getTransformationController(int index) {
+    if (!_transformationControllers.containsKey(index)) {
+      _transformationControllers[index] = TransformationController();
+    }
+    return _transformationControllers[index]!;
+  }
+
+  void _updateZoomState(int index) {
+    final controller = _transformationControllers[index];
+    if (controller != null) {
+      final scale = controller.value.getMaxScaleOnAxis();
+      final isZoomed = scale > 1.05;
+      if (isZoomed != _isZoomed) {
+        setState(() => _isZoomed = isZoomed);
+      }
+    }
+  }
+
+  void _resetZoomOnPageChange(int newIndex) {
+    // Reset zoom state for the previous page
+    final prevController = _transformationControllers[_currentIndex];
+    if (prevController != null) {
+      prevController.value = Matrix4.identity();
+    }
+    setState(() {
+      _isZoomed = false;
+      _currentIndex = newIndex;
+    });
+  }
+
   Future<void> _deletePhoto() async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -51,7 +106,7 @@ class _CloudPhotoViewerState extends State<CloudPhotoViewer> {
     try {
       final config = await BackendConfig.load();
       libraryService = LibraryService(host: config.host, port: config.port);
-      await libraryService.deletePhoto(widget.photo.objectId);
+      await libraryService.deletePhoto(_currentPhoto.objectId);
 
       if (mounted) {
         Navigator.pop(context, true);
@@ -78,13 +133,13 @@ class _CloudPhotoViewerState extends State<CloudPhotoViewer> {
       context: context,
       barrierDismissible: false,
       builder: (dialogContext) => _DownloadProgressDialog(
-        photo: widget.photo,
+        photo: _currentPhoto,
         onComplete: (success, error) {
           Navigator.pop(dialogContext);
           if (success) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text('Saved to device: ${widget.photo.filename}'),
+                content: Text('Saved to device: ${_currentPhoto.filename}'),
                 duration: const Duration(seconds: 2),
               ),
             );
@@ -160,19 +215,19 @@ class _CloudPhotoViewerState extends State<CloudPhotoViewer> {
       final config = await BackendConfig.load();
       libraryService = LibraryService(host: config.host, port: config.port);
 
-      final filename = widget.photo.objectId.split('/').last;
+      final filename = _currentPhoto.objectId.split('/').last;
       final destPrefix = targetDirectory.endsWith('/')
           ? targetDirectory
           : '$targetDirectory/';
       final destinationObjectId = '$destPrefix$filename';
 
       await libraryService.copyPhoto(
-        widget.photo.objectId,
+        _currentPhoto.objectId,
         destinationObjectId,
       );
 
       if (move) {
-        await libraryService.deletePhoto(widget.photo.objectId);
+        await libraryService.deletePhoto(_currentPhoto.objectId);
       }
 
       if (!mounted) return;
@@ -204,7 +259,7 @@ class _CloudPhotoViewerState extends State<CloudPhotoViewer> {
   }
 
   Future<void> _renamePhoto() async {
-    final objectId = widget.photo.objectId;
+    final objectId = _currentPhoto.objectId;
     final currentFilename = objectId.split('/').last;
 
     // Extract base name without extension
@@ -289,7 +344,7 @@ class _CloudPhotoViewerState extends State<CloudPhotoViewer> {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => CloudPhotoInfoView(photo: widget.photo),
+            builder: (context) => CloudPhotoInfoView(photo: _currentPhoto),
           ),
         );
         break;
@@ -311,10 +366,36 @@ class _CloudPhotoViewerState extends State<CloudPhotoViewer> {
     }
   }
 
+  Widget _buildPhotoPage(int index) {
+    final photo = widget.photos[index];
+    final signedUrl = widget.signedUrls[photo.objectId];
+
+    if (signedUrl == null) {
+      return const Center(
+        child: Icon(Icons.broken_image, color: Colors.white54, size: 64),
+      );
+    }
+
+    return InteractiveViewer(
+      transformationController: _getTransformationController(index),
+      minScale: 0.5,
+      maxScale: 4.0,
+      onInteractionEnd: (_) => _updateZoomState(index),
+      child: CachedNetworkImage(
+        imageUrl: signedUrl,
+        fit: BoxFit.contain,
+        placeholder: (context, url) =>
+            const CircularProgressIndicator(color: Colors.white),
+        errorWidget: (context, url, error) =>
+            const Icon(Icons.broken_image, color: Colors.white54, size: 64),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     // Extract display name from object_id
-    final displayName = widget.photo.objectId.split('/').last;
+    final displayName = _currentPhoto.objectId.split('/').last;
 
     return Scaffold(
       backgroundColor: Colors.black,
@@ -379,19 +460,14 @@ class _CloudPhotoViewerState extends State<CloudPhotoViewer> {
           ),
         ],
       ),
-      body: Center(
-        child: InteractiveViewer(
-          minScale: 0.5,
-          maxScale: 4.0,
-          child: CachedNetworkImage(
-            imageUrl: widget.signedUrl,
-            fit: BoxFit.contain,
-            placeholder: (context, url) =>
-                const CircularProgressIndicator(color: Colors.white),
-            errorWidget: (context, url, error) =>
-                const Icon(Icons.broken_image, color: Colors.white54, size: 64),
-          ),
-        ),
+      body: PageView.builder(
+        controller: _pageController,
+        itemCount: widget.photos.length,
+        physics: _isZoomed
+            ? const NeverScrollableScrollPhysics()
+            : const PageScrollPhysics(),
+        onPageChanged: _resetZoomOnPageChange,
+        itemBuilder: (context, index) => _buildPhotoPage(index),
       ),
     );
   }

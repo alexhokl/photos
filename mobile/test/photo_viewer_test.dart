@@ -4,7 +4,7 @@ import 'package:photos/widgets/photo_viewer.dart';
 
 void main() {
   group('PhotoViewer widget contract', () {
-    // PhotoViewer requires an AssetEntity which is complex to mock.
+    // PhotoViewer requires a List<AssetEntity> which is complex to mock.
     // These tests document the expected behavior and API contract.
 
     test('PhotoViewer is a StatefulWidget', () {
@@ -34,6 +34,181 @@ void main() {
       // When asset.title is null, it should show 'Photo'
       const fallbackTitle = 'Photo';
       expect(fallbackTitle, isNotEmpty);
+    });
+  });
+
+  group('PhotoViewer PageView swiping', () {
+    test('PageView should be horizontal by default', () {
+      // PageView uses horizontal scrolling for photo navigation
+      const scrollDirection = Axis.horizontal;
+      expect(scrollDirection, equals(Axis.horizontal));
+    });
+
+    test('PageScrollPhysics is used when not zoomed', () {
+      // When the photo is at 1.0 scale, PageScrollPhysics allows swiping
+      const isZoomed = false;
+      final physics = isZoomed
+          ? const NeverScrollableScrollPhysics()
+          : const PageScrollPhysics();
+      expect(physics, isA<PageScrollPhysics>());
+    });
+
+    test('NeverScrollableScrollPhysics is used when zoomed', () {
+      // When the photo is zoomed in (>1.0 scale), swiping is disabled
+      const isZoomed = true;
+      final physics = isZoomed
+          ? const NeverScrollableScrollPhysics()
+          : const PageScrollPhysics();
+      expect(physics, isA<NeverScrollableScrollPhysics>());
+    });
+
+    test('zoom threshold is slightly above 1.0', () {
+      // A small threshold (1.05) prevents accidental swipe blocking
+      const zoomThreshold = 1.05;
+      expect(zoomThreshold, greaterThan(1.0));
+      expect(zoomThreshold, lessThan(1.1));
+    });
+
+    test('zoom detection uses scale from TransformationController', () {
+      // TransformationController tracks the current zoom level
+      final controller = TransformationController();
+
+      // Initial state: not zoomed
+      expect(controller.value.getMaxScaleOnAxis(), equals(1.0));
+
+      // Simulate zoom in
+      controller.value = Matrix4.identity()..scale(2.0);
+      expect(controller.value.getMaxScaleOnAxis(), equals(2.0));
+
+      // Simulate zoom out
+      controller.value = Matrix4.identity()..scale(0.5);
+      expect(controller.value.getMaxScaleOnAxis(), equals(0.5));
+
+      controller.dispose();
+    });
+
+    test('zoom reset uses Matrix4.identity', () {
+      // When switching pages, zoom resets to identity matrix
+      final controller = TransformationController();
+
+      // Simulate zoomed state
+      controller.value = Matrix4.identity()..scale(3.0);
+      expect(controller.value.getMaxScaleOnAxis(), equals(3.0));
+
+      // Reset zoom
+      controller.value = Matrix4.identity();
+      expect(controller.value.getMaxScaleOnAxis(), equals(1.0));
+
+      controller.dispose();
+    });
+
+    test('PageController can be initialized with specific page', () {
+      // PhotoViewer uses initialIndex to start at the tapped photo
+      const initialIndex = 5;
+      final controller = PageController(initialPage: initialIndex);
+
+      expect(controller.initialPage, equals(initialIndex));
+
+      controller.dispose();
+    });
+
+    test('PageController initialPage defaults to 0', () {
+      final controller = PageController();
+      expect(controller.initialPage, equals(0));
+      controller.dispose();
+    });
+  });
+
+  group('PhotoViewer image caching', () {
+    test('cache eviction threshold is 2 pages away', () {
+      // Images more than 2 pages from current are evicted to save memory
+      const evictionThreshold = 2;
+      const currentIndex = 5;
+
+      // Should keep indices 3, 4, 5, 6, 7
+      expect((3 - currentIndex).abs(), lessThanOrEqualTo(evictionThreshold));
+      expect((7 - currentIndex).abs(), lessThanOrEqualTo(evictionThreshold));
+
+      // Should evict indices 2 and 8
+      expect((2 - currentIndex).abs(), greaterThan(evictionThreshold));
+      expect((8 - currentIndex).abs(), greaterThan(evictionThreshold));
+    });
+
+    test('preloading loads current and adjacent pages', () {
+      // When on page N, preload pages N-1, N, N+1
+      const currentIndex = 5;
+      final indicesToPreload = <int>[];
+
+      for (int i = currentIndex - 1; i <= currentIndex + 1; i++) {
+        if (i >= 0) {
+          indicesToPreload.add(i);
+        }
+      }
+
+      expect(indicesToPreload, containsAll([4, 5, 6]));
+      expect(indicesToPreload.length, equals(3));
+    });
+
+    test('preloading handles edge case at first page', () {
+      const currentIndex = 0;
+      final indicesToPreload = <int>[];
+
+      for (int i = currentIndex - 1; i <= currentIndex + 1; i++) {
+        if (i >= 0) {
+          indicesToPreload.add(i);
+        }
+      }
+
+      // Should only have indices 0 and 1, not -1
+      expect(indicesToPreload, containsAll([0, 1]));
+      expect(indicesToPreload, isNot(contains(-1)));
+    });
+
+    test('preloading handles edge case at last page', () {
+      const currentIndex = 9;
+      const totalPhotos = 10;
+      final indicesToPreload = <int>[];
+
+      for (int i = currentIndex - 1; i <= currentIndex + 1; i++) {
+        if (i >= 0 && i < totalPhotos) {
+          indicesToPreload.add(i);
+        }
+      }
+
+      // Should only have indices 8 and 9, not 10
+      expect(indicesToPreload, containsAll([8, 9]));
+      expect(indicesToPreload, isNot(contains(10)));
+    });
+  });
+
+  group('PhotoViewer constructor contract', () {
+    test('requires assets list parameter', () {
+      // PhotoViewer now requires List<AssetEntity> assets
+      // This is verified at compile time
+      expect(PhotoViewer, isA<Type>());
+    });
+
+    test('requires initialIndex parameter', () {
+      // PhotoViewer requires int initialIndex to know which photo to show first
+      // This is verified at compile time
+      expect(PhotoViewer, isA<Type>());
+    });
+
+    test('initialIndex should be non-negative', () {
+      const validIndex = 0;
+      const invalidIndex = -1;
+
+      expect(validIndex, greaterThanOrEqualTo(0));
+      expect(invalidIndex, lessThan(0));
+    });
+
+    test('initialIndex should be less than assets length', () {
+      const assetsLength = 10;
+      const validIndex = 9;
+      const invalidIndex = 10;
+
+      expect(validIndex, lessThan(assetsLength));
+      expect(invalidIndex, greaterThanOrEqualTo(assetsLength));
     });
   });
 

@@ -59,10 +59,16 @@ class _HomePageState extends State<HomePage> {
     _cloudPhotoGridKey.currentState?.performAction(action);
   }
 
-  Future<void> _onPhotoTap(AssetEntity photo) async {
+  Future<void> _onPhotoTap(AssetEntity photo, int index) async {
+    final gridState = _photoGridKey.currentState;
+    if (gridState == null) return;
+
     final deleted = await Navigator.push<bool>(
       context,
-      MaterialPageRoute(builder: (context) => PhotoViewer(asset: photo)),
+      MaterialPageRoute(
+        builder: (context) =>
+            PhotoViewer(assets: gridState.photos, initialIndex: index),
+      ),
     );
     if (deleted == true) {
       _photoGridKey.currentState?.removePhoto(photo.id);
