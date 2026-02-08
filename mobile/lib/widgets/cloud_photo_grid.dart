@@ -693,15 +693,12 @@ class CloudPhotoGridState extends State<CloudPhotoGrid> {
   }
 
   Widget _buildDirectoryChips() {
-    return Container(
+    return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-      height: 48,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: _subdirectories.length,
-        separatorBuilder: (context, index) => const SizedBox(width: 8),
-        itemBuilder: (context, index) {
-          final dir = _subdirectories[index];
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: _subdirectories.map((dir) {
           // Show only the last segment of the directory path
           final displayName = dir.endsWith('/')
               ? dir.substring(0, dir.length - 1).split('/').last
@@ -712,7 +709,7 @@ class CloudPhotoGridState extends State<CloudPhotoGrid> {
             label: Text(displayName),
             onPressed: () => _navigateToDirectory(dir),
           );
-        },
+        }).toList(),
       ),
     );
   }
