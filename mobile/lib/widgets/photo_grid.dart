@@ -250,6 +250,7 @@ class PhotoGridState extends State<PhotoGrid> {
         builder: (dialogContext) => _UploadProgressDialog(
           photos: selectedPhotos,
           uploadService: uploadService,
+          directoryPrefix: config.defaultDirectory,
           onComplete: (results) {
             Navigator.pop(dialogContext);
             _showUploadResults(results);
@@ -430,12 +431,14 @@ class PhotoThumbnail extends StatelessWidget {
 class _UploadProgressDialog extends StatefulWidget {
   final List<AssetEntity> photos;
   final UploadService uploadService;
+  final String? directoryPrefix;
   final void Function(List<UploadResult> results) onComplete;
 
   const _UploadProgressDialog({
     required this.photos,
     required this.uploadService,
     required this.onComplete,
+    this.directoryPrefix,
   });
 
   @override
@@ -457,6 +460,7 @@ class _UploadProgressDialogState extends State<_UploadProgressDialog> {
   Future<void> _startUpload() async {
     final results = await widget.uploadService.uploadPhotos(
       widget.photos,
+      directoryPrefix: widget.directoryPrefix,
       onProgress: (completed, total) {
         if (mounted) {
           setState(() {
