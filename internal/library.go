@@ -233,7 +233,7 @@ func (s *LibraryServer) CopyPhoto(ctx context.Context, req *proto.CopyPhotoReque
 	// Compute MD5 hash from attributes
 	md5HashBase64 := base64.StdEncoding.EncodeToString(attrs.MD5)
 
-	// Create database record for the copied photo
+	// Create database record for the copied photo (create or restore if soft-deleted)
 	destPhoto := &database.PhotoObject{
 		ObjectID:    destObjectID,
 		ContentType: attrs.ContentType,
@@ -241,17 +241,16 @@ func (s *LibraryServer) CopyPhoto(ctx context.Context, req *proto.CopyPhotoReque
 		UserID:      userID,
 	}
 
-	if err := s.DB.Create(destPhoto).Error; err != nil {
+	if err := database.CreateOrRestorePhotoObject(s.DB, destPhoto); err != nil {
 		// Try to clean up the GCS object if database insert fails
 		_ = dstObj.Delete(ctx)
 		return nil, status.Errorf(codes.Internal, "failed to create photo record: %v", err)
 	}
 
-	// Create directory entry if applicable
+	// Create directory entry if applicable (create or restore if soft-deleted)
 	dir := ExtractDirectoryFromPath(destObjectID)
 	if dir != "" {
-		photoDir := &database.PhotoDirectory{Path: dir}
-		if err := s.DB.FirstOrCreate(photoDir, database.PhotoDirectory{Path: dir}).Error; err != nil {
+		if err := database.CreateOrRestorePhotoDirectory(s.DB, dir); err != nil {
 			slog.Warn("failed to create photo directory for copy",
 				slog.String("path", dir),
 				slog.String("error", err.Error()),
@@ -338,7 +337,7 @@ func (s *LibraryServer) RenamePhoto(ctx context.Context, req *proto.RenamePhotoR
 	// Compute MD5 hash from attributes
 	md5HashBase64 := base64.StdEncoding.EncodeToString(attrs.MD5)
 
-	// Create database record for the destination photo
+	// Create database record for the destination photo (create or restore if soft-deleted)
 	destPhoto := &database.PhotoObject{
 		ObjectID:    destObjectID,
 		ContentType: attrs.ContentType,
@@ -346,17 +345,16 @@ func (s *LibraryServer) RenamePhoto(ctx context.Context, req *proto.RenamePhotoR
 		UserID:      userID,
 	}
 
-	if err := s.DB.Create(destPhoto).Error; err != nil {
+	if err := database.CreateOrRestorePhotoObject(s.DB, destPhoto); err != nil {
 		// Try to clean up the GCS object if database insert fails
 		_ = dstObj.Delete(ctx)
 		return nil, status.Errorf(codes.Internal, "failed to create photo record: %v", err)
 	}
 
-	// Create directory entry for destination if applicable
+	// Create directory entry for destination if applicable (create or restore if soft-deleted)
 	destDir := ExtractDirectoryFromPath(destObjectID)
 	if destDir != "" {
-		photoDir := &database.PhotoDirectory{Path: destDir}
-		if err := s.DB.FirstOrCreate(photoDir, database.PhotoDirectory{Path: destDir}).Error; err != nil {
+		if err := database.CreateOrRestorePhotoDirectory(s.DB, destDir); err != nil {
 			slog.Warn("failed to create photo directory for rename",
 				slog.String("path", destDir),
 				slog.String("error", err.Error()),
@@ -710,7 +708,8 @@ func (s *LibraryServer) SyncDatabase(ctx context.Context, _ *emptypb.Empty) (*em
 				UserID:      userID,
 			}
 
-			if err := s.DB.Create(photoObject).Error; err != nil {
+			// Create or restore photo object if soft-deleted
+			if err := database.CreateOrRestorePhotoObject(s.DB, photoObject); err != nil {
 				slog.Warn("failed to create photo object during sync",
 					slog.String("object_id", objectID),
 					slog.String("error", err.Error()),
@@ -718,11 +717,10 @@ func (s *LibraryServer) SyncDatabase(ctx context.Context, _ *emptypb.Empty) (*em
 				continue
 			}
 
-			// Create directory entry if applicable
+			// Create directory entry if applicable (create or restore if soft-deleted)
 			dir := ExtractDirectoryFromPath(objectID)
 			if dir != "" {
-				photoDir := &database.PhotoDirectory{Path: dir}
-				if err := s.DB.FirstOrCreate(photoDir, database.PhotoDirectory{Path: dir}).Error; err != nil {
+				if err := database.CreateOrRestorePhotoDirectory(s.DB, dir); err != nil {
 					slog.Warn("failed to create photo directory during sync",
 						slog.String("path", dir),
 						slog.String("error", err.Error()),

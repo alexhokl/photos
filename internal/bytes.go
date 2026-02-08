@@ -74,17 +74,16 @@ func (s *BytesServer) Upload(ctx context.Context, req *proto.UploadRequest) (*pr
 		return nil, status.Errorf(codes.Internal, "failed to get object attributes: %v", err)
 	}
 
-	// Write to PhotoObject table
+	// Write to PhotoObject table (create or restore if soft-deleted)
 	photoObject := createPhotoObject(objectID, attrs, userID, md5HashBase64)
-	if err := s.DB.Create(photoObject).Error; err != nil {
+	if err := database.CreateOrRestorePhotoObject(s.DB, photoObject); err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to create photo object record: %v", err)
 	}
 
-	// Write to PhotoDirectory table (if directory exists)
-	photoDirectory := createPhotoDirectory(objectID)
-	if photoDirectory != nil {
-		// Use FirstOrCreate to avoid duplicate directory entries
-		if err := s.DB.FirstOrCreate(photoDirectory, database.PhotoDirectory{Path: photoDirectory.Path}).Error; err != nil {
+	// Write to PhotoDirectory table (create or restore if soft-deleted)
+	dir := ExtractDirectoryFromPath(objectID)
+	if dir != "" {
+		if err := database.CreateOrRestorePhotoDirectory(s.DB, dir); err != nil {
 			return nil, status.Errorf(codes.Internal, "failed to create photo directory record: %v", err)
 		}
 	}
@@ -149,18 +148,6 @@ func createPhotoObject(objectID string, attrs *storage.ObjectAttrs, userID uint,
 		ContentType: attrs.ContentType,
 		MD5Hash:     md5Hash,
 		UserID:      userID,
-	}
-}
-
-// createPhotoDirectory creates a PhotoDirectory from the given object ID and user ID.
-// It extracts the directory path from the object ID.
-func createPhotoDirectory(objectID string) *database.PhotoDirectory {
-	dir := ExtractDirectoryFromPath(objectID)
-	if dir == "" {
-		return nil
-	}
-	return &database.PhotoDirectory{
-		Path: dir,
 	}
 }
 
@@ -350,17 +337,16 @@ func (s *BytesServer) StreamingUpload(stream grpc.ClientStreamingServer[proto.St
 		return status.Errorf(codes.Internal, "failed to get object attributes: %v", err)
 	}
 
-	// Write to PhotoObject table
+	// Write to PhotoObject table (create or restore if soft-deleted)
 	photoObject := createPhotoObject(objectID, attrs, userID, md5HashBase64)
-	if err := s.DB.Create(photoObject).Error; err != nil {
+	if err := database.CreateOrRestorePhotoObject(s.DB, photoObject); err != nil {
 		return status.Errorf(codes.Internal, "failed to create photo object record: %v", err)
 	}
 
-	// Write to PhotoDirectory table (if directory exists)
-	photoDirectory := createPhotoDirectory(objectID)
-	if photoDirectory != nil {
-		// Use FirstOrCreate to avoid duplicate directory entries
-		if err := s.DB.FirstOrCreate(photoDirectory, database.PhotoDirectory{Path: photoDirectory.Path}).Error; err != nil {
+	// Write to PhotoDirectory table (create or restore if soft-deleted)
+	dir := ExtractDirectoryFromPath(objectID)
+	if dir != "" {
+		if err := database.CreateOrRestorePhotoDirectory(s.DB, dir); err != nil {
 			return status.Errorf(codes.Internal, "failed to create photo directory record: %v", err)
 		}
 	}
