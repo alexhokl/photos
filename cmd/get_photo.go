@@ -71,6 +71,7 @@ func runGetPhoto(cmd *cobra.Command, args []string) error {
 	}
 	if photo.GetHasLocation() {
 		fmt.Printf("  Location:          %.6f, %.6f\n", photo.GetLatitude(), photo.GetLongitude())
+		fmt.Printf("  Google Maps:       https://www.google.com/maps?q=%.6f,%.6f\n", photo.GetLatitude(), photo.GetLongitude())
 	}
 	fmt.Printf("  MD5 Hash:          %s\n", photo.GetMd5Hash())
 	fmt.Printf("  Created At:        %s\n", photo.GetCreatedAt())
