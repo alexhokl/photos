@@ -120,6 +120,40 @@ void main() {
 
       expect(find.byType(ListTile), findsNWidgets(4));
     });
+
+    testWidgets('displays Google Maps tile after location loads', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(home: PhotoInfoView(asset: mockAsset)),
+      );
+
+      // Before location loads, Google Maps should not be visible
+      expect(find.text('Google Maps'), findsNothing);
+
+      // Wait for async location to load
+      await tester.pumpAndSettle();
+
+      expect(find.text('Google Maps'), findsOneWidget);
+      expect(find.byIcon(Icons.map), findsOneWidget);
+      expect(find.byIcon(Icons.open_in_new), findsOneWidget);
+      expect(
+        find.text('https://www.google.com/maps?q=37.774900,-122.419400'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('displays five ListTile items when location is available', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(home: PhotoInfoView(asset: mockAsset)),
+      );
+
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ListTile), findsNWidgets(5));
+    });
   });
 
   group('PhotoInfoView with null/unknown values', () {
@@ -160,6 +194,19 @@ void main() {
       );
 
       expect(find.text('0 x 0 pixels'), findsOneWidget);
+    });
+
+    testWidgets('does not display Google Maps tile when location is null', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(home: PhotoInfoView(asset: mockAsset)),
+      );
+
+      await tester.pumpAndSettle();
+
+      expect(find.text('Google Maps'), findsNothing);
+      expect(find.byIcon(Icons.map), findsNothing);
     });
   });
 

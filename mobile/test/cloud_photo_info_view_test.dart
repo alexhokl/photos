@@ -133,6 +133,47 @@ void main() {
 
       expect(find.byType(ListTile), findsNWidgets(7));
     });
+
+    testWidgets('displays Google Maps tile when photo has location', (
+      tester,
+    ) async {
+      final photoWithLocation = Photo(
+        objectId: 'albums/vacation/beach.jpg',
+        filename: 'beach.jpg',
+        contentType: 'image/jpeg',
+        sizeBytes: Int64(2048576),
+        createdAt: '2024-06-15T14:30:00Z',
+        updatedAt: '2024-06-16T10:00:00Z',
+        md5Hash: 'abc123def456',
+        hasLocation: true,
+        latitude: 37.7749,
+        longitude: -122.4194,
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(home: CloudPhotoInfoView(photo: photoWithLocation)),
+      );
+
+      expect(find.text('Google Maps'), findsOneWidget);
+      expect(find.byIcon(Icons.map), findsOneWidget);
+      expect(find.byIcon(Icons.open_in_new), findsOneWidget);
+      expect(
+        find.text('https://www.google.com/maps?q=37.774900,-122.419400'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets(
+      'does not display Google Maps tile when photo has no location',
+      (tester) async {
+        await tester.pumpWidget(
+          MaterialApp(home: CloudPhotoInfoView(photo: photo)),
+        );
+
+        expect(find.text('Google Maps'), findsNothing);
+        expect(find.byIcon(Icons.map), findsNothing);
+      },
+    );
   });
 
   group('CloudPhotoInfoView with empty/missing values', () {

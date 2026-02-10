@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:photo_manager/photo_manager.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class PhotoInfoView extends StatefulWidget {
   final AssetEntity asset;
@@ -42,6 +43,15 @@ class _PhotoInfoViewState extends State<PhotoInfoView> {
     return '${latLng.latitude.toStringAsFixed(6)}, ${latLng.longitude.toStringAsFixed(6)}';
   }
 
+  String _getGoogleMapsUrl(LatLng latLng) {
+    return 'https://www.google.com/maps?q=${latLng.latitude.toStringAsFixed(6)},${latLng.longitude.toStringAsFixed(6)}';
+  }
+
+  Future<void> _launchGoogleMaps(LatLng latLng) async {
+    final url = Uri.parse(_getGoogleMapsUrl(latLng));
+    await launchUrl(url, mode: LaunchMode.externalApplication);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -71,6 +81,13 @@ class _PhotoInfoViewState extends State<PhotoInfoView> {
             title: 'Location',
             value: _isLoadingLocation ? 'Loading...' : _formatLocation(_latLng),
           ),
+          if (!_isLoadingLocation && _latLng != null)
+            _TappableInfoTile(
+              icon: Icons.map,
+              title: 'Google Maps',
+              value: _getGoogleMapsUrl(_latLng!),
+              onTap: () => _launchGoogleMaps(_latLng!),
+            ),
         ],
       ),
     );
@@ -94,6 +111,34 @@ class _InfoTile extends StatelessWidget {
       leading: Icon(icon, color: Theme.of(context).colorScheme.primary),
       title: Text(title, style: const TextStyle(fontWeight: FontWeight.w500)),
       subtitle: Text(value),
+    );
+  }
+}
+
+class _TappableInfoTile extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String value;
+  final VoidCallback? onTap;
+
+  const _TappableInfoTile({
+    required this.icon,
+    required this.title,
+    required this.value,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      leading: Icon(icon, color: Theme.of(context).colorScheme.primary),
+      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w500)),
+      subtitle: Text(
+        value,
+        style: const TextStyle(decoration: TextDecoration.underline),
+      ),
+      trailing: const Icon(Icons.open_in_new, size: 18),
+      onTap: onTap,
     );
   }
 }

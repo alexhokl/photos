@@ -46,6 +46,7 @@ dependencies:
   # For persisting app settings
   shared_preferences: ^2.5.3
   cached_network_image: ^3.4.1
+  url_launcher: ^6.3.0
 
 dev_dependencies:
   flutter_test:

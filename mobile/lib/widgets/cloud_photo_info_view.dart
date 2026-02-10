@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:photos/proto/photos.pb.dart';
 import 'package:photos/services/library_service.dart';
 import 'package:photos/widgets/settings_page.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class CloudPhotoInfoView extends StatefulWidget {
   final Photo photo;
@@ -66,6 +67,15 @@ class _CloudPhotoInfoViewState extends State<CloudPhotoInfoView> {
 
   String _formatDimensions(int width, int height) {
     return '$width x $height pixels';
+  }
+
+  String _getGoogleMapsUrl(double latitude, double longitude) {
+    return 'https://www.google.com/maps?q=${latitude.toStringAsFixed(6)},${longitude.toStringAsFixed(6)}';
+  }
+
+  Future<void> _launchGoogleMaps(double latitude, double longitude) async {
+    final url = Uri.parse(_getGoogleMapsUrl(latitude, longitude));
+    await launchUrl(url, mode: LaunchMode.externalApplication);
   }
 
   @override
@@ -155,6 +165,13 @@ class _CloudPhotoInfoViewState extends State<CloudPhotoInfoView> {
             title: 'Location',
             value: _formatLocation(photo.latitude, photo.longitude),
           ),
+        if (photo.hasLocation)
+          _TappableInfoTile(
+            icon: Icons.map,
+            title: 'Google Maps',
+            value: _getGoogleMapsUrl(photo.latitude, photo.longitude),
+            onTap: () => _launchGoogleMaps(photo.latitude, photo.longitude),
+          ),
         _InfoTile(
           icon: Icons.calendar_today,
           title: 'Created',
@@ -192,6 +209,34 @@ class _InfoTile extends StatelessWidget {
       leading: Icon(icon, color: Theme.of(context).colorScheme.primary),
       title: Text(title, style: const TextStyle(fontWeight: FontWeight.w500)),
       subtitle: Text(value),
+    );
+  }
+}
+
+class _TappableInfoTile extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String value;
+  final VoidCallback? onTap;
+
+  const _TappableInfoTile({
+    required this.icon,
+    required this.title,
+    required this.value,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      leading: Icon(icon, color: Theme.of(context).colorScheme.primary),
+      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w500)),
+      subtitle: Text(
+        value,
+        style: const TextStyle(decoration: TextDecoration.underline),
+      ),
+      trailing: const Icon(Icons.open_in_new, size: 18),
+      onTap: onTap,
     );
   }
 }
