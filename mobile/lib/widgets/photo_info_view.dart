@@ -68,7 +68,7 @@ class _PhotoInfoViewState extends State<PhotoInfoView> {
           ),
           _InfoTile(
             icon: Icons.aspect_ratio,
-            title: 'Size',
+            title: 'Dimensions',
             value: '${widget.asset.width} x ${widget.asset.height} pixels',
           ),
           _InfoTile(

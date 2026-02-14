@@ -66,7 +66,7 @@ void main() {
         MaterialApp(home: PhotoInfoView(asset: mockAsset)),
       );
 
-      expect(find.text('Size'), findsOneWidget);
+      expect(find.text('Dimensions'), findsOneWidget);
       expect(find.text('1920 x 1080 pixels'), findsOneWidget);
       expect(find.byIcon(Icons.aspect_ratio), findsOneWidget);
     });
