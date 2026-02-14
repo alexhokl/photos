@@ -89,18 +89,18 @@ class _HomePageState extends State<HomePage> {
           onSelected: _onDeviceMenuAction,
           itemBuilder: (context) => [
             const PopupMenuItem(
-              value: PhotoGridAction.delete,
-              child: ListTile(
-                leading: Icon(Icons.delete),
-                title: Text('Delete'),
-                contentPadding: EdgeInsets.zero,
-              ),
-            ),
-            const PopupMenuItem(
               value: PhotoGridAction.upload,
               child: ListTile(
                 leading: Icon(Icons.cloud_upload),
                 title: Text('Upload'),
+                contentPadding: EdgeInsets.zero,
+              ),
+            ),
+            const PopupMenuItem(
+              value: PhotoGridAction.delete,
+              child: ListTile(
+                leading: Icon(Icons.delete),
+                title: Text('Delete'),
                 contentPadding: EdgeInsets.zero,
               ),
             ),

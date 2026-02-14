@@ -362,18 +362,18 @@ class _PhotoViewerState extends State<PhotoViewer> {
                 ),
               ),
               const PopupMenuItem(
-                value: PhotoViewerAction.delete,
-                child: ListTile(
-                  leading: Icon(Icons.delete),
-                  title: Text('Delete'),
-                  contentPadding: EdgeInsets.zero,
-                ),
-              ),
-              const PopupMenuItem(
                 value: PhotoViewerAction.upload,
                 child: ListTile(
                   leading: Icon(Icons.cloud_upload),
                   title: Text('Upload'),
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+              const PopupMenuItem(
+                value: PhotoViewerAction.delete,
+                child: ListTile(
+                  leading: Icon(Icons.delete),
+                  title: Text('Delete'),
                   contentPadding: EdgeInsets.zero,
                 ),
               ),
