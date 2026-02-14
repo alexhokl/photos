@@ -178,7 +178,9 @@ class _SettingsPageState extends State<SettingsPage> {
       await libraryService.dispose();
 
       setState(() {
-        _directorySuggestions = directories;
+        _directorySuggestions = directories
+            .map((d) => d.endsWith('/') ? d : '$d/')
+            .toList();
         _isLoadingDirectories = false;
       });
     } catch (e) {

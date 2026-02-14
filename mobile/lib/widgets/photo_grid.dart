@@ -759,7 +759,9 @@ class _UploadToDirectoryDialogState extends State<_UploadToDirectoryDialog> {
 
       if (mounted) {
         setState(() {
-          _directorySuggestions = directories;
+          _directorySuggestions = directories
+              .map((d) => d.endsWith('/') ? d : '$d/')
+              .toList();
           _isLoadingDirectories = false;
         });
       }
