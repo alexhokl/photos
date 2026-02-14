@@ -8,12 +8,14 @@ class BackendConfig {
   final int port;
   final String defaultDirectory;
   final bool deleteAfterUpload;
+  final int uploadTimeoutSeconds;
 
   const BackendConfig({
     required this.host,
     required this.port,
     this.defaultDirectory = '',
     this.deleteAfterUpload = false,
+    this.uploadTimeoutSeconds = SettingsPage.defaultUploadTimeoutSeconds,
   });
 
   /// Parse a URL string into host and port
@@ -22,6 +24,7 @@ class BackendConfig {
     String url, {
     String defaultDirectory = '',
     bool deleteAfterUpload = false,
+    int uploadTimeoutSeconds = SettingsPage.defaultUploadTimeoutSeconds,
   }) {
     final uri = Uri.parse(url);
     final host = uri.host;
@@ -39,6 +42,7 @@ class BackendConfig {
       port: port,
       defaultDirectory: defaultDirectory,
       deleteAfterUpload: deleteAfterUpload,
+      uploadTimeoutSeconds: uploadTimeoutSeconds,
     );
   }
 
@@ -52,10 +56,14 @@ class BackendConfig {
         await prefs.getString(SettingsPage.defaultDirectoryKey) ?? '';
     final deleteAfterUpload =
         await prefs.getBool(SettingsPage.deleteAfterUploadKey) ?? false;
+    final uploadTimeoutSeconds =
+        await prefs.getInt(SettingsPage.uploadTimeoutKey) ??
+        SettingsPage.defaultUploadTimeoutSeconds;
     return BackendConfig.fromUrl(
       url,
       defaultDirectory: defaultDir,
       deleteAfterUpload: deleteAfterUpload,
+      uploadTimeoutSeconds: uploadTimeoutSeconds,
     );
   }
 }
@@ -69,6 +77,8 @@ class SettingsPage extends StatefulWidget {
   static const String defaultBackendUrl = 'https://photos.a-b.ts.net';
   static const String defaultDirectoryKey = 'default_directory';
   static const String deleteAfterUploadKey = 'delete_after_upload';
+  static const String uploadTimeoutKey = 'upload_timeout_seconds';
+  static const int defaultUploadTimeoutSeconds = 30;
 
   @override
   State<SettingsPage> createState() => _SettingsPageState();
@@ -77,6 +87,8 @@ class SettingsPage extends StatefulWidget {
 class _SettingsPageState extends State<SettingsPage> {
   final TextEditingController _backendUrlController = TextEditingController();
   final TextEditingController _directoryController = TextEditingController();
+  final TextEditingController _uploadTimeoutController =
+      TextEditingController();
   late final SharedPreferencesAsync _prefs;
   bool _isLoading = true;
   List<String> _directorySuggestions = [];
@@ -112,10 +124,16 @@ class _SettingsPageState extends State<SettingsPage> {
     final deleteAfterUpload = await _prefs.getBool(
       SettingsPage.deleteAfterUploadKey,
     );
+    final uploadTimeoutSeconds = await _prefs.getInt(
+      SettingsPage.uploadTimeoutKey,
+    );
     setState(() {
       _backendUrlController.text = savedUrl ?? SettingsPage.defaultBackendUrl;
       _directoryController.text = savedDirectory ?? '';
       _deleteAfterUpload = deleteAfterUpload ?? false;
+      _uploadTimeoutController.text =
+          (uploadTimeoutSeconds ?? SettingsPage.defaultUploadTimeoutSeconds)
+              .toString();
       _isLoading = false;
     });
     // Load directory suggestions after preferences are loaded
@@ -134,6 +152,13 @@ class _SettingsPageState extends State<SettingsPage> {
 
   Future<void> _saveDeleteAfterUpload(bool value) async {
     await _prefs.setBool(SettingsPage.deleteAfterUploadKey, value);
+  }
+
+  Future<void> _saveUploadTimeout(String value) async {
+    final seconds = int.tryParse(value);
+    if (seconds != null && seconds > 0) {
+      await _prefs.setInt(SettingsPage.uploadTimeoutKey, seconds);
+    }
   }
 
   Future<void> _loadDirectorySuggestions() async {
@@ -168,6 +193,7 @@ class _SettingsPageState extends State<SettingsPage> {
   void dispose() {
     _backendUrlController.dispose();
     _directoryController.dispose();
+    _uploadTimeoutController.dispose();
     super.dispose();
   }
 
@@ -313,6 +339,20 @@ class _SettingsPageState extends State<SettingsPage> {
               _saveDeleteAfterUpload(value);
             },
             contentPadding: EdgeInsets.zero,
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _uploadTimeoutController,
+            decoration: const InputDecoration(
+              labelText: 'Upload timeout (in seconds)',
+              hintText: 'Enter timeout in seconds',
+              border: OutlineInputBorder(),
+              prefixIcon: Icon(Icons.timer),
+              helperText:
+                  'Time to wait for each photo upload before timing out',
+            ),
+            keyboardType: TextInputType.number,
+            onChanged: _saveUploadTimeout,
           ),
         ],
       ),

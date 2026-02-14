@@ -238,7 +238,11 @@ class PhotoGridState extends State<PhotoGrid> {
     if (selectedPhotos.isEmpty) return;
 
     final config = await BackendConfig.load();
-    final uploadService = UploadService(host: config.host, port: config.port);
+    final uploadService = UploadService(
+      host: config.host,
+      port: config.port,
+      uploadTimeout: Duration(seconds: config.uploadTimeoutSeconds),
+    );
 
     try {
       // Show upload progress dialog
