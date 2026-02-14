@@ -131,6 +131,13 @@ func (s *LibraryServer) GetPhoto(ctx context.Context, req *proto.GetPhotoRequest
 		Height:           int32(photoMetadata.Height),
 		HasDimensions:    photoMetadata.HasDimensions,
 		OriginalFilename: photoMetadata.OriginalFilename,
+		CameraMake:       photoMetadata.CameraMake,
+		CameraModel:      photoMetadata.CameraModel,
+		FocalLength:      photoMetadata.FocalLength,
+		Iso:              int32(photoMetadata.ISO),
+		Aperture:         photoMetadata.Aperture,
+		ExposureTime:     photoMetadata.ExposureTime,
+		LensModel:        photoMetadata.LensModel,
 	}
 
 	slog.Info("Retrieved photo metadata",
