@@ -708,11 +708,19 @@ func (s *LibraryServer) SyncDatabase(ctx context.Context, _ *emptypb.Empty) (*em
 				md5Hash = base64.StdEncoding.EncodeToString(attrs.MD5)
 			}
 
+			// Parse GCS metadata to extract TimeTaken
+			var syncTimeTaken *time.Time
+			photoMetadata := ParseGCSMetadata(attrs.Metadata)
+			if photoMetadata.HasDateTaken {
+				syncTimeTaken = &photoMetadata.DateTaken
+			}
+
 			photoObject := &database.PhotoObject{
 				ObjectID:    objectID,
 				ContentType: attrs.ContentType,
 				MD5Hash:     md5Hash,
 				UserID:      userID,
+				TimeTaken:   syncTimeTaken,
 			}
 
 			// Create or restore photo object if soft-deleted

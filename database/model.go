@@ -1,6 +1,8 @@
 package database
 
 import (
+	"time"
+
 	"gorm.io/gorm"
 )
 
@@ -17,11 +19,12 @@ type TailscaleAddress struct {
 
 type PhotoObject struct {
 	gorm.Model
-	ObjectID    string `gorm:"not null;unique"`
-	ContentType string `gorm:"not null"`
-	MD5Hash     string `gorm:"not null"`
-	UserID      uint   `gorm:"not null"`
-	User        User   `gorm:"foreignKey:UserID"`
+	ObjectID    string     `gorm:"not null;unique"`
+	ContentType string     `gorm:"not null"`
+	MD5Hash     string     `gorm:"not null"`
+	UserID      uint       `gorm:"not null"`
+	User        User       `gorm:"foreignKey:UserID"`
+	TimeTaken   *time.Time `gorm:""`
 }
 
 type PhotoDirectory struct {

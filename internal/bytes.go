@@ -76,7 +76,11 @@ func (s *BytesServer) Upload(ctx context.Context, req *proto.UploadRequest) (*pr
 	}
 
 	// Write to PhotoObject table (create or restore if soft-deleted)
-	photoObject := createPhotoObject(objectID, attrs, userID, md5HashBase64)
+	var timeTaken *time.Time
+	if photoMetadata.HasDateTaken {
+		timeTaken = &photoMetadata.DateTaken
+	}
+	photoObject := createPhotoObject(objectID, attrs, userID, md5HashBase64, timeTaken)
 	if err := database.CreateOrRestorePhotoObject(s.DB, photoObject); err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to create photo object record: %v", err)
 	}
@@ -149,13 +153,14 @@ func ExtractDirectoryFromPath(objectPath string) string {
 	return dir
 }
 
-// createPhotoObject creates a PhotoObject from the given object ID, storage attributes, user ID, and MD5 hash.
-func createPhotoObject(objectID string, attrs *storage.ObjectAttrs, userID uint, md5Hash string) *database.PhotoObject {
+// createPhotoObject creates a PhotoObject from the given object ID, storage attributes, user ID, MD5 hash, and optional time taken.
+func createPhotoObject(objectID string, attrs *storage.ObjectAttrs, userID uint, md5Hash string, timeTaken *time.Time) *database.PhotoObject {
 	return &database.PhotoObject{
 		ObjectID:    objectID,
 		ContentType: attrs.ContentType,
 		MD5Hash:     md5Hash,
 		UserID:      userID,
+		TimeTaken:   timeTaken,
 	}
 }
 
@@ -373,7 +378,11 @@ func (s *BytesServer) StreamingUpload(stream grpc.ClientStreamingServer[proto.St
 	}
 
 	// Write to PhotoObject table (create or restore if soft-deleted)
-	photoObject := createPhotoObject(objectID, attrs, userID, md5HashBase64)
+	var streamTimeTaken *time.Time
+	if photoMetadata.HasDateTaken {
+		streamTimeTaken = &photoMetadata.DateTaken
+	}
+	photoObject := createPhotoObject(objectID, attrs, userID, md5HashBase64, streamTimeTaken)
 	if err := database.CreateOrRestorePhotoObject(s.DB, photoObject); err != nil {
 		return status.Errorf(codes.Internal, "failed to create photo object record: %v", err)
 	}

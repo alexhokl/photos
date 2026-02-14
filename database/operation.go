@@ -30,6 +30,7 @@ func CreateOrRestorePhotoObject(db *gorm.DB, photoObject *PhotoObject) error {
 		existing.ContentType = photoObject.ContentType
 		existing.MD5Hash = photoObject.MD5Hash
 		existing.UserID = photoObject.UserID
+		existing.TimeTaken = photoObject.TimeTaken
 		return db.Unscoped().Save(&existing).Error
 	}
 
