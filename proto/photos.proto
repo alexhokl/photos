@@ -29,6 +29,20 @@ message Photo {
   bool has_dimensions = 15;
   // Original filename before upload
   string original_filename = 16;
+  // Camera make (manufacturer, e.g., "Apple", "Canon")
+  string camera_make = 17;
+  // Camera model (e.g., "iPhone 14 Pro", "EOS R5")
+  string camera_model = 18;
+  // Focal length in millimeters (e.g., 50.0 for 50mm)
+  double focal_length = 19;
+  // ISO sensitivity (e.g., 100, 400, 3200)
+  int32 iso = 20;
+  // Aperture as f-number (e.g., 2.8 for f/2.8)
+  double aperture = 21;
+  // Exposure time in seconds (e.g., 0.001 for 1/1000s)
+  double exposure_time = 22;
+  // Lens model (e.g., "EF 50mm f/1.4 USM")
+  string lens_model = 23;
 }
 
 // UploadRequest contains the photo data to upload

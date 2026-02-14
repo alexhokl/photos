@@ -46,8 +46,22 @@ type Photo struct {
 	HasDimensions bool  `protobuf:"varint,15,opt,name=has_dimensions,json=hasDimensions,proto3" json:"has_dimensions,omitempty"`
 	// Original filename before upload
 	OriginalFilename string `protobuf:"bytes,16,opt,name=original_filename,json=originalFilename,proto3" json:"original_filename,omitempty"`
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
+	// Camera make (manufacturer, e.g., "Apple", "Canon")
+	CameraMake string `protobuf:"bytes,17,opt,name=camera_make,json=cameraMake,proto3" json:"camera_make,omitempty"`
+	// Camera model (e.g., "iPhone 14 Pro", "EOS R5")
+	CameraModel string `protobuf:"bytes,18,opt,name=camera_model,json=cameraModel,proto3" json:"camera_model,omitempty"`
+	// Focal length in millimeters (e.g., 50.0 for 50mm)
+	FocalLength float64 `protobuf:"fixed64,19,opt,name=focal_length,json=focalLength,proto3" json:"focal_length,omitempty"`
+	// ISO sensitivity (e.g., 100, 400, 3200)
+	Iso int32 `protobuf:"varint,20,opt,name=iso,proto3" json:"iso,omitempty"`
+	// Aperture as f-number (e.g., 2.8 for f/2.8)
+	Aperture float64 `protobuf:"fixed64,21,opt,name=aperture,proto3" json:"aperture,omitempty"`
+	// Exposure time in seconds (e.g., 0.001 for 1/1000s)
+	ExposureTime float64 `protobuf:"fixed64,22,opt,name=exposure_time,json=exposureTime,proto3" json:"exposure_time,omitempty"`
+	// Lens model (e.g., "EF 50mm f/1.4 USM")
+	LensModel     string `protobuf:"bytes,23,opt,name=lens_model,json=lensModel,proto3" json:"lens_model,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Photo) Reset() {
@@ -188,6 +202,55 @@ func (x *Photo) GetHasDimensions() bool {
 func (x *Photo) GetOriginalFilename() string {
 	if x != nil {
 		return x.OriginalFilename
+	}
+	return ""
+}
+
+func (x *Photo) GetCameraMake() string {
+	if x != nil {
+		return x.CameraMake
+	}
+	return ""
+}
+
+func (x *Photo) GetCameraModel() string {
+	if x != nil {
+		return x.CameraModel
+	}
+	return ""
+}
+
+func (x *Photo) GetFocalLength() float64 {
+	if x != nil {
+		return x.FocalLength
+	}
+	return 0
+}
+
+func (x *Photo) GetIso() int32 {
+	if x != nil {
+		return x.Iso
+	}
+	return 0
+}
+
+func (x *Photo) GetAperture() float64 {
+	if x != nil {
+		return x.Aperture
+	}
+	return 0
+}
+
+func (x *Photo) GetExposureTime() float64 {
+	if x != nil {
+		return x.ExposureTime
+	}
+	return 0
+}
+
+func (x *Photo) GetLensModel() string {
+	if x != nil {
+		return x.LensModel
 	}
 	return ""
 }
@@ -1566,7 +1629,7 @@ var File_proto_photos_proto protoreflect.FileDescriptor
 
 const file_proto_photos_proto_rawDesc = "" +
 	"\n" +
-	"\x12proto/photos.proto\x12\x06photos\x1a\x1cgoogle/api/annotations.proto\x1a\x1bgoogle/protobuf/empty.proto\"\xff\x03\n" +
+	"\x12proto/photos.proto\x12\x06photos\x1a\x1cgoogle/api/annotations.proto\x1a\x1bgoogle/protobuf/empty.proto\"\xd8\x05\n" +
 	"\x05Photo\x12\x1b\n" +
 	"\tobject_id\x18\x01 \x01(\tR\bobjectId\x12\x1a\n" +
 	"\bfilename\x18\x02 \x01(\tR\bfilename\x12!\n" +
@@ -1588,7 +1651,16 @@ const file_proto_photos_proto_rawDesc = "" +
 	"\x05width\x18\r \x01(\x05R\x05width\x12\x16\n" +
 	"\x06height\x18\x0e \x01(\x05R\x06height\x12%\n" +
 	"\x0ehas_dimensions\x18\x0f \x01(\bR\rhasDimensions\x12+\n" +
-	"\x11original_filename\x18\x10 \x01(\tR\x10originalFilename\"c\n" +
+	"\x11original_filename\x18\x10 \x01(\tR\x10originalFilename\x12\x1f\n" +
+	"\vcamera_make\x18\x11 \x01(\tR\n" +
+	"cameraMake\x12!\n" +
+	"\fcamera_model\x18\x12 \x01(\tR\vcameraModel\x12!\n" +
+	"\ffocal_length\x18\x13 \x01(\x01R\vfocalLength\x12\x10\n" +
+	"\x03iso\x18\x14 \x01(\x05R\x03iso\x12\x1a\n" +
+	"\baperture\x18\x15 \x01(\x01R\baperture\x12#\n" +
+	"\rexposure_time\x18\x16 \x01(\x01R\fexposureTime\x12\x1d\n" +
+	"\n" +
+	"lens_model\x18\x17 \x01(\tR\tlensModel\"c\n" +
 	"\rUploadRequest\x12\x1b\n" +
 	"\tobject_id\x18\x01 \x01(\tR\bobjectId\x12!\n" +
 	"\fcontent_type\x18\x02 \x01(\tR\vcontentType\x12\x12\n" +

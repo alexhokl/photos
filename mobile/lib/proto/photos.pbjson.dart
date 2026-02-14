@@ -41,6 +41,13 @@ const Photo$json = {
       '5': 9,
       '10': 'originalFilename'
     },
+    {'1': 'camera_make', '3': 17, '4': 1, '5': 9, '10': 'cameraMake'},
+    {'1': 'camera_model', '3': 18, '4': 1, '5': 9, '10': 'cameraModel'},
+    {'1': 'focal_length', '3': 19, '4': 1, '5': 1, '10': 'focalLength'},
+    {'1': 'iso', '3': 20, '4': 1, '5': 5, '10': 'iso'},
+    {'1': 'aperture', '3': 21, '4': 1, '5': 1, '10': 'aperture'},
+    {'1': 'exposure_time', '3': 22, '4': 1, '5': 1, '10': 'exposureTime'},
+    {'1': 'lens_model', '3': 23, '4': 1, '5': 9, '10': 'lensModel'},
   ],
 };
 
@@ -55,7 +62,11 @@ final $typed_data.Uint8List photoDescriptor = $convert.base64Decode(
     'CWRhdGVUYWtlbhIkCg5oYXNfZGF0ZV90YWtlbhgMIAEoCFIMaGFzRGF0ZVRha2VuEhQKBXdpZH'
     'RoGA0gASgFUgV3aWR0aBIWCgZoZWlnaHQYDiABKAVSBmhlaWdodBIlCg5oYXNfZGltZW5zaW9u'
     'cxgPIAEoCFINaGFzRGltZW5zaW9ucxIrChFvcmlnaW5hbF9maWxlbmFtZRgQIAEoCVIQb3JpZ2'
-    'luYWxGaWxlbmFtZQ==');
+    'luYWxGaWxlbmFtZRIfCgtjYW1lcmFfbWFrZRgRIAEoCVIKY2FtZXJhTWFrZRIhCgxjYW1lcmFf'
+    'bW9kZWwYEiABKAlSC2NhbWVyYU1vZGVsEiEKDGZvY2FsX2xlbmd0aBgTIAEoAVILZm9jYWxMZW'
+    '5ndGgSEAoDaXNvGBQgASgFUgNpc28SGgoIYXBlcnR1cmUYFSABKAFSCGFwZXJ0dXJlEiMKDWV4'
+    'cG9zdXJlX3RpbWUYFiABKAFSDGV4cG9zdXJlVGltZRIdCgpsZW5zX21vZGVsGBcgASgJUglsZW'
+    '5zTW9kZWw=');
 
 @$core.Deprecated('Use uploadRequestDescriptor instead')
 const UploadRequest$json = {

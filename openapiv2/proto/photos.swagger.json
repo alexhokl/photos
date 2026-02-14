@@ -622,6 +622,38 @@
         "originalFilename": {
           "type": "string",
           "title": "Original filename before upload"
+        },
+        "cameraMake": {
+          "type": "string",
+          "title": "Camera make (manufacturer, e.g., \"Apple\", \"Canon\")"
+        },
+        "cameraModel": {
+          "type": "string",
+          "title": "Camera model (e.g., \"iPhone 14 Pro\", \"EOS R5\")"
+        },
+        "focalLength": {
+          "type": "number",
+          "format": "double",
+          "title": "Focal length in millimeters (e.g., 50.0 for 50mm)"
+        },
+        "iso": {
+          "type": "integer",
+          "format": "int32",
+          "title": "ISO sensitivity (e.g., 100, 400, 3200)"
+        },
+        "aperture": {
+          "type": "number",
+          "format": "double",
+          "title": "Aperture as f-number (e.g., 2.8 for f/2.8)"
+        },
+        "exposureTime": {
+          "type": "number",
+          "format": "double",
+          "title": "Exposure time in seconds (e.g., 0.001 for 1/1000s)"
+        },
+        "lensModel": {
+          "type": "string",
+          "title": "Lens model (e.g., \"EF 50mm f/1.4 USM\")"
         }
       },
       "title": "Photo represents a stored photo with metadata"

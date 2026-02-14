@@ -102,6 +102,142 @@ func TestPhotoMetadataInfo_ToGCSMetadata(t *testing.T) {
 			},
 			expected: map[string]string{},
 		},
+		{
+			name: "camera make only",
+			info: &PhotoMetadataInfo{
+				CameraMake: "Canon",
+			},
+			expected: map[string]string{
+				MetadataKeyCameraMake: "Canon",
+			},
+		},
+		{
+			name: "camera model only",
+			info: &PhotoMetadataInfo{
+				CameraModel: "EOS R5",
+			},
+			expected: map[string]string{
+				MetadataKeyCameraModel: "EOS R5",
+			},
+		},
+		{
+			name: "camera make and model",
+			info: &PhotoMetadataInfo{
+				CameraMake:  "Apple",
+				CameraModel: "iPhone 14 Pro",
+			},
+			expected: map[string]string{
+				MetadataKeyCameraMake:  "Apple",
+				MetadataKeyCameraModel: "iPhone 14 Pro",
+			},
+		},
+		{
+			name: "all metadata including camera",
+			info: &PhotoMetadataInfo{
+				Latitude:         40.712776,
+				Longitude:        -74.005974,
+				HasLocation:      true,
+				DateTaken:        time.Date(2024, 6, 20, 14, 45, 30, 0, time.UTC),
+				HasDateTaken:     true,
+				Width:            1920,
+				Height:           1080,
+				HasDimensions:    true,
+				OriginalFilename: "vacation_photo.jpg",
+				CameraMake:       "Sony",
+				CameraModel:      "A7 IV",
+			},
+			expected: map[string]string{
+				MetadataKeyLatitude:         "40.712776",
+				MetadataKeyLongitude:        "-74.005974",
+				MetadataKeyDateTaken:        "2024-06-20T14:45:30Z",
+				MetadataKeyWidth:            "1920",
+				MetadataKeyHeight:           "1080",
+				MetadataKeyOriginalFilename: "vacation_photo.jpg",
+				MetadataKeyCameraMake:       "Sony",
+				MetadataKeyCameraModel:      "A7 IV",
+			},
+		},
+		{
+			name: "focal length only",
+			info: &PhotoMetadataInfo{
+				FocalLength: 50.0,
+			},
+			expected: map[string]string{
+				MetadataKeyFocalLength: "50.00",
+			},
+		},
+		{
+			name: "ISO only",
+			info: &PhotoMetadataInfo{
+				ISO: 400,
+			},
+			expected: map[string]string{
+				MetadataKeyISO: "400",
+			},
+		},
+		{
+			name: "aperture only",
+			info: &PhotoMetadataInfo{
+				Aperture: 2.8,
+			},
+			expected: map[string]string{
+				MetadataKeyAperture: "2.80",
+			},
+		},
+		{
+			name: "exposure time only",
+			info: &PhotoMetadataInfo{
+				ExposureTime: 0.001,
+			},
+			expected: map[string]string{
+				MetadataKeyExposureTime: "0.001",
+			},
+		},
+		{
+			name: "lens model only",
+			info: &PhotoMetadataInfo{
+				LensModel: "EF 50mm f/1.4 USM",
+			},
+			expected: map[string]string{
+				MetadataKeyLensModel: "EF 50mm f/1.4 USM",
+			},
+		},
+		{
+			name: "all EXIF metadata",
+			info: &PhotoMetadataInfo{
+				Latitude:         40.712776,
+				Longitude:        -74.005974,
+				HasLocation:      true,
+				DateTaken:        time.Date(2024, 6, 20, 14, 45, 30, 0, time.UTC),
+				HasDateTaken:     true,
+				Width:            6000,
+				Height:           4000,
+				HasDimensions:    true,
+				OriginalFilename: "DSC_1234.NEF",
+				CameraMake:       "Nikon",
+				CameraModel:      "Z8",
+				FocalLength:      85.0,
+				ISO:              200,
+				Aperture:         1.8,
+				ExposureTime:     0.0025,
+				LensModel:        "NIKKOR Z 85mm f/1.8 S",
+			},
+			expected: map[string]string{
+				MetadataKeyLatitude:         "40.712776",
+				MetadataKeyLongitude:        "-74.005974",
+				MetadataKeyDateTaken:        "2024-06-20T14:45:30Z",
+				MetadataKeyWidth:            "6000",
+				MetadataKeyHeight:           "4000",
+				MetadataKeyOriginalFilename: "DSC_1234.NEF",
+				MetadataKeyCameraMake:       "Nikon",
+				MetadataKeyCameraModel:      "Z8",
+				MetadataKeyFocalLength:      "85.00",
+				MetadataKeyISO:              "200",
+				MetadataKeyAperture:         "1.80",
+				MetadataKeyExposureTime:     "0.0025",
+				MetadataKeyLensModel:        "NIKKOR Z 85mm f/1.8 S",
+			},
+		},
 	}
 
 	for _, test := range tests {
@@ -278,6 +414,178 @@ func TestParseGCSMetadata(t *testing.T) {
 				HasLocation: false,
 			},
 		},
+		{
+			name: "camera make only",
+			metadata: map[string]string{
+				MetadataKeyCameraMake: "Canon",
+			},
+			expected: &PhotoMetadataInfo{
+				CameraMake: "Canon",
+			},
+		},
+		{
+			name: "camera model only",
+			metadata: map[string]string{
+				MetadataKeyCameraModel: "EOS R5",
+			},
+			expected: &PhotoMetadataInfo{
+				CameraModel: "EOS R5",
+			},
+		},
+		{
+			name: "camera make and model",
+			metadata: map[string]string{
+				MetadataKeyCameraMake:  "Apple",
+				MetadataKeyCameraModel: "iPhone 14 Pro",
+			},
+			expected: &PhotoMetadataInfo{
+				CameraMake:  "Apple",
+				CameraModel: "iPhone 14 Pro",
+			},
+		},
+		{
+			name: "all metadata including camera",
+			metadata: map[string]string{
+				MetadataKeyLatitude:         "40.712776",
+				MetadataKeyLongitude:        "-74.005974",
+				MetadataKeyDateTaken:        "2024-06-20T14:45:30Z",
+				MetadataKeyWidth:            "1920",
+				MetadataKeyHeight:           "1080",
+				MetadataKeyOriginalFilename: "vacation_photo.jpg",
+				MetadataKeyCameraMake:       "Sony",
+				MetadataKeyCameraModel:      "A7 IV",
+			},
+			expected: &PhotoMetadataInfo{
+				Latitude:         40.712776,
+				Longitude:        -74.005974,
+				HasLocation:      true,
+				DateTaken:        time.Date(2024, 6, 20, 14, 45, 30, 0, time.UTC),
+				HasDateTaken:     true,
+				Width:            1920,
+				Height:           1080,
+				HasDimensions:    true,
+				OriginalFilename: "vacation_photo.jpg",
+				CameraMake:       "Sony",
+				CameraModel:      "A7 IV",
+			},
+		},
+		{
+			name: "focal length only",
+			metadata: map[string]string{
+				MetadataKeyFocalLength: "50.00",
+			},
+			expected: &PhotoMetadataInfo{
+				FocalLength: 50.0,
+			},
+		},
+		{
+			name: "ISO only",
+			metadata: map[string]string{
+				MetadataKeyISO: "400",
+			},
+			expected: &PhotoMetadataInfo{
+				ISO: 400,
+			},
+		},
+		{
+			name: "aperture only",
+			metadata: map[string]string{
+				MetadataKeyAperture: "2.80",
+			},
+			expected: &PhotoMetadataInfo{
+				Aperture: 2.8,
+			},
+		},
+		{
+			name: "exposure time only",
+			metadata: map[string]string{
+				MetadataKeyExposureTime: "0.001",
+			},
+			expected: &PhotoMetadataInfo{
+				ExposureTime: 0.001,
+			},
+		},
+		{
+			name: "lens model only",
+			metadata: map[string]string{
+				MetadataKeyLensModel: "EF 50mm f/1.4 USM",
+			},
+			expected: &PhotoMetadataInfo{
+				LensModel: "EF 50mm f/1.4 USM",
+			},
+		},
+		{
+			name: "invalid focal length format",
+			metadata: map[string]string{
+				MetadataKeyFocalLength: "not-a-number",
+			},
+			expected: &PhotoMetadataInfo{
+				FocalLength: 0,
+			},
+		},
+		{
+			name: "invalid ISO format",
+			metadata: map[string]string{
+				MetadataKeyISO: "not-a-number",
+			},
+			expected: &PhotoMetadataInfo{
+				ISO: 0,
+			},
+		},
+		{
+			name: "invalid aperture format",
+			metadata: map[string]string{
+				MetadataKeyAperture: "not-a-number",
+			},
+			expected: &PhotoMetadataInfo{
+				Aperture: 0,
+			},
+		},
+		{
+			name: "invalid exposure time format",
+			metadata: map[string]string{
+				MetadataKeyExposureTime: "not-a-number",
+			},
+			expected: &PhotoMetadataInfo{
+				ExposureTime: 0,
+			},
+		},
+		{
+			name: "all EXIF metadata",
+			metadata: map[string]string{
+				MetadataKeyLatitude:         "40.712776",
+				MetadataKeyLongitude:        "-74.005974",
+				MetadataKeyDateTaken:        "2024-06-20T14:45:30Z",
+				MetadataKeyWidth:            "6000",
+				MetadataKeyHeight:           "4000",
+				MetadataKeyOriginalFilename: "DSC_1234.NEF",
+				MetadataKeyCameraMake:       "Nikon",
+				MetadataKeyCameraModel:      "Z8",
+				MetadataKeyFocalLength:      "85.00",
+				MetadataKeyISO:              "200",
+				MetadataKeyAperture:         "1.80",
+				MetadataKeyExposureTime:     "0.0025",
+				MetadataKeyLensModel:        "NIKKOR Z 85mm f/1.8 S",
+			},
+			expected: &PhotoMetadataInfo{
+				Latitude:         40.712776,
+				Longitude:        -74.005974,
+				HasLocation:      true,
+				DateTaken:        time.Date(2024, 6, 20, 14, 45, 30, 0, time.UTC),
+				HasDateTaken:     true,
+				Width:            6000,
+				Height:           4000,
+				HasDimensions:    true,
+				OriginalFilename: "DSC_1234.NEF",
+				CameraMake:       "Nikon",
+				CameraModel:      "Z8",
+				FocalLength:      85.0,
+				ISO:              200,
+				Aperture:         1.8,
+				ExposureTime:     0.0025,
+				LensModel:        "NIKKOR Z 85mm f/1.8 S",
+			},
+		},
 	}
 
 	for _, test := range tests {
@@ -319,6 +627,34 @@ func TestParseGCSMetadata(t *testing.T) {
 
 			if result.OriginalFilename != test.expected.OriginalFilename {
 				t.Errorf("OriginalFilename: expected %q, got %q", test.expected.OriginalFilename, result.OriginalFilename)
+			}
+
+			if result.CameraMake != test.expected.CameraMake {
+				t.Errorf("CameraMake: expected %q, got %q", test.expected.CameraMake, result.CameraMake)
+			}
+
+			if result.CameraModel != test.expected.CameraModel {
+				t.Errorf("CameraModel: expected %q, got %q", test.expected.CameraModel, result.CameraModel)
+			}
+
+			if result.FocalLength != test.expected.FocalLength {
+				t.Errorf("FocalLength: expected %v, got %v", test.expected.FocalLength, result.FocalLength)
+			}
+
+			if result.ISO != test.expected.ISO {
+				t.Errorf("ISO: expected %v, got %v", test.expected.ISO, result.ISO)
+			}
+
+			if result.Aperture != test.expected.Aperture {
+				t.Errorf("Aperture: expected %v, got %v", test.expected.Aperture, result.Aperture)
+			}
+
+			if result.ExposureTime != test.expected.ExposureTime {
+				t.Errorf("ExposureTime: expected %v, got %v", test.expected.ExposureTime, result.ExposureTime)
+			}
+
+			if result.LensModel != test.expected.LensModel {
+				t.Errorf("LensModel: expected %q, got %q", test.expected.LensModel, result.LensModel)
 			}
 		})
 	}
@@ -393,6 +729,13 @@ func TestToGCSMetadata_ParseGCSMetadata_Roundtrip(t *testing.T) {
 		Height:           3000,
 		HasDimensions:    true,
 		OriginalFilename: "test_photo.jpg",
+		CameraMake:       "Apple",
+		CameraModel:      "iPhone 14 Pro",
+		FocalLength:      26.0,
+		ISO:              100,
+		Aperture:         1.78,
+		ExposureTime:     0.004,
+		LensModel:        "iPhone 14 Pro back camera 6.86mm f/1.78",
 	}
 
 	// Convert to GCS metadata
@@ -429,6 +772,29 @@ func TestToGCSMetadata_ParseGCSMetadata_Roundtrip(t *testing.T) {
 	if parsed.OriginalFilename != original.OriginalFilename {
 		t.Errorf("OriginalFilename mismatch: expected %v, got %v", original.OriginalFilename, parsed.OriginalFilename)
 	}
+	if parsed.CameraMake != original.CameraMake {
+		t.Errorf("CameraMake mismatch: expected %v, got %v", original.CameraMake, parsed.CameraMake)
+	}
+	if parsed.CameraModel != original.CameraModel {
+		t.Errorf("CameraModel mismatch: expected %v, got %v", original.CameraModel, parsed.CameraModel)
+	}
+	// Note: FocalLength is formatted with 2 decimal places, so we compare with tolerance
+	if parsed.FocalLength != 26.0 {
+		t.Errorf("FocalLength mismatch: expected %v, got %v", 26.0, parsed.FocalLength)
+	}
+	if parsed.ISO != original.ISO {
+		t.Errorf("ISO mismatch: expected %v, got %v", original.ISO, parsed.ISO)
+	}
+	// Note: Aperture is formatted with 2 decimal places, so we compare with tolerance
+	if parsed.Aperture != 1.78 {
+		t.Errorf("Aperture mismatch: expected %v, got %v", 1.78, parsed.Aperture)
+	}
+	if parsed.ExposureTime != original.ExposureTime {
+		t.Errorf("ExposureTime mismatch: expected %v, got %v", original.ExposureTime, parsed.ExposureTime)
+	}
+	if parsed.LensModel != original.LensModel {
+		t.Errorf("LensModel mismatch: expected %v, got %v", original.LensModel, parsed.LensModel)
+	}
 }
 
 func TestExtractPhotoMetadata_NoExifData(t *testing.T) {
@@ -450,6 +816,27 @@ func TestExtractPhotoMetadata_NoExifData(t *testing.T) {
 	if result.HasDimensions {
 		t.Errorf("HasDimensions should be false for non-image data")
 	}
+	if result.CameraMake != "" {
+		t.Errorf("CameraMake should be empty for non-image data, got %q", result.CameraMake)
+	}
+	if result.CameraModel != "" {
+		t.Errorf("CameraModel should be empty for non-image data, got %q", result.CameraModel)
+	}
+	if result.FocalLength != 0 {
+		t.Errorf("FocalLength should be 0 for non-image data, got %v", result.FocalLength)
+	}
+	if result.ISO != 0 {
+		t.Errorf("ISO should be 0 for non-image data, got %v", result.ISO)
+	}
+	if result.Aperture != 0 {
+		t.Errorf("Aperture should be 0 for non-image data, got %v", result.Aperture)
+	}
+	if result.ExposureTime != 0 {
+		t.Errorf("ExposureTime should be 0 for non-image data, got %v", result.ExposureTime)
+	}
+	if result.LensModel != "" {
+		t.Errorf("LensModel should be empty for non-image data, got %q", result.LensModel)
+	}
 }
 
 func TestExtractPhotoMetadata_EmptyData(t *testing.T) {
@@ -466,5 +853,26 @@ func TestExtractPhotoMetadata_EmptyData(t *testing.T) {
 	}
 	if result.HasDimensions {
 		t.Errorf("HasDimensions should be false for empty data")
+	}
+	if result.CameraMake != "" {
+		t.Errorf("CameraMake should be empty for empty data, got %q", result.CameraMake)
+	}
+	if result.CameraModel != "" {
+		t.Errorf("CameraModel should be empty for empty data, got %q", result.CameraModel)
+	}
+	if result.FocalLength != 0 {
+		t.Errorf("FocalLength should be 0 for empty data, got %v", result.FocalLength)
+	}
+	if result.ISO != 0 {
+		t.Errorf("ISO should be 0 for empty data, got %v", result.ISO)
+	}
+	if result.Aperture != 0 {
+		t.Errorf("Aperture should be 0 for empty data, got %v", result.Aperture)
+	}
+	if result.ExposureTime != 0 {
+		t.Errorf("ExposureTime should be 0 for empty data, got %v", result.ExposureTime)
+	}
+	if result.LensModel != "" {
+		t.Errorf("LensModel should be empty for empty data, got %q", result.LensModel)
 	}
 }

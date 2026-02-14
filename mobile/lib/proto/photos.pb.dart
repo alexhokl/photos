@@ -36,6 +36,13 @@ class Photo extends $pb.GeneratedMessage {
     $core.int? height,
     $core.bool? hasDimensions,
     $core.String? originalFilename,
+    $core.String? cameraMake,
+    $core.String? cameraModel,
+    $core.double? focalLength,
+    $core.int? iso,
+    $core.double? aperture,
+    $core.double? exposureTime,
+    $core.String? lensModel,
   }) {
     final result = create();
     if (objectId != null) result.objectId = objectId;
@@ -54,6 +61,13 @@ class Photo extends $pb.GeneratedMessage {
     if (height != null) result.height = height;
     if (hasDimensions != null) result.hasDimensions = hasDimensions;
     if (originalFilename != null) result.originalFilename = originalFilename;
+    if (cameraMake != null) result.cameraMake = cameraMake;
+    if (cameraModel != null) result.cameraModel = cameraModel;
+    if (focalLength != null) result.focalLength = focalLength;
+    if (iso != null) result.iso = iso;
+    if (aperture != null) result.aperture = aperture;
+    if (exposureTime != null) result.exposureTime = exposureTime;
+    if (lensModel != null) result.lensModel = lensModel;
     return result;
   }
 
@@ -86,6 +100,13 @@ class Photo extends $pb.GeneratedMessage {
     ..aI(14, _omitFieldNames ? '' : 'height')
     ..aOB(15, _omitFieldNames ? '' : 'hasDimensions')
     ..aOS(16, _omitFieldNames ? '' : 'originalFilename')
+    ..aOS(17, _omitFieldNames ? '' : 'cameraMake')
+    ..aOS(18, _omitFieldNames ? '' : 'cameraModel')
+    ..aD(19, _omitFieldNames ? '' : 'focalLength')
+    ..aI(20, _omitFieldNames ? '' : 'iso')
+    ..aD(21, _omitFieldNames ? '' : 'aperture')
+    ..aD(22, _omitFieldNames ? '' : 'exposureTime')
+    ..aOS(23, _omitFieldNames ? '' : 'lensModel')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -253,6 +274,76 @@ class Photo extends $pb.GeneratedMessage {
   $core.bool hasOriginalFilename() => $_has(15);
   @$pb.TagNumber(16)
   void clearOriginalFilename() => $_clearField(16);
+
+  /// Camera make (manufacturer, e.g., "Apple", "Canon")
+  @$pb.TagNumber(17)
+  $core.String get cameraMake => $_getSZ(16);
+  @$pb.TagNumber(17)
+  set cameraMake($core.String value) => $_setString(16, value);
+  @$pb.TagNumber(17)
+  $core.bool hasCameraMake() => $_has(16);
+  @$pb.TagNumber(17)
+  void clearCameraMake() => $_clearField(17);
+
+  /// Camera model (e.g., "iPhone 14 Pro", "EOS R5")
+  @$pb.TagNumber(18)
+  $core.String get cameraModel => $_getSZ(17);
+  @$pb.TagNumber(18)
+  set cameraModel($core.String value) => $_setString(17, value);
+  @$pb.TagNumber(18)
+  $core.bool hasCameraModel() => $_has(17);
+  @$pb.TagNumber(18)
+  void clearCameraModel() => $_clearField(18);
+
+  /// Focal length in millimeters (e.g., 50.0 for 50mm)
+  @$pb.TagNumber(19)
+  $core.double get focalLength => $_getN(18);
+  @$pb.TagNumber(19)
+  set focalLength($core.double value) => $_setDouble(18, value);
+  @$pb.TagNumber(19)
+  $core.bool hasFocalLength() => $_has(18);
+  @$pb.TagNumber(19)
+  void clearFocalLength() => $_clearField(19);
+
+  /// ISO sensitivity (e.g., 100, 400, 3200)
+  @$pb.TagNumber(20)
+  $core.int get iso => $_getIZ(19);
+  @$pb.TagNumber(20)
+  set iso($core.int value) => $_setSignedInt32(19, value);
+  @$pb.TagNumber(20)
+  $core.bool hasIso() => $_has(19);
+  @$pb.TagNumber(20)
+  void clearIso() => $_clearField(20);
+
+  /// Aperture as f-number (e.g., 2.8 for f/2.8)
+  @$pb.TagNumber(21)
+  $core.double get aperture => $_getN(20);
+  @$pb.TagNumber(21)
+  set aperture($core.double value) => $_setDouble(20, value);
+  @$pb.TagNumber(21)
+  $core.bool hasAperture() => $_has(20);
+  @$pb.TagNumber(21)
+  void clearAperture() => $_clearField(21);
+
+  /// Exposure time in seconds (e.g., 0.001 for 1/1000s)
+  @$pb.TagNumber(22)
+  $core.double get exposureTime => $_getN(21);
+  @$pb.TagNumber(22)
+  set exposureTime($core.double value) => $_setDouble(21, value);
+  @$pb.TagNumber(22)
+  $core.bool hasExposureTime() => $_has(21);
+  @$pb.TagNumber(22)
+  void clearExposureTime() => $_clearField(22);
+
+  /// Lens model (e.g., "EF 50mm f/1.4 USM")
+  @$pb.TagNumber(23)
+  $core.String get lensModel => $_getSZ(22);
+  @$pb.TagNumber(23)
+  set lensModel($core.String value) => $_setString(22, value);
+  @$pb.TagNumber(23)
+  $core.bool hasLensModel() => $_has(22);
+  @$pb.TagNumber(23)
+  void clearLensModel() => $_clearField(23);
 }
 
 /// UploadRequest contains the photo data to upload

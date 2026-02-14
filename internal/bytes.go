@@ -110,6 +110,13 @@ func (s *BytesServer) Upload(ctx context.Context, req *proto.UploadRequest) (*pr
 		Height:           int32(photoMetadata.Height),
 		HasDimensions:    photoMetadata.HasDimensions,
 		OriginalFilename: photoMetadata.OriginalFilename,
+		CameraMake:       photoMetadata.CameraMake,
+		CameraModel:      photoMetadata.CameraModel,
+		FocalLength:      photoMetadata.FocalLength,
+		Iso:              int32(photoMetadata.ISO),
+		Aperture:         photoMetadata.Aperture,
+		ExposureTime:     photoMetadata.ExposureTime,
+		LensModel:        photoMetadata.LensModel,
 	}
 
 	return &proto.UploadResponse{
@@ -224,6 +231,13 @@ func (s *BytesServer) Download(ctx context.Context, req *proto.DownloadRequest) 
 		Height:           int32(photoMetadata.Height),
 		HasDimensions:    photoMetadata.HasDimensions,
 		OriginalFilename: photoMetadata.OriginalFilename,
+		CameraMake:       photoMetadata.CameraMake,
+		CameraModel:      photoMetadata.CameraModel,
+		FocalLength:      photoMetadata.FocalLength,
+		Iso:              int32(photoMetadata.ISO),
+		Aperture:         photoMetadata.Aperture,
+		ExposureTime:     photoMetadata.ExposureTime,
+		LensModel:        photoMetadata.LensModel,
 	}
 
 	return &proto.DownloadResponse{
@@ -375,6 +389,13 @@ func (s *BytesServer) StreamingUpload(stream grpc.ClientStreamingServer[proto.St
 		Height:           int32(photoMetadata.Height),
 		HasDimensions:    photoMetadata.HasDimensions,
 		OriginalFilename: photoMetadata.OriginalFilename,
+		CameraMake:       photoMetadata.CameraMake,
+		CameraModel:      photoMetadata.CameraModel,
+		FocalLength:      photoMetadata.FocalLength,
+		Iso:              int32(photoMetadata.ISO),
+		Aperture:         photoMetadata.Aperture,
+		ExposureTime:     photoMetadata.ExposureTime,
+		LensModel:        photoMetadata.LensModel,
 	}
 
 	return stream.SendAndClose(&proto.UploadResponse{
@@ -451,6 +472,13 @@ func (s *BytesServer) StreamingDownload(req *proto.StreamingDownloadRequest, str
 		Height:           int32(photoMetadata.Height),
 		HasDimensions:    photoMetadata.HasDimensions,
 		OriginalFilename: photoMetadata.OriginalFilename,
+		CameraMake:       photoMetadata.CameraMake,
+		CameraModel:      photoMetadata.CameraModel,
+		FocalLength:      photoMetadata.FocalLength,
+		Iso:              int32(photoMetadata.ISO),
+		Aperture:         photoMetadata.Aperture,
+		ExposureTime:     photoMetadata.ExposureTime,
+		LensModel:        photoMetadata.LensModel,
 	}
 
 	metadataResp := &proto.StreamingDownloadResponse{

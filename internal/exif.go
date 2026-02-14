@@ -29,6 +29,20 @@ type PhotoMetadataInfo struct {
 	HasDimensions bool
 	// OriginalFilename is the original filename (passed in, not from EXIF)
 	OriginalFilename string
+	// CameraMake is the camera manufacturer (e.g., "Apple", "Canon")
+	CameraMake string
+	// CameraModel is the camera model (e.g., "iPhone 14 Pro", "EOS R5")
+	CameraModel string
+	// FocalLength in millimeters (e.g., 50.0 for 50mm)
+	FocalLength float64
+	// ISO sensitivity (e.g., 100, 400, 3200)
+	ISO int
+	// Aperture as f-number (e.g., 2.8 for f/2.8)
+	Aperture float64
+	// ExposureTime in seconds (e.g., 0.001 for 1/1000s)
+	ExposureTime float64
+	// LensModel is the lens name (e.g., "EF 50mm f/1.4 USM")
+	LensModel string
 }
 
 // GCS metadata keys for storing photo metadata
@@ -39,6 +53,13 @@ const (
 	MetadataKeyWidth            = "width"
 	MetadataKeyHeight           = "height"
 	MetadataKeyOriginalFilename = "original_filename"
+	MetadataKeyCameraMake       = "camera_make"
+	MetadataKeyCameraModel      = "camera_model"
+	MetadataKeyFocalLength      = "focal_length"
+	MetadataKeyISO              = "iso"
+	MetadataKeyAperture         = "aperture"
+	MetadataKeyExposureTime     = "exposure_time"
+	MetadataKeyLensModel        = "lens_model"
 )
 
 // ExtractPhotoMetadata extracts EXIF metadata from image data.
@@ -108,6 +129,62 @@ func ExtractPhotoMetadata(data []byte, originalFilename string) *PhotoMetadataIn
 		}
 	}
 
+	// Extract camera make
+	makeTag, err := x.Get(exif.Make)
+	if err == nil {
+		if makeStr, err := makeTag.StringVal(); err == nil {
+			info.CameraMake = makeStr
+		}
+	}
+
+	// Extract camera model
+	modelTag, err := x.Get(exif.Model)
+	if err == nil {
+		if modelStr, err := modelTag.StringVal(); err == nil {
+			info.CameraModel = modelStr
+		}
+	}
+
+	// Extract focal length (stored as rational number, e.g., 50/1 for 50mm)
+	focalLengthTag, err := x.Get(exif.FocalLength)
+	if err == nil {
+		if num, denom, err := focalLengthTag.Rat2(0); err == nil && denom != 0 {
+			info.FocalLength = float64(num) / float64(denom)
+		}
+	}
+
+	// Extract ISO (ISOSpeedRatings)
+	isoTag, err := x.Get(exif.ISOSpeedRatings)
+	if err == nil {
+		if iso, err := isoTag.Int(0); err == nil {
+			info.ISO = iso
+		}
+	}
+
+	// Extract aperture (FNumber, stored as rational, e.g., 28/10 for f/2.8)
+	fNumberTag, err := x.Get(exif.FNumber)
+	if err == nil {
+		if num, denom, err := fNumberTag.Rat2(0); err == nil && denom != 0 {
+			info.Aperture = float64(num) / float64(denom)
+		}
+	}
+
+	// Extract exposure time (stored as rational, e.g., 1/1000 for 0.001s)
+	exposureTimeTag, err := x.Get(exif.ExposureTime)
+	if err == nil {
+		if num, denom, err := exposureTimeTag.Rat2(0); err == nil && denom != 0 {
+			info.ExposureTime = float64(num) / float64(denom)
+		}
+	}
+
+	// Extract lens model
+	lensModelTag, err := x.Get(exif.LensModel)
+	if err == nil {
+		if lensStr, err := lensModelTag.StringVal(); err == nil {
+			info.LensModel = lensStr
+		}
+	}
+
 	return info
 }
 
@@ -132,6 +209,34 @@ func (p *PhotoMetadataInfo) ToGCSMetadata() map[string]string {
 
 	if p.OriginalFilename != "" {
 		metadata[MetadataKeyOriginalFilename] = p.OriginalFilename
+	}
+
+	if p.CameraMake != "" {
+		metadata[MetadataKeyCameraMake] = p.CameraMake
+	}
+
+	if p.CameraModel != "" {
+		metadata[MetadataKeyCameraModel] = p.CameraModel
+	}
+
+	if p.FocalLength > 0 {
+		metadata[MetadataKeyFocalLength] = fmt.Sprintf("%.2f", p.FocalLength)
+	}
+
+	if p.ISO > 0 {
+		metadata[MetadataKeyISO] = strconv.Itoa(p.ISO)
+	}
+
+	if p.Aperture > 0 {
+		metadata[MetadataKeyAperture] = fmt.Sprintf("%.2f", p.Aperture)
+	}
+
+	if p.ExposureTime > 0 {
+		metadata[MetadataKeyExposureTime] = fmt.Sprintf("%g", p.ExposureTime)
+	}
+
+	if p.LensModel != "" {
+		metadata[MetadataKeyLensModel] = p.LensModel
 	}
 
 	return metadata
@@ -174,6 +279,42 @@ func ParseGCSMetadata(metadata map[string]string) *PhotoMetadataInfo {
 
 	if filename, ok := metadata[MetadataKeyOriginalFilename]; ok {
 		info.OriginalFilename = filename
+	}
+
+	if cameraMake, ok := metadata[MetadataKeyCameraMake]; ok {
+		info.CameraMake = cameraMake
+	}
+
+	if cameraModel, ok := metadata[MetadataKeyCameraModel]; ok {
+		info.CameraModel = cameraModel
+	}
+
+	if focalLengthStr, ok := metadata[MetadataKeyFocalLength]; ok {
+		if focalLength, err := strconv.ParseFloat(focalLengthStr, 64); err == nil {
+			info.FocalLength = focalLength
+		}
+	}
+
+	if isoStr, ok := metadata[MetadataKeyISO]; ok {
+		if iso, err := strconv.Atoi(isoStr); err == nil {
+			info.ISO = iso
+		}
+	}
+
+	if apertureStr, ok := metadata[MetadataKeyAperture]; ok {
+		if aperture, err := strconv.ParseFloat(apertureStr, 64); err == nil {
+			info.Aperture = aperture
+		}
+	}
+
+	if exposureTimeStr, ok := metadata[MetadataKeyExposureTime]; ok {
+		if exposureTime, err := strconv.ParseFloat(exposureTimeStr, 64); err == nil {
+			info.ExposureTime = exposureTime
+		}
+	}
+
+	if lensModel, ok := metadata[MetadataKeyLensModel]; ok {
+		info.LensModel = lensModel
 	}
 
 	return info
