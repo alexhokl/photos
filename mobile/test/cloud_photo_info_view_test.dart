@@ -260,4 +260,56 @@ void main() {
       expect(appBar.backgroundColor, isNotNull);
     });
   });
+
+  group('CloudPhotoInfoView camera metadata display', () {
+    test('Photo model supports camera metadata fields', () {
+      final photo = Photo(
+        objectId: 'test.jpg',
+        cameraMake: 'Canon',
+        cameraModel: 'EOS R5',
+        focalLength: 85.0,
+        iso: 200,
+        aperture: 1.8,
+        exposureTime: 0.001,
+        lensModel: 'RF 85mm F1.2L USM',
+      );
+
+      expect(photo.cameraMake, equals('Canon'));
+      expect(photo.cameraModel, equals('EOS R5'));
+      expect(photo.focalLength, equals(85.0));
+      expect(photo.iso, equals(200));
+      expect(photo.aperture, equals(1.8));
+      expect(photo.exposureTime, equals(0.001));
+      expect(photo.lensModel, equals('RF 85mm F1.2L USM'));
+    });
+
+    test('Photo model handles empty camera metadata', () {
+      final photo = Photo(objectId: 'test.jpg');
+
+      expect(photo.cameraMake, isEmpty);
+      expect(photo.cameraModel, isEmpty);
+      expect(photo.focalLength, equals(0.0));
+      expect(photo.iso, equals(0));
+      expect(photo.aperture, equals(0.0));
+      expect(photo.exposureTime, equals(0.0));
+      expect(photo.lensModel, isEmpty);
+    });
+
+    test('Photo model supports partial camera metadata', () {
+      final photo = Photo(
+        objectId: 'test.jpg',
+        cameraMake: 'Apple',
+        cameraModel: 'iPhone 14 Pro',
+        // Other fields left empty
+      );
+
+      expect(photo.cameraMake, equals('Apple'));
+      expect(photo.cameraModel, equals('iPhone 14 Pro'));
+      expect(photo.focalLength, equals(0.0));
+      expect(photo.iso, equals(0));
+      expect(photo.aperture, equals(0.0));
+      expect(photo.exposureTime, equals(0.0));
+      expect(photo.lensModel, isEmpty);
+    });
+  });
 }

@@ -73,6 +73,26 @@ class _CloudPhotoInfoViewState extends State<CloudPhotoInfoView> {
     return 'https://www.google.com/maps?q=${latitude.toStringAsFixed(6)},${longitude.toStringAsFixed(6)}';
   }
 
+  String _formatExposureTime(double exposureTime) {
+    if (exposureTime <= 0) return '';
+    if (exposureTime >= 1) {
+      return '${exposureTime.toStringAsFixed(1)}s';
+    }
+    // Convert to fraction (e.g., 0.001 -> 1/1000)
+    final denominator = (1 / exposureTime).round();
+    return '1/${denominator}s';
+  }
+
+  String _formatAperture(double aperture) {
+    if (aperture <= 0) return '';
+    return 'f/${aperture.toStringAsFixed(1)}';
+  }
+
+  String _formatFocalLength(double focalLength) {
+    if (focalLength <= 0) return '';
+    return '${focalLength.toStringAsFixed(1)}mm';
+  }
+
   Future<void> _launchGoogleMaps(double latitude, double longitude) async {
     final url = Uri.parse(_getGoogleMapsUrl(latitude, longitude));
     await launchUrl(url, mode: LaunchMode.externalApplication);
@@ -158,6 +178,36 @@ class _CloudPhotoInfoViewState extends State<CloudPhotoInfoView> {
             icon: Icons.camera_alt,
             title: 'Date Taken',
             value: photo.dateTaken,
+          ),
+        if (photo.cameraMake.isNotEmpty || photo.cameraModel.isNotEmpty)
+          _InfoTile(
+            icon: Icons.camera,
+            title: 'Camera',
+            value: [
+              photo.cameraMake,
+              photo.cameraModel,
+            ].where((s) => s.isNotEmpty).join(' '),
+          ),
+        if (photo.lensModel.isNotEmpty)
+          _InfoTile(
+            icon: Icons.camera_outdoor,
+            title: 'Lens',
+            value: photo.lensModel,
+          ),
+        if (photo.focalLength > 0 ||
+            photo.aperture > 0 ||
+            photo.exposureTime > 0 ||
+            photo.iso > 0)
+          _InfoTile(
+            icon: Icons.tune,
+            title: 'Exposure Settings',
+            value: [
+              if (photo.focalLength > 0) _formatFocalLength(photo.focalLength),
+              if (photo.aperture > 0) _formatAperture(photo.aperture),
+              if (photo.exposureTime > 0)
+                _formatExposureTime(photo.exposureTime),
+              if (photo.iso > 0) 'ISO ${photo.iso}',
+            ].join('  '),
           ),
         if (photo.hasLocation)
           _InfoTile(
