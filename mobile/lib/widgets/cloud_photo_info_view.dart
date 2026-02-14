@@ -7,7 +7,15 @@ import 'package:url_launcher/url_launcher.dart';
 class CloudPhotoInfoView extends StatefulWidget {
   final Photo photo;
 
-  const CloudPhotoInfoView({super.key, required this.photo});
+  /// If true, skip the async fetch and use the provided photo directly.
+  /// This is useful for testing or when the photo already has all required data.
+  final bool skipFetch;
+
+  const CloudPhotoInfoView({
+    super.key,
+    required this.photo,
+    this.skipFetch = false,
+  });
 
   @override
   State<CloudPhotoInfoView> createState() => _CloudPhotoInfoViewState();
@@ -15,13 +23,19 @@ class CloudPhotoInfoView extends StatefulWidget {
 
 class _CloudPhotoInfoViewState extends State<CloudPhotoInfoView> {
   Photo? _detailedPhoto;
-  bool _isLoading = true;
+  late bool _isLoading;
   String? _errorMessage;
 
   @override
   void initState() {
     super.initState();
-    _loadPhotoDetails();
+    if (widget.skipFetch) {
+      _detailedPhoto = widget.photo;
+      _isLoading = false;
+    } else {
+      _isLoading = true;
+      _loadPhotoDetails();
+    }
   }
 
   Future<void> _loadPhotoDetails() async {
@@ -146,8 +160,20 @@ class _CloudPhotoInfoViewState extends State<CloudPhotoInfoView> {
     }
 
     final photo = _detailedPhoto!;
+    final hasCameraInfo =
+        photo.cameraMake.isNotEmpty ||
+        photo.cameraModel.isNotEmpty ||
+        photo.lensModel.isNotEmpty;
+    final hasExposureInfo =
+        photo.focalLength > 0 ||
+        photo.aperture > 0 ||
+        photo.exposureTime > 0 ||
+        photo.iso > 0;
+
     return ListView(
       children: [
+        // File Information section
+        const _SectionHeader(title: 'FILE INFORMATION'),
         _InfoTile(icon: Icons.label, title: 'Object ID', value: photo.objectId),
         if (photo.originalFilename.isNotEmpty)
           _InfoTile(
@@ -179,14 +205,20 @@ class _CloudPhotoInfoViewState extends State<CloudPhotoInfoView> {
             title: 'Date Taken',
             value: photo.dateTaken,
           ),
-        if (photo.cameraMake.isNotEmpty || photo.cameraModel.isNotEmpty)
+
+        // Camera section
+        if (hasCameraInfo) const _SectionHeader(title: 'CAMERA'),
+        if (photo.cameraMake.isNotEmpty)
+          _InfoTile(
+            icon: Icons.business,
+            title: 'Camera Make',
+            value: photo.cameraMake,
+          ),
+        if (photo.cameraModel.isNotEmpty)
           _InfoTile(
             icon: Icons.camera,
-            title: 'Camera',
-            value: [
-              photo.cameraMake,
-              photo.cameraModel,
-            ].where((s) => s.isNotEmpty).join(' '),
+            title: 'Camera Model',
+            value: photo.cameraModel,
           ),
         if (photo.lensModel.isNotEmpty)
           _InfoTile(
@@ -194,21 +226,32 @@ class _CloudPhotoInfoViewState extends State<CloudPhotoInfoView> {
             title: 'Lens',
             value: photo.lensModel,
           ),
-        if (photo.focalLength > 0 ||
-            photo.aperture > 0 ||
-            photo.exposureTime > 0 ||
-            photo.iso > 0)
+
+        // Exposure Settings section
+        if (hasExposureInfo) const _SectionHeader(title: 'EXPOSURE SETTINGS'),
+        if (photo.focalLength > 0)
           _InfoTile(
-            icon: Icons.tune,
-            title: 'Exposure Settings',
-            value: [
-              if (photo.focalLength > 0) _formatFocalLength(photo.focalLength),
-              if (photo.aperture > 0) _formatAperture(photo.aperture),
-              if (photo.exposureTime > 0)
-                _formatExposureTime(photo.exposureTime),
-              if (photo.iso > 0) 'ISO ${photo.iso}',
-            ].join('  '),
+            icon: Icons.straighten,
+            title: 'Focal Length',
+            value: _formatFocalLength(photo.focalLength),
           ),
+        if (photo.aperture > 0)
+          _InfoTile(
+            icon: Icons.camera,
+            title: 'Aperture',
+            value: _formatAperture(photo.aperture),
+          ),
+        if (photo.exposureTime > 0)
+          _InfoTile(
+            icon: Icons.shutter_speed,
+            title: 'Shutter Speed',
+            value: _formatExposureTime(photo.exposureTime),
+          ),
+        if (photo.iso > 0)
+          _InfoTile(icon: Icons.iso, title: 'ISO', value: photo.iso.toString()),
+
+        // Location section
+        if (photo.hasLocation) const _SectionHeader(title: 'LOCATION'),
         if (photo.hasLocation)
           _InfoTile(
             icon: Icons.location_on,
@@ -222,6 +265,9 @@ class _CloudPhotoInfoViewState extends State<CloudPhotoInfoView> {
             value: _getGoogleMapsUrl(photo.latitude, photo.longitude),
             onTap: () => _launchGoogleMaps(photo.latitude, photo.longitude),
           ),
+
+        // System section
+        const _SectionHeader(title: 'SYSTEM'),
         _InfoTile(
           icon: Icons.calendar_today,
           title: 'Created',
@@ -287,6 +333,28 @@ class _TappableInfoTile extends StatelessWidget {
       ),
       trailing: const Icon(Icons.open_in_new, size: 18),
       onTap: onTap,
+    );
+  }
+}
+
+class _SectionHeader extends StatelessWidget {
+  final String title;
+
+  const _SectionHeader({required this.title});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+      child: Text(
+        title,
+        style: TextStyle(
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+          color: Theme.of(context).colorScheme.primary,
+          letterSpacing: 0.5,
+        ),
+      ),
     );
   }
 }
