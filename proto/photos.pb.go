@@ -363,8 +363,10 @@ func (x *UploadResponse) GetPhoto() *Photo {
 
 // DownloadRequest specifies which photo to retrieve
 type DownloadRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	ObjectId      string                 `protobuf:"bytes,1,opt,name=object_id,json=objectId,proto3" json:"object_id,omitempty"`
+	state    protoimpl.MessageState `protogen:"open.v1"`
+	ObjectId string                 `protobuf:"bytes,1,opt,name=object_id,json=objectId,proto3" json:"object_id,omitempty"`
+	// If true, GPS location data will be removed from the downloaded image EXIF
+	StripLocation bool `protobuf:"varint,2,opt,name=strip_location,json=stripLocation,proto3" json:"strip_location,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -404,6 +406,13 @@ func (x *DownloadRequest) GetObjectId() string {
 		return x.ObjectId
 	}
 	return ""
+}
+
+func (x *DownloadRequest) GetStripLocation() bool {
+	if x != nil {
+		return x.StripLocation
+	}
+	return false
 }
 
 // DownloadResponse returns the photo with its data
@@ -1497,8 +1506,10 @@ func (x *PhotoMetadata) GetContentType() string {
 
 // StreamingDownloadRequest specifies which photo to download
 type StreamingDownloadRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	ObjectId      string                 `protobuf:"bytes,1,opt,name=object_id,json=objectId,proto3" json:"object_id,omitempty"`
+	state    protoimpl.MessageState `protogen:"open.v1"`
+	ObjectId string                 `protobuf:"bytes,1,opt,name=object_id,json=objectId,proto3" json:"object_id,omitempty"`
+	// If true, GPS location data will be removed from the downloaded image EXIF
+	StripLocation bool `protobuf:"varint,2,opt,name=strip_location,json=stripLocation,proto3" json:"strip_location,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1538,6 +1549,13 @@ func (x *StreamingDownloadRequest) GetObjectId() string {
 		return x.ObjectId
 	}
 	return ""
+}
+
+func (x *StreamingDownloadRequest) GetStripLocation() bool {
+	if x != nil {
+		return x.StripLocation
+	}
+	return false
 }
 
 // StreamingDownloadResponse is streamed back in chunks
@@ -1666,9 +1684,10 @@ const file_proto_photos_proto_rawDesc = "" +
 	"\fcontent_type\x18\x02 \x01(\tR\vcontentType\x12\x12\n" +
 	"\x04data\x18\x03 \x01(\fR\x04data\"5\n" +
 	"\x0eUploadResponse\x12#\n" +
-	"\x05photo\x18\x01 \x01(\v2\r.photos.PhotoR\x05photo\".\n" +
+	"\x05photo\x18\x01 \x01(\v2\r.photos.PhotoR\x05photo\"U\n" +
 	"\x0fDownloadRequest\x12\x1b\n" +
-	"\tobject_id\x18\x01 \x01(\tR\bobjectId\"K\n" +
+	"\tobject_id\x18\x01 \x01(\tR\bobjectId\x12%\n" +
+	"\x0estrip_location\x18\x02 \x01(\bR\rstripLocation\"K\n" +
 	"\x10DownloadResponse\x12#\n" +
 	"\x05photo\x18\x01 \x01(\v2\r.photos.PhotoR\x05photo\x12\x12\n" +
 	"\x04data\x18\x02 \x01(\fR\x04data\"1\n" +
@@ -1731,9 +1750,10 @@ const file_proto_photos_proto_rawDesc = "" +
 	"\x04data\"N\n" +
 	"\rPhotoMetadata\x12\x1a\n" +
 	"\bfilename\x18\x01 \x01(\tR\bfilename\x12!\n" +
-	"\fcontent_type\x18\x02 \x01(\tR\vcontentType\"7\n" +
+	"\fcontent_type\x18\x02 \x01(\tR\vcontentType\"^\n" +
 	"\x18StreamingDownloadRequest\x12\x1b\n" +
-	"\tobject_id\x18\x01 \x01(\tR\bobjectId\"h\n" +
+	"\tobject_id\x18\x01 \x01(\tR\bobjectId\x12%\n" +
+	"\x0estrip_location\x18\x02 \x01(\bR\rstripLocation\"h\n" +
 	"\x19StreamingDownloadResponse\x12+\n" +
 	"\bmetadata\x18\x01 \x01(\v2\r.photos.PhotoH\x00R\bmetadata\x12\x16\n" +
 	"\x05chunk\x18\x02 \x01(\fH\x00R\x05chunkB\x06\n" +

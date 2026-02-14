@@ -1,6 +1,7 @@
 package internal
 
 import (
+	"bytes"
 	"context"
 	"crypto/md5"
 	"encoding/base64"
@@ -171,10 +172,12 @@ func (s *BytesServer) Download(ctx context.Context, req *proto.DownloadRequest) 
 	}
 
 	objectID := req.GetObjectId()
+	stripLocation := req.GetStripLocation()
 
 	slog.Info(
 		"Downloading file from bucket",
 		slog.String("object_id", objectID),
+		slog.Bool("strip_location", stripLocation),
 	)
 
 	bucket := s.GCSClient.Bucket(s.BucketName)
@@ -201,7 +204,28 @@ func (s *BytesServer) Download(ctx context.Context, req *proto.DownloadRequest) 
 		return nil, status.Errorf(codes.Internal, "failed to read object data: %v", err)
 	}
 
-	// Compute MD5 hash of the downloaded data
+	// Parse stored metadata from GCS object attributes
+	photoMetadata := ParseGCSMetadata(attrs.Metadata)
+
+	// Strip GPS location from image if requested
+	if stripLocation {
+		strippedData, err := StripLocationFromImage(data)
+		if err != nil {
+			slog.Warn(
+				"Failed to strip location from image, returning original",
+				slog.String("object_id", objectID),
+				slog.String("error", err.Error()),
+			)
+		} else {
+			data = strippedData
+			// Clear location metadata since GPS data has been removed
+			photoMetadata.HasLocation = false
+			photoMetadata.Latitude = 0
+			photoMetadata.Longitude = 0
+		}
+	}
+
+	// Compute MD5 hash of the (possibly modified) data
 	md5Hash := md5.Sum(data)
 	md5HashBase64 := base64.StdEncoding.EncodeToString(md5Hash[:])
 
@@ -211,14 +235,11 @@ func (s *BytesServer) Download(ctx context.Context, req *proto.DownloadRequest) 
 		slog.Int("size_bytes", len(data)),
 	)
 
-	// Parse stored metadata from GCS object attributes
-	photoMetadata := ParseGCSMetadata(attrs.Metadata)
-
 	photo := &proto.Photo{
 		ObjectId:         objectID,
 		Filename:         objectID,
 		ContentType:      attrs.ContentType,
-		SizeBytes:        attrs.Size,
+		SizeBytes:        int64(len(data)),
 		CreatedAt:        attrs.Created.Format(time.RFC3339),
 		UpdatedAt:        attrs.Updated.Format(time.RFC3339),
 		Md5Hash:          md5HashBase64,
@@ -424,9 +445,12 @@ func (s *BytesServer) StreamingDownload(req *proto.StreamingDownloadRequest, str
 		return status.Errorf(codes.InvalidArgument, "object_id is required")
 	}
 
+	stripLocation := req.GetStripLocation()
+
 	slog.Info(
 		"Starting streaming download from bucket",
 		slog.String("object_id", objectID),
+		slog.Bool("strip_location", stripLocation),
 	)
 
 	bucket := s.GCSClient.Bucket(s.BucketName)
@@ -448,11 +472,28 @@ func (s *BytesServer) StreamingDownload(req *proto.StreamingDownloadRequest, str
 	}
 	defer func() { _ = reader.Close() }()
 
-	// Compute MD5 hash from stored attributes (GCS stores MD5 hash)
-	md5HashBase64 := base64.StdEncoding.EncodeToString(attrs.MD5)
-
 	// Parse stored metadata from GCS object attributes
 	photoMetadata := ParseGCSMetadata(attrs.Metadata)
+
+	// If strip_location is requested, we need to read the entire file, process it, then stream
+	if stripLocation {
+		return s.streamDownloadWithLocationStripped(stream, reader, attrs, photoMetadata, objectID)
+	}
+
+	// Normal streaming download (no location stripping)
+	return s.streamDownloadDirect(stream, reader, attrs, photoMetadata, objectID)
+}
+
+// streamDownloadDirect streams the file directly from GCS without modification.
+func (s *BytesServer) streamDownloadDirect(
+	stream grpc.ServerStreamingServer[proto.StreamingDownloadResponse],
+	reader io.Reader,
+	attrs *storage.ObjectAttrs,
+	photoMetadata *PhotoMetadataInfo,
+	objectID string,
+) error {
+	// Compute MD5 hash from stored attributes (GCS stores MD5 hash)
+	md5HashBase64 := base64.StdEncoding.EncodeToString(attrs.MD5)
 
 	// Send metadata as the first message
 	photo := &proto.Photo{
@@ -519,6 +560,113 @@ func (s *BytesServer) StreamingDownload(req *proto.StreamingDownloadRequest, str
 
 	slog.Info(
 		"Completed streaming download from bucket",
+		slog.String("object_id", objectID),
+		slog.Int64("size_bytes", totalBytes),
+	)
+
+	return nil
+}
+
+// streamDownloadWithLocationStripped reads the entire file, strips GPS data, then streams the result.
+func (s *BytesServer) streamDownloadWithLocationStripped(
+	stream grpc.ServerStreamingServer[proto.StreamingDownloadResponse],
+	reader io.Reader,
+	attrs *storage.ObjectAttrs,
+	photoMetadata *PhotoMetadataInfo,
+	objectID string,
+) error {
+	// Read the entire file to process it
+	data, err := io.ReadAll(reader)
+	if err != nil {
+		return status.Errorf(codes.Internal, "failed to read object data: %v", err)
+	}
+
+	// Strip GPS location from the image
+	strippedData, err := StripLocationFromImage(data)
+	if err != nil {
+		slog.Warn(
+			"Failed to strip location from image, returning original",
+			slog.String("object_id", objectID),
+			slog.String("error", err.Error()),
+		)
+		strippedData = data
+	} else {
+		// Clear location metadata since GPS data has been removed
+		photoMetadata.HasLocation = false
+		photoMetadata.Latitude = 0
+		photoMetadata.Longitude = 0
+	}
+
+	// Compute MD5 hash of the modified data
+	md5Hash := md5.Sum(strippedData)
+	md5HashBase64 := base64.StdEncoding.EncodeToString(md5Hash[:])
+
+	// Send metadata as the first message
+	photo := &proto.Photo{
+		ObjectId:         objectID,
+		Filename:         objectID,
+		ContentType:      attrs.ContentType,
+		SizeBytes:        int64(len(strippedData)),
+		CreatedAt:        attrs.Created.Format(time.RFC3339),
+		UpdatedAt:        attrs.Updated.Format(time.RFC3339),
+		Md5Hash:          md5HashBase64,
+		Latitude:         photoMetadata.Latitude,
+		Longitude:        photoMetadata.Longitude,
+		HasLocation:      photoMetadata.HasLocation,
+		DateTaken:        photoMetadata.FormatDateTaken(),
+		HasDateTaken:     photoMetadata.HasDateTaken,
+		Width:            int32(photoMetadata.Width),
+		Height:           int32(photoMetadata.Height),
+		HasDimensions:    photoMetadata.HasDimensions,
+		OriginalFilename: photoMetadata.OriginalFilename,
+		CameraMake:       photoMetadata.CameraMake,
+		CameraModel:      photoMetadata.CameraModel,
+		FocalLength:      photoMetadata.FocalLength,
+		Iso:              int32(photoMetadata.ISO),
+		Aperture:         photoMetadata.Aperture,
+		ExposureTime:     photoMetadata.ExposureTime,
+		LensModel:        photoMetadata.LensModel,
+	}
+
+	metadataResp := &proto.StreamingDownloadResponse{
+		Data: &proto.StreamingDownloadResponse_Metadata{
+			Metadata: photo,
+		},
+	}
+
+	if err := stream.Send(metadataResp); err != nil {
+		return status.Errorf(codes.Internal, "failed to send metadata: %v", err)
+	}
+
+	// Stream the stripped data in chunks
+	dataReader := bytes.NewReader(strippedData)
+	buffer := make([]byte, defaultDownloadChunkSize)
+	totalBytes := int64(0)
+
+	for {
+		n, err := dataReader.Read(buffer)
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return status.Errorf(codes.Internal, "failed to read data: %v", err)
+		}
+
+		chunkResp := &proto.StreamingDownloadResponse{
+			Data: &proto.StreamingDownloadResponse_Chunk{
+				Chunk: buffer[:n],
+			},
+		}
+
+		if err := stream.Send(chunkResp); err != nil {
+			return status.Errorf(codes.Internal, "failed to send chunk: %v", err)
+		}
+
+		totalBytes += int64(n)
+	}
+
+	slog.Info(
+		"Completed streaming download (location stripped) from bucket",
 		slog.String("object_id", objectID),
 		slog.Int64("size_bytes", totalBytes),
 	)

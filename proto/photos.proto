@@ -60,6 +60,8 @@ message UploadResponse {
 // DownloadRequest specifies which photo to retrieve
 message DownloadRequest {
   string object_id = 1;
+  // If true, GPS location data will be removed from the downloaded image EXIF
+  bool strip_location = 2;
 }
 
 // DownloadResponse returns the photo with its data
@@ -188,6 +190,8 @@ message PhotoMetadata {
 // StreamingDownloadRequest specifies which photo to download
 message StreamingDownloadRequest {
   string object_id = 1;
+  // If true, GPS location data will be removed from the downloaded image EXIF
+  bool strip_location = 2;
 }
 
 // StreamingDownloadResponse is streamed back in chunks

@@ -241,6 +241,13 @@
             "in": "path",
             "required": true,
             "type": "string"
+          },
+          {
+            "name": "stripLocation",
+            "description": "If true, GPS location data will be removed from the downloaded image EXIF",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
           }
         ],
         "tags": [

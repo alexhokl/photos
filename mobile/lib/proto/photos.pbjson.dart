@@ -107,12 +107,14 @@ const DownloadRequest$json = {
   '1': 'DownloadRequest',
   '2': [
     {'1': 'object_id', '3': 1, '4': 1, '5': 9, '10': 'objectId'},
+    {'1': 'strip_location', '3': 2, '4': 1, '5': 8, '10': 'stripLocation'},
   ],
 };
 
 /// Descriptor for `DownloadRequest`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List downloadRequestDescriptor = $convert.base64Decode(
-    'Cg9Eb3dubG9hZFJlcXVlc3QSGwoJb2JqZWN0X2lkGAEgASgJUghvYmplY3RJZA==');
+    'Cg9Eb3dubG9hZFJlcXVlc3QSGwoJb2JqZWN0X2lkGAEgASgJUghvYmplY3RJZBIlCg5zdHJpcF'
+    '9sb2NhdGlvbhgCIAEoCFINc3RyaXBMb2NhdGlvbg==');
 
 @$core.Deprecated('Use downloadResponseDescriptor instead')
 const DownloadResponse$json = {
@@ -503,14 +505,15 @@ const StreamingDownloadRequest$json = {
   '1': 'StreamingDownloadRequest',
   '2': [
     {'1': 'object_id', '3': 1, '4': 1, '5': 9, '10': 'objectId'},
+    {'1': 'strip_location', '3': 2, '4': 1, '5': 8, '10': 'stripLocation'},
   ],
 };
 
 /// Descriptor for `StreamingDownloadRequest`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List streamingDownloadRequestDescriptor =
     $convert.base64Decode(
-        'ChhTdHJlYW1pbmdEb3dubG9hZFJlcXVlc3QSGwoJb2JqZWN0X2lkGAEgASgJUghvYmplY3RJZA'
-        '==');
+        'ChhTdHJlYW1pbmdEb3dubG9hZFJlcXVlc3QSGwoJb2JqZWN0X2lkGAEgASgJUghvYmplY3RJZB'
+        'IlCg5zdHJpcF9sb2NhdGlvbhgCIAEoCFINc3RyaXBMb2NhdGlvbg==');
 
 @$core.Deprecated('Use streamingDownloadResponseDescriptor instead')
 const StreamingDownloadResponse$json = {

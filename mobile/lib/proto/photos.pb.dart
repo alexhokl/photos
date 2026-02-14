@@ -487,9 +487,11 @@ class UploadResponse extends $pb.GeneratedMessage {
 class DownloadRequest extends $pb.GeneratedMessage {
   factory DownloadRequest({
     $core.String? objectId,
+    $core.bool? stripLocation,
   }) {
     final result = create();
     if (objectId != null) result.objectId = objectId;
+    if (stripLocation != null) result.stripLocation = stripLocation;
     return result;
   }
 
@@ -507,6 +509,7 @@ class DownloadRequest extends $pb.GeneratedMessage {
       package: const $pb.PackageName(_omitMessageNames ? '' : 'photos'),
       createEmptyInstance: create)
     ..aOS(1, _omitFieldNames ? '' : 'objectId')
+    ..aOB(2, _omitFieldNames ? '' : 'stripLocation')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -536,6 +539,16 @@ class DownloadRequest extends $pb.GeneratedMessage {
   $core.bool hasObjectId() => $_has(0);
   @$pb.TagNumber(1)
   void clearObjectId() => $_clearField(1);
+
+  /// If true, GPS location data will be removed from the downloaded image EXIF
+  @$pb.TagNumber(2)
+  $core.bool get stripLocation => $_getBF(1);
+  @$pb.TagNumber(2)
+  set stripLocation($core.bool value) => $_setBool(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasStripLocation() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearStripLocation() => $_clearField(2);
 }
 
 /// DownloadResponse returns the photo with its data
@@ -1898,9 +1911,11 @@ class PhotoMetadata extends $pb.GeneratedMessage {
 class StreamingDownloadRequest extends $pb.GeneratedMessage {
   factory StreamingDownloadRequest({
     $core.String? objectId,
+    $core.bool? stripLocation,
   }) {
     final result = create();
     if (objectId != null) result.objectId = objectId;
+    if (stripLocation != null) result.stripLocation = stripLocation;
     return result;
   }
 
@@ -1918,6 +1933,7 @@ class StreamingDownloadRequest extends $pb.GeneratedMessage {
       package: const $pb.PackageName(_omitMessageNames ? '' : 'photos'),
       createEmptyInstance: create)
     ..aOS(1, _omitFieldNames ? '' : 'objectId')
+    ..aOB(2, _omitFieldNames ? '' : 'stripLocation')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -1948,6 +1964,16 @@ class StreamingDownloadRequest extends $pb.GeneratedMessage {
   $core.bool hasObjectId() => $_has(0);
   @$pb.TagNumber(1)
   void clearObjectId() => $_clearField(1);
+
+  /// If true, GPS location data will be removed from the downloaded image EXIF
+  @$pb.TagNumber(2)
+  $core.bool get stripLocation => $_getBF(1);
+  @$pb.TagNumber(2)
+  set stripLocation($core.bool value) => $_setBool(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasStripLocation() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearStripLocation() => $_clearField(2);
 }
 
 enum StreamingDownloadResponse_Data { metadata, chunk, notSet }
