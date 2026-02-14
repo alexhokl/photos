@@ -80,10 +80,46 @@ func runGetPhoto(cmd *cobra.Command, args []string) error {
 	if photo.GetHasDateTaken() {
 		fmt.Printf("  Date Taken:        %s\n", photo.GetDateTaken())
 	}
+
+	// Camera information
+	if photo.GetCameraMake() != "" || photo.GetCameraModel() != "" || photo.GetLensModel() != "" {
+		fmt.Printf("\nCamera\n")
+		if photo.GetCameraMake() != "" {
+			fmt.Printf("  Make:              %s\n", photo.GetCameraMake())
+		}
+		if photo.GetCameraModel() != "" {
+			fmt.Printf("  Model:             %s\n", photo.GetCameraModel())
+		}
+		if photo.GetLensModel() != "" {
+			fmt.Printf("  Lens:              %s\n", photo.GetLensModel())
+		}
+	}
+
+	// Exposure settings
+	if photo.GetFocalLength() > 0 || photo.GetAperture() > 0 || photo.GetExposureTime() > 0 || photo.GetIso() > 0 {
+		fmt.Printf("\nExposure Settings\n")
+		if photo.GetFocalLength() > 0 {
+			fmt.Printf("  Focal Length:      %.1fmm\n", photo.GetFocalLength())
+		}
+		if photo.GetAperture() > 0 {
+			fmt.Printf("  Aperture:          f/%.1f\n", photo.GetAperture())
+		}
+		if photo.GetExposureTime() > 0 {
+			fmt.Printf("  Shutter Speed:     %s\n", formatExposureTime(photo.GetExposureTime()))
+		}
+		if photo.GetIso() > 0 {
+			fmt.Printf("  ISO:               %d\n", photo.GetIso())
+		}
+	}
+
+	// Location information
 	if photo.GetHasLocation() {
-		fmt.Printf("  Location:          %.6f, %.6f\n", photo.GetLatitude(), photo.GetLongitude())
+		fmt.Printf("\nLocation\n")
+		fmt.Printf("  Coordinates:       %.6f, %.6f\n", photo.GetLatitude(), photo.GetLongitude())
 		fmt.Printf("  Google Maps:       https://www.google.com/maps?q=%.6f,%.6f\n", photo.GetLatitude(), photo.GetLongitude())
 	}
+
+	fmt.Printf("\nSystem\n")
 	fmt.Printf("  MD5 Hash:          %s\n", photo.GetMd5Hash())
 	fmt.Printf("  Created At:        %s\n", photo.GetCreatedAt())
 	fmt.Printf("  Updated At:        %s\n", photo.GetUpdatedAt())
@@ -133,6 +169,17 @@ func runGetPhoto(cmd *cobra.Command, args []string) error {
 	}
 
 	return nil
+}
+
+// formatExposureTime formats the exposure time as a human-readable string.
+// For times >= 1 second, it shows decimal seconds (e.g., "2.5s").
+// For times < 1 second, it shows as a fraction (e.g., "1/250s").
+func formatExposureTime(exposureTime float64) string {
+	if exposureTime >= 1 {
+		return fmt.Sprintf("%.1fs", exposureTime)
+	}
+	denominator := int(1 / exposureTime)
+	return fmt.Sprintf("1/%ds", denominator)
 }
 
 // renderPhotoKitty renders an image in the terminal using the Kitty graphics protocol.
