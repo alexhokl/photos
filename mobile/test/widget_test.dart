@@ -271,8 +271,12 @@ void main() {
       expect(PhotoGridAction.values, contains(PhotoGridAction.upload));
     });
 
-    test('has exactly 2 values', () {
-      expect(PhotoGridAction.values.length, equals(2));
+    test('contains uploadTo', () {
+      expect(PhotoGridAction.values, contains(PhotoGridAction.uploadTo));
+    });
+
+    test('has exactly 3 values', () {
+      expect(PhotoGridAction.values.length, equals(3));
     });
 
     test('delete has index 0', () {
@@ -281,6 +285,10 @@ void main() {
 
     test('upload has index 1', () {
       expect(PhotoGridAction.upload.index, equals(1));
+    });
+
+    test('uploadTo has index 2', () {
+      expect(PhotoGridAction.uploadTo.index, equals(2));
     });
   });
 

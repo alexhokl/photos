@@ -97,6 +97,14 @@ class _HomePageState extends State<HomePage> {
               ),
             ),
             const PopupMenuItem(
+              value: PhotoGridAction.uploadTo,
+              child: ListTile(
+                leading: Icon(Icons.cloud_upload_outlined),
+                title: Text('Upload to...'),
+                contentPadding: EdgeInsets.zero,
+              ),
+            ),
+            const PopupMenuItem(
               value: PhotoGridAction.delete,
               child: ListTile(
                 leading: Icon(Icons.delete),

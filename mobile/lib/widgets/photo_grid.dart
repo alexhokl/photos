@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:photo_manager/photo_manager.dart';
+import 'package:photos/services/library_service.dart';
 import 'package:photos/services/upload_service.dart';
 import 'package:photos/widgets/settings_page.dart';
 
@@ -15,7 +16,7 @@ class PhotoGrid extends StatefulWidget {
   State<PhotoGrid> createState() => PhotoGridState();
 }
 
-enum PhotoGridAction { delete, upload }
+enum PhotoGridAction { delete, upload, uploadTo }
 
 class PhotoGridState extends State<PhotoGrid> {
   List<AssetEntity> _photos = [];
@@ -208,6 +209,9 @@ class PhotoGridState extends State<PhotoGrid> {
       case PhotoGridAction.upload:
         _uploadSelectedPhotos();
         break;
+      case PhotoGridAction.uploadTo:
+        _showUploadToDialog();
+        break;
     }
   }
 
@@ -255,6 +259,55 @@ class PhotoGridState extends State<PhotoGrid> {
           photos: selectedPhotos,
           uploadService: uploadService,
           directoryPrefix: config.defaultDirectory,
+          deleteAfterUpload: config.deleteAfterUpload,
+          onComplete: (results) {
+            Navigator.pop(dialogContext);
+            _showUploadResults(results, config.deleteAfterUpload);
+          },
+        ),
+      );
+    } finally {
+      await uploadService.dispose();
+    }
+  }
+
+  void _showUploadToDialog() {
+    final selectedPhotos = _selectedPhotos;
+    if (selectedPhotos.isEmpty) return;
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) => _UploadToDirectoryDialog(
+        onDirectorySelected: (directory) {
+          Navigator.pop(dialogContext);
+          _uploadSelectedPhotosToDirectory(directory);
+        },
+      ),
+    );
+  }
+
+  Future<void> _uploadSelectedPhotosToDirectory(String directory) async {
+    final selectedPhotos = _selectedPhotos;
+    if (selectedPhotos.isEmpty) return;
+
+    final config = await BackendConfig.load();
+    final uploadService = UploadService(
+      host: config.host,
+      port: config.port,
+      uploadTimeout: Duration(seconds: config.uploadTimeoutSeconds),
+    );
+
+    try {
+      // Show upload progress dialog
+      if (!mounted) return;
+
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (dialogContext) => _UploadProgressDialog(
+          photos: selectedPhotos,
+          uploadService: uploadService,
+          directoryPrefix: directory,
           deleteAfterUpload: config.deleteAfterUpload,
           onComplete: (results) {
             Navigator.pop(dialogContext);
@@ -656,6 +709,188 @@ class _UploadProgressDialogState extends State<_UploadProgressDialog> {
           ],
         ],
       ),
+    );
+  }
+}
+
+/// Dialog for selecting a directory to upload photos to
+class _UploadToDirectoryDialog extends StatefulWidget {
+  final void Function(String directory) onDirectorySelected;
+
+  const _UploadToDirectoryDialog({required this.onDirectorySelected});
+
+  @override
+  State<_UploadToDirectoryDialog> createState() =>
+      _UploadToDirectoryDialogState();
+}
+
+class _UploadToDirectoryDialogState extends State<_UploadToDirectoryDialog> {
+  final TextEditingController _directoryController = TextEditingController();
+  List<String> _directorySuggestions = [];
+  bool _isLoadingDirectories = false;
+  String? _errorText;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadDirectorySuggestions();
+  }
+
+  @override
+  void dispose() {
+    _directoryController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadDirectorySuggestions() async {
+    setState(() {
+      _isLoadingDirectories = true;
+    });
+
+    try {
+      final config = await BackendConfig.load();
+      final libraryService = LibraryService(
+        host: config.host,
+        port: config.port,
+      );
+
+      final directories = await libraryService.listDirectories(recursive: true);
+      await libraryService.dispose();
+
+      if (mounted) {
+        setState(() {
+          _directorySuggestions = directories;
+          _isLoadingDirectories = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoadingDirectories = false;
+        });
+      }
+    }
+  }
+
+  void _onSubmit() {
+    final directory = _directoryController.text.trim();
+    if (directory.isEmpty) {
+      setState(() {
+        _errorText = 'Directory cannot be empty';
+      });
+      return;
+    }
+    widget.onDirectorySelected(directory);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Upload to Directory'),
+      content: SizedBox(
+        width: double.maxFinite,
+        child: Autocomplete<String>(
+          optionsBuilder: (TextEditingValue textEditingValue) {
+            if (_directorySuggestions.isEmpty) {
+              return const Iterable<String>.empty();
+            }
+            final input = textEditingValue.text.toLowerCase();
+            if (input.isEmpty) {
+              return _directorySuggestions;
+            }
+            return _directorySuggestions.where(
+              (directory) => directory.toLowerCase().contains(input),
+            );
+          },
+          onSelected: (String selection) {
+            _directoryController.text = selection;
+            setState(() {
+              _errorText = null;
+            });
+          },
+          fieldViewBuilder:
+              (
+                BuildContext context,
+                TextEditingController fieldController,
+                FocusNode focusNode,
+                VoidCallback onFieldSubmitted,
+              ) {
+                // Keep controllers in sync
+                fieldController.addListener(() {
+                  _directoryController.text = fieldController.text;
+                });
+                return TextField(
+                  controller: fieldController,
+                  focusNode: focusNode,
+                  autofocus: true,
+                  decoration: InputDecoration(
+                    labelText: 'Directory',
+                    hintText: 'e.g., photos/2026/vacation',
+                    prefixIcon: const Icon(Icons.folder),
+                    suffixIcon: _isLoadingDirectories
+                        ? const Padding(
+                            padding: EdgeInsets.all(12.0),
+                            child: SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                          )
+                        : IconButton(
+                            icon: const Icon(Icons.refresh),
+                            onPressed: _loadDirectorySuggestions,
+                            tooltip: 'Refresh directories',
+                          ),
+                    errorText: _errorText,
+                  ),
+                  onChanged: (_) {
+                    if (_errorText != null) {
+                      setState(() {
+                        _errorText = null;
+                      });
+                    }
+                  },
+                  onSubmitted: (_) => _onSubmit(),
+                );
+              },
+          optionsViewBuilder:
+              (
+                BuildContext context,
+                AutocompleteOnSelected<String> onSelected,
+                Iterable<String> options,
+              ) {
+                return Align(
+                  alignment: Alignment.topLeft,
+                  child: Material(
+                    elevation: 4.0,
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxHeight: 200),
+                      child: ListView.builder(
+                        padding: EdgeInsets.zero,
+                        shrinkWrap: true,
+                        itemCount: options.length,
+                        itemBuilder: (BuildContext context, int index) {
+                          final option = options.elementAt(index);
+                          return ListTile(
+                            leading: const Icon(Icons.folder_outlined),
+                            title: Text(option),
+                            onTap: () => onSelected(option),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                );
+              },
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        TextButton(onPressed: _onSubmit, child: const Text('Upload')),
+      ],
     );
   }
 }
