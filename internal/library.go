@@ -499,6 +499,8 @@ func (s *LibraryServer) GenerateSignedUrl(ctx context.Context, req *proto.Genera
 }
 
 // ListPhotos returns a paginated list of photos with optional prefix filtering.
+// Photos are sorted by time_taken in reverse-chronological order (newest first).
+// Photos without time_taken are sorted to the end by object_id.
 // Photos in sub-directories (virtual) are not included.
 func (s *LibraryServer) ListPhotos(ctx context.Context, req *proto.ListPhotosRequest) (*proto.ListPhotosResponse, error) {
 	userID, ok := ctx.Value(contextKeyUser{}).(uint)
@@ -528,27 +530,45 @@ func (s *LibraryServer) ListPhotos(ctx context.Context, req *proto.ListPhotosReq
 		query = query.Where("object_id LIKE ?", prefix+"%")
 	}
 
-	// Handle pagination token (object_id to start after)
+	// Handle pagination token
+	// Token format: "time_taken|object_id" where time_taken is RFC3339 or "null"
 	if pageToken != "" {
 		decodedToken, err := base64.StdEncoding.DecodeString(pageToken)
 		if err != nil {
 			return nil, status.Errorf(codes.InvalidArgument, "invalid page token")
 		}
-		startAfter := string(decodedToken)
-		query = query.Where("object_id > ?", startAfter)
+		tokenParts := strings.SplitN(string(decodedToken), "|", 2)
+		if len(tokenParts) != 2 {
+			return nil, status.Errorf(codes.InvalidArgument, "invalid page token format")
+		}
+		tokenTimeTaken := tokenParts[0]
+		tokenObjectID := tokenParts[1]
+
+		if tokenTimeTaken == "null" {
+			// For photos without time_taken, paginate by object_id
+			query = query.Where("(time_taken IS NULL AND object_id > ?)", tokenObjectID)
+		} else {
+			// For photos with time_taken, get older photos or same time with greater object_id
+			query = query.Where(
+				"(time_taken < ?) OR (time_taken IS NULL) OR (time_taken = ? AND object_id > ?)",
+				tokenTimeTaken, tokenTimeTaken, tokenObjectID,
+			)
+		}
 	}
 
 	// Fetch one extra record to determine if there are more results
+	// Sort by time_taken DESC (newest first), with NULLs last, then by object_id ASC for stable ordering
 	var photoObjects []database.PhotoObject
-	if err := query.Order("object_id ASC").Limit(int(pageSize) + 1).Find(&photoObjects).Error; err != nil {
+	if err := query.Order("time_taken DESC NULLS LAST, object_id ASC").Limit(int(pageSize) + 1).Find(&photoObjects).Error; err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to list photos: %v", err)
 	}
 
 	var photos []*proto.Photo
-	var lastObjectID string
+	var lastPhoto *database.PhotoObject
 	count := int32(0)
 
-	for _, obj := range photoObjects {
+	for i := range photoObjects {
+		obj := &photoObjects[i]
 		// Skip objects that are in sub-directories relative to the prefix
 		relativePath := obj.ObjectID
 		if prefix != "" {
@@ -563,7 +583,7 @@ func (s *LibraryServer) ListPhotos(ctx context.Context, req *proto.ListPhotosReq
 			break
 		}
 
-		lastObjectID = obj.ObjectID
+		lastPhoto = obj
 
 		photo := &proto.Photo{
 			ObjectId:    obj.ObjectID,
@@ -573,6 +593,10 @@ func (s *LibraryServer) ListPhotos(ctx context.Context, req *proto.ListPhotosReq
 			CreatedAt:   obj.CreatedAt.Format(time.RFC3339),
 			UpdatedAt:   obj.UpdatedAt.Format(time.RFC3339),
 		}
+		if obj.TimeTaken != nil {
+			photo.DateTaken = obj.TimeTaken.Format(time.RFC3339)
+			photo.HasDateTaken = true
+		}
 
 		photos = append(photos, photo)
 		count++
@@ -580,8 +604,14 @@ func (s *LibraryServer) ListPhotos(ctx context.Context, req *proto.ListPhotosReq
 
 	// Generate next page token if there are more results
 	var nextPageToken string
-	if count >= pageSize && lastObjectID != "" {
-		nextPageToken = base64.StdEncoding.EncodeToString([]byte(lastObjectID))
+	if count >= pageSize && lastPhoto != nil {
+		var tokenValue string
+		if lastPhoto.TimeTaken != nil {
+			tokenValue = lastPhoto.TimeTaken.Format(time.RFC3339) + "|" + lastPhoto.ObjectID
+		} else {
+			tokenValue = "null|" + lastPhoto.ObjectID
+		}
+		nextPageToken = base64.StdEncoding.EncodeToString([]byte(tokenValue))
 	}
 
 	slog.Info("Listed photos",
