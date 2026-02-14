@@ -48,7 +48,7 @@ void main() {
         MaterialApp(home: PhotoInfoView(asset: mockAsset)),
       );
 
-      expect(find.text('Metadata Info'), findsOneWidget);
+      expect(find.text('Metadata'), findsOneWidget);
     });
 
     testWidgets('displays filename info tile', (tester) async {

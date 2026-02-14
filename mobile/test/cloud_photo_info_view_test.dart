@@ -45,7 +45,7 @@ void main() {
         MaterialApp(home: CloudPhotoInfoView(photo: photo)),
       );
 
-      expect(find.text('Cloud Photo Info'), findsOneWidget);
+      expect(find.text('Metadata'), findsOneWidget);
     });
 
     testWidgets('displays Object ID info tile', (tester) async {

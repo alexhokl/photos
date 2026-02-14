@@ -57,7 +57,7 @@ class _PhotoInfoViewState extends State<PhotoInfoView> {
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        title: const Text('Metadata Info'),
+        title: const Text('Metadata'),
       ),
       body: ListView(
         children: [

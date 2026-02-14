@@ -103,7 +103,7 @@ class _CloudPhotoInfoViewState extends State<CloudPhotoInfoView> {
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        title: const Text('Cloud Photo Info'),
+        title: const Text('Metadata'),
       ),
       body: _buildBody(),
     );
