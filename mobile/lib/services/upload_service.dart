@@ -8,6 +8,9 @@ import 'package:photos/proto/photos.pbgrpc.dart';
 /// Default chunk size for streaming uploads (64 KB)
 const int _defaultChunkSize = 64 * 1024;
 
+/// Default timeout for each photo upload (30 seconds)
+const Duration _defaultUploadTimeout = Duration(seconds: 30);
+
 /// Service for uploading photos to the cloud via gRPC
 class UploadService {
   static const String _defaultHost = 'localhost';
@@ -15,6 +18,7 @@ class UploadService {
 
   ClientChannel? _channel;
   ByteServiceClient? _client;
+  LibraryServiceClient? _libraryClient;
 
   final String host;
   final int port;
@@ -22,10 +26,14 @@ class UploadService {
   /// Chunk size for streaming uploads in bytes
   final int chunkSize;
 
+  /// Timeout for each individual photo upload
+  final Duration uploadTimeout;
+
   UploadService({
     this.host = _defaultHost,
     this.port = _defaultPort,
     this.chunkSize = _defaultChunkSize,
+    this.uploadTimeout = _defaultUploadTimeout,
   });
 
   /// Determine if a secure (TLS) connection is required based on the host.
@@ -58,6 +66,7 @@ class UploadService {
         options: ChannelOptions(credentials: _getCredentials()),
       );
       _client = ByteServiceClient(_channel!);
+      _libraryClient = LibraryServiceClient(_channel!);
     }
   }
 
@@ -97,13 +106,24 @@ class UploadService {
     }
 
     try {
-      final response = await _streamingUpload(
-        objectId: objectId,
-        contentType: mimeType,
-        data: data,
-        onChunkProgress: onChunkProgress,
-      );
+      final response =
+          await _streamingUpload(
+            objectId: objectId,
+            contentType: mimeType,
+            data: data,
+            onChunkProgress: onChunkProgress,
+          ).timeout(
+            uploadTimeout,
+            onTimeout: () {
+              throw UploadTimeoutException(
+                'Upload timed out after ${uploadTimeout.inSeconds} seconds',
+                objectId: objectId,
+              );
+            },
+          );
       return response;
+    } on UploadTimeoutException {
+      rethrow;
     } on GrpcError catch (e) {
       throw UploadException('gRPC error: ${e.message}', grpcError: e);
     }
@@ -154,10 +174,13 @@ class UploadService {
 
   /// Upload multiple photo assets to the cloud
   /// Returns a list of results for each upload attempt
+  /// If [stopOnTimeout] is true (default), upload stops when a timeout occurs
+  /// and remaining photos are not attempted
   Future<List<UploadResult>> uploadPhotos(
     List<AssetEntity> assets, {
     void Function(int completed, int total)? onProgress,
     String? directoryPrefix,
+    bool stopOnTimeout = true,
   }) async {
     final results = <UploadResult>[];
 
@@ -169,6 +192,12 @@ class UploadService {
           directoryPrefix: directoryPrefix,
         );
         results.add(UploadResult.success(asset, response));
+      } on UploadTimeoutException catch (e) {
+        results.add(UploadResult.timeout(asset, e.message));
+        if (stopOnTimeout) {
+          onProgress?.call(i + 1, assets.length);
+          break;
+        }
       } catch (e) {
         results.add(UploadResult.failure(asset, e.toString()));
       }
@@ -178,11 +207,37 @@ class UploadService {
     return results;
   }
 
+  /// Delete uploaded photos from the cloud (for rollback on timeout)
+  /// Returns a map of objectId to success/failure
+  Future<Map<String, bool>> deleteUploadedPhotos(
+    List<UploadResult> successfulResults,
+  ) async {
+    _ensureInitialized();
+
+    final deleteResults = <String, bool>{};
+
+    for (final result in successfulResults) {
+      if (!result.success || result.response == null) continue;
+
+      final objectId = result.response!.photo.objectId;
+      try {
+        final request = DeletePhotoRequest(objectId: objectId);
+        final response = await _libraryClient!.deletePhoto(request);
+        deleteResults[objectId] = response.success;
+      } on GrpcError {
+        deleteResults[objectId] = false;
+      }
+    }
+
+    return deleteResults;
+  }
+
   /// Close the gRPC channel
   Future<void> dispose() async {
     await _channel?.shutdown();
     _channel = null;
     _client = null;
+    _libraryClient = null;
   }
 }
 
@@ -197,16 +252,29 @@ class UploadException implements Exception {
   String toString() => 'UploadException: $message';
 }
 
+/// Exception thrown when an upload times out
+class UploadTimeoutException implements Exception {
+  final String message;
+  final String? objectId;
+
+  UploadTimeoutException(this.message, {this.objectId});
+
+  @override
+  String toString() => 'UploadTimeoutException: $message';
+}
+
 /// Result of an upload attempt
 class UploadResult {
   final AssetEntity asset;
   final bool success;
+  final bool timedOut;
   final UploadResponse? response;
   final String? error;
 
   UploadResult._({
     required this.asset,
     required this.success,
+    this.timedOut = false,
     this.response,
     this.error,
   });
@@ -217,5 +285,14 @@ class UploadResult {
 
   factory UploadResult.failure(AssetEntity asset, String error) {
     return UploadResult._(asset: asset, success: false, error: error);
+  }
+
+  factory UploadResult.timeout(AssetEntity asset, String error) {
+    return UploadResult._(
+      asset: asset,
+      success: false,
+      timedOut: true,
+      error: error,
+    );
   }
 }

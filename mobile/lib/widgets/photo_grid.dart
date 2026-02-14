@@ -264,19 +264,38 @@ class PhotoGridState extends State<PhotoGrid> {
   }
 
   void _showUploadResults(List<UploadResult> results, bool deleteAfterUpload) {
+    // Handle case where upload was rolled back (empty results)
+    if (results.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Upload cancelled - uploaded photos deleted'),
+          duration: Duration(seconds: 3),
+        ),
+      );
+      _clearSelection();
+      return;
+    }
+
     final successCount = results.where((r) => r.success).length;
-    final failureCount = results.length - successCount;
+    final failureCount = results.where((r) => !r.success && !r.timedOut).length;
+    final timeoutCount = results.where((r) => r.timedOut).length;
 
     if (!mounted) return;
 
     String message;
-    if (failureCount == 0) {
+    if (failureCount == 0 && timeoutCount == 0) {
       if (deleteAfterUpload) {
         message =
             'Successfully uploaded and deleted $successCount photo${successCount == 1 ? '' : 's'}';
       } else {
         message =
             'Successfully uploaded $successCount photo${successCount == 1 ? '' : 's'}';
+      }
+    } else if (timeoutCount > 0) {
+      message = 'Uploaded $successCount, timed out on 1';
+      if (failureCount > 0) {
+        message += ', failed $failureCount';
       }
     } else {
       message = 'Uploaded $successCount, failed $failureCount';
@@ -469,6 +488,10 @@ class _UploadProgressDialogState extends State<_UploadProgressDialog> {
   int _completed = 0;
   int _total = 0;
   String _currentFileName = '';
+  bool _isUploading = true;
+  bool _isDeleting = false;
+  bool _timedOut = false;
+  List<UploadResult> _results = [];
 
   @override
   void initState() {
@@ -493,6 +516,24 @@ class _UploadProgressDialogState extends State<_UploadProgressDialog> {
       },
     );
 
+    if (!mounted) return;
+
+    // Check if upload was stopped due to timeout
+    final hasTimeout = results.any((r) => r.timedOut);
+
+    setState(() {
+      _results = results;
+      _isUploading = false;
+      _timedOut = hasTimeout;
+    });
+
+    // If no timeout, proceed with normal completion
+    if (!hasTimeout) {
+      await _completeUpload(results);
+    }
+  }
+
+  Future<void> _completeUpload(List<UploadResult> results) async {
     // Delete successfully uploaded photos if setting is enabled
     if (widget.deleteAfterUpload) {
       final successfulIds = results
@@ -507,10 +548,92 @@ class _UploadProgressDialogState extends State<_UploadProgressDialog> {
     widget.onComplete(results);
   }
 
+  Future<void> _deleteUploadedPhotos() async {
+    setState(() {
+      _isDeleting = true;
+    });
+
+    final successfulResults = _results.where((r) => r.success).toList();
+    await widget.uploadService.deleteUploadedPhotos(successfulResults);
+
+    if (!mounted) return;
+
+    // Return empty results since we rolled back
+    widget.onComplete([]);
+  }
+
+  void _keepUploadedPhotos() {
+    // Proceed with completion, keeping the successfully uploaded photos
+    _completeUpload(_results);
+  }
+
   @override
   Widget build(BuildContext context) {
     final progress = _total > 0 ? _completed / _total : 0.0;
 
+    // Show timeout dialog with rollback option
+    if (_timedOut && !_isDeleting) {
+      final successCount = _results.where((r) => r.success).length;
+      final timedOutPhoto = _results.firstWhere((r) => r.timedOut);
+
+      return AlertDialog(
+        title: const Text('Upload Timed Out'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Upload timed out while uploading "${timedOutPhoto.asset.title ?? 'photo'}".',
+            ),
+            const SizedBox(height: 16),
+            if (successCount > 0) ...[
+              Text(
+                '$successCount photo${successCount == 1 ? ' was' : 's were'} '
+                'successfully uploaded before the timeout.',
+              ),
+              const SizedBox(height: 16),
+              const Text('Would you like to delete the uploaded photos?'),
+            ] else
+              const Text('No photos were uploaded.'),
+          ],
+        ),
+        actions: [
+          if (successCount > 0) ...[
+            TextButton(
+              onPressed: _keepUploadedPhotos,
+              child: const Text('Keep Uploaded'),
+            ),
+            TextButton(
+              onPressed: _deleteUploadedPhotos,
+              child: const Text('Delete Uploaded'),
+            ),
+          ] else
+            TextButton(
+              onPressed: () => widget.onComplete(_results),
+              child: const Text('OK'),
+            ),
+        ],
+      );
+    }
+
+    // Show deleting progress
+    if (_isDeleting) {
+      return AlertDialog(
+        title: const Text('Deleting Uploaded Photos'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const CircularProgressIndicator(),
+            const SizedBox(height: 16),
+            Text(
+              'Removing ${_results.where((r) => r.success).length} uploaded photos...',
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Show upload progress
     return AlertDialog(
       title: const Text('Uploading Photos'),
       content: Column(
