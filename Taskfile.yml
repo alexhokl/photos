@@ -125,7 +125,7 @@ tasks:
   run-flutter-release:
     desc: Run on MacOS
     platforms: [darwin]
-    cmd: open ./build/macos/Build/Products/Release/photos.app
+    cmd: open ./mobile/build/macos/Build/Products/Release/photos.app
 
   run-android:
     desc: Run on Android
