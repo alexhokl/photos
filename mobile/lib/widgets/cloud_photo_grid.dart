@@ -258,6 +258,130 @@ class CloudPhotoGridState extends State<CloudPhotoGrid> {
     }
   }
 
+  void _showEditPathDialog() {
+    final controller = TextEditingController(text: _currentPrefix);
+    final originalPrefix = _currentPrefix;
+
+    showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Edit Path'),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(
+            labelText: 'Directory path',
+            hintText: 'e.g., photos/2024/',
+            helperText: 'Photos will be moved to the new path',
+          ),
+          autofocus: true,
+          onSubmitted: (value) => Navigator.of(context).pop(value),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(controller.text),
+            child: const Text('Move'),
+          ),
+        ],
+      ),
+    ).then((value) async {
+      if (value == null) return;
+
+      // Normalize the path (ensure trailing slash if not empty)
+      final newPrefix = value.isEmpty || value.endsWith('/')
+          ? value
+          : '$value/';
+
+      // If path unchanged, just navigate
+      if (newPrefix == originalPrefix) {
+        _loadDirectory(newPrefix);
+        return;
+      }
+
+      // Move photos from original prefix to new prefix
+      await _movePhotosToNewPrefix(originalPrefix, newPrefix);
+    });
+  }
+
+  Future<void> _movePhotosToNewPrefix(
+    String sourcePrefix,
+    String destinationPrefix,
+  ) async {
+    final photosToMove = List<Photo>.from(_photos);
+    if (photosToMove.isEmpty) {
+      _loadDirectory(destinationPrefix);
+      return;
+    }
+
+    // Show progress indicator
+    if (!mounted) return;
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const AlertDialog(
+        content: Row(
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(width: 16),
+            Text('Moving photos...'),
+          ],
+        ),
+      ),
+    );
+
+    LibraryService? libraryService;
+    int successCount = 0;
+    int failureCount = 0;
+
+    try {
+      final config = await BackendConfig.load();
+      libraryService = LibraryService(host: config.host, port: config.port);
+
+      for (final photo in photosToMove) {
+        try {
+          // Extract filename from object_id
+          final filename = photo.objectId.split('/').last;
+          final destinationObjectId = '$destinationPrefix$filename';
+
+          // Copy to new location
+          await libraryService.copyPhoto(photo.objectId, destinationObjectId);
+
+          // Delete original
+          await libraryService.deletePhoto(photo.objectId);
+
+          successCount++;
+        } catch (_) {
+          failureCount++;
+        }
+      }
+    } finally {
+      await libraryService?.dispose();
+    }
+
+    if (!mounted) return;
+
+    // Dismiss progress dialog
+    Navigator.of(context).pop();
+
+    // Show result
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          failureCount == 0
+              ? 'Moved $successCount photo${successCount == 1 ? '' : 's'}'
+              : 'Moved $successCount, failed $failureCount',
+        ),
+        duration: const Duration(seconds: 3),
+      ),
+    );
+
+    // Navigate to new directory
+    _loadDirectory(destinationPrefix);
+  }
+
   void _toggleSelection(Photo photo) {
     setState(() {
       if (_selectedObjectIds.contains(photo.objectId)) {
@@ -625,69 +749,84 @@ class CloudPhotoGridState extends State<CloudPhotoGrid> {
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          children: [
-            InkWell(
-              onTap: _currentPrefix.isNotEmpty
-                  ? () => _navigateToBreadcrumb(-1)
-                  : null,
-              borderRadius: BorderRadius.circular(4),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.cloud,
-                      size: 18,
-                      color: Theme.of(context).colorScheme.primary,
+      child: Row(
+        children: [
+          Expanded(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  InkWell(
+                    onTap: _currentPrefix.isNotEmpty
+                        ? () => _navigateToBreadcrumb(-1)
+                        : null,
+                    borderRadius: BorderRadius.circular(4),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 4,
+                        vertical: 2,
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.cloud,
+                            size: 18,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Cloud',
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.primary,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                    const SizedBox(width: 4),
-                    Text(
-                      'Cloud',
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.primary,
-                        fontWeight: FontWeight.w500,
+                  ),
+                  for (var i = 0; i < segments.length; i++) ...[
+                    Icon(
+                      Icons.chevron_right,
+                      size: 18,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                    InkWell(
+                      onTap: i < segments.length - 1
+                          ? () => _navigateToBreadcrumb(i)
+                          : null,
+                      borderRadius: BorderRadius.circular(4),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 4,
+                          vertical: 2,
+                        ),
+                        child: Text(
+                          segments[i],
+                          style: TextStyle(
+                            color: i < segments.length - 1
+                                ? Theme.of(context).colorScheme.primary
+                                : Theme.of(context).colorScheme.onSurface,
+                            fontWeight: i == segments.length - 1
+                                ? FontWeight.w600
+                                : FontWeight.w500,
+                          ),
+                        ),
                       ),
                     ),
                   ],
-                ),
+                ],
               ),
             ),
-            for (var i = 0; i < segments.length; i++) ...[
-              Icon(
-                Icons.chevron_right,
-                size: 18,
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-              InkWell(
-                onTap: i < segments.length - 1
-                    ? () => _navigateToBreadcrumb(i)
-                    : null,
-                borderRadius: BorderRadius.circular(4),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 4,
-                    vertical: 2,
-                  ),
-                  child: Text(
-                    segments[i],
-                    style: TextStyle(
-                      color: i < segments.length - 1
-                          ? Theme.of(context).colorScheme.primary
-                          : Theme.of(context).colorScheme.onSurface,
-                      fontWeight: i == segments.length - 1
-                          ? FontWeight.w600
-                          : FontWeight.w500,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ],
-        ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.edit, size: 18),
+            tooltip: 'Edit path',
+            onPressed: _showEditPathDialog,
+            visualDensity: VisualDensity.compact,
+          ),
+        ],
       ),
     );
   }
