@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:photo_manager/photo_manager.dart';
-import 'package:photos/widgets/photo_info_view.dart';
 import 'package:mocktail/mocktail.dart';
+import 'package:photo_manager/photo_manager.dart';
+import 'package:photos/services/exif_service.dart';
+import 'package:photos/widgets/photo_info_view.dart';
 
 class MockAssetEntity extends Mock implements AssetEntity {}
 
@@ -36,7 +37,9 @@ void main() {
 
     testWidgets('renders Scaffold with AppBar', (tester) async {
       await tester.pumpWidget(
-        MaterialApp(home: PhotoInfoView(asset: mockAsset)),
+        MaterialApp(
+          home: PhotoInfoView(asset: mockAsset, skipExifExtraction: true),
+        ),
       );
 
       expect(find.byType(Scaffold), findsOneWidget);
@@ -45,7 +48,9 @@ void main() {
 
     testWidgets('AppBar has correct title', (tester) async {
       await tester.pumpWidget(
-        MaterialApp(home: PhotoInfoView(asset: mockAsset)),
+        MaterialApp(
+          home: PhotoInfoView(asset: mockAsset, skipExifExtraction: true),
+        ),
       );
 
       expect(find.text('Metadata'), findsOneWidget);
@@ -53,7 +58,9 @@ void main() {
 
     testWidgets('displays filename info tile', (tester) async {
       await tester.pumpWidget(
-        MaterialApp(home: PhotoInfoView(asset: mockAsset)),
+        MaterialApp(
+          home: PhotoInfoView(asset: mockAsset, skipExifExtraction: true),
+        ),
       );
 
       expect(find.text('Filename'), findsOneWidget);
@@ -63,7 +70,9 @@ void main() {
 
     testWidgets('displays size info tile with dimensions', (tester) async {
       await tester.pumpWidget(
-        MaterialApp(home: PhotoInfoView(asset: mockAsset)),
+        MaterialApp(
+          home: PhotoInfoView(asset: mockAsset, skipExifExtraction: true),
+        ),
       );
 
       expect(find.text('Dimensions'), findsOneWidget);
@@ -73,7 +82,9 @@ void main() {
 
     testWidgets('displays date taken info tile', (tester) async {
       await tester.pumpWidget(
-        MaterialApp(home: PhotoInfoView(asset: mockAsset)),
+        MaterialApp(
+          home: PhotoInfoView(asset: mockAsset, skipExifExtraction: true),
+        ),
       );
 
       expect(find.text('Date Taken'), findsOneWidget);
@@ -83,7 +94,9 @@ void main() {
 
     testWidgets('displays location info tile', (tester) async {
       await tester.pumpWidget(
-        MaterialApp(home: PhotoInfoView(asset: mockAsset)),
+        MaterialApp(
+          home: PhotoInfoView(asset: mockAsset, skipExifExtraction: true),
+        ),
       );
 
       // Initially shows loading
@@ -98,7 +111,9 @@ void main() {
 
     testWidgets('shows Loading... while fetching location', (tester) async {
       await tester.pumpWidget(
-        MaterialApp(home: PhotoInfoView(asset: mockAsset)),
+        MaterialApp(
+          home: PhotoInfoView(asset: mockAsset, skipExifExtraction: true),
+        ),
       );
 
       // Before async completes, should show Loading...
@@ -107,7 +122,9 @@ void main() {
 
     testWidgets('uses ListView for scrollable content', (tester) async {
       await tester.pumpWidget(
-        MaterialApp(home: PhotoInfoView(asset: mockAsset)),
+        MaterialApp(
+          home: PhotoInfoView(asset: mockAsset, skipExifExtraction: true),
+        ),
       );
 
       expect(find.byType(ListView), findsOneWidget);
@@ -115,7 +132,9 @@ void main() {
 
     testWidgets('displays four ListTile items', (tester) async {
       await tester.pumpWidget(
-        MaterialApp(home: PhotoInfoView(asset: mockAsset)),
+        MaterialApp(
+          home: PhotoInfoView(asset: mockAsset, skipExifExtraction: true),
+        ),
       );
 
       expect(find.byType(ListTile), findsNWidgets(4));
@@ -125,7 +144,9 @@ void main() {
       tester,
     ) async {
       await tester.pumpWidget(
-        MaterialApp(home: PhotoInfoView(asset: mockAsset)),
+        MaterialApp(
+          home: PhotoInfoView(asset: mockAsset, skipExifExtraction: true),
+        ),
       );
 
       // Before location loads, Google Maps should not be visible
@@ -147,7 +168,9 @@ void main() {
       tester,
     ) async {
       await tester.pumpWidget(
-        MaterialApp(home: PhotoInfoView(asset: mockAsset)),
+        MaterialApp(
+          home: PhotoInfoView(asset: mockAsset, skipExifExtraction: true),
+        ),
       );
 
       await tester.pumpAndSettle();
@@ -170,7 +193,9 @@ void main() {
 
     testWidgets('displays Unknown for null filename', (tester) async {
       await tester.pumpWidget(
-        MaterialApp(home: PhotoInfoView(asset: mockAsset)),
+        MaterialApp(
+          home: PhotoInfoView(asset: mockAsset, skipExifExtraction: true),
+        ),
       );
 
       expect(find.text('Unknown'), findsOneWidget);
@@ -178,7 +203,9 @@ void main() {
 
     testWidgets('displays Unknown for null location', (tester) async {
       await tester.pumpWidget(
-        MaterialApp(home: PhotoInfoView(asset: mockAsset)),
+        MaterialApp(
+          home: PhotoInfoView(asset: mockAsset, skipExifExtraction: true),
+        ),
       );
 
       await tester.pumpAndSettle();
@@ -190,7 +217,9 @@ void main() {
 
     testWidgets('displays 0 x 0 pixels for zero dimensions', (tester) async {
       await tester.pumpWidget(
-        MaterialApp(home: PhotoInfoView(asset: mockAsset)),
+        MaterialApp(
+          home: PhotoInfoView(asset: mockAsset, skipExifExtraction: true),
+        ),
       );
 
       expect(find.text('0 x 0 pixels'), findsOneWidget);
@@ -200,7 +229,9 @@ void main() {
       tester,
     ) async {
       await tester.pumpWidget(
-        MaterialApp(home: PhotoInfoView(asset: mockAsset)),
+        MaterialApp(
+          home: PhotoInfoView(asset: mockAsset, skipExifExtraction: true),
+        ),
       );
 
       await tester.pumpAndSettle();
@@ -227,7 +258,9 @@ void main() {
       ).thenReturn(DateTime(2024, 1, 15, 10, 30, 45));
 
       await tester.pumpWidget(
-        MaterialApp(home: PhotoInfoView(asset: mockAsset)),
+        MaterialApp(
+          home: PhotoInfoView(asset: mockAsset, skipExifExtraction: true),
+        ),
       );
 
       expect(find.text('2024-01-15 10:30:45'), findsOneWidget);
@@ -239,7 +272,9 @@ void main() {
       ).thenReturn(DateTime(2024, 12, 5, 10, 30, 45));
 
       await tester.pumpWidget(
-        MaterialApp(home: PhotoInfoView(asset: mockAsset)),
+        MaterialApp(
+          home: PhotoInfoView(asset: mockAsset, skipExifExtraction: true),
+        ),
       );
 
       expect(find.text('2024-12-05 10:30:45'), findsOneWidget);
@@ -251,7 +286,9 @@ void main() {
       ).thenReturn(DateTime(2024, 12, 15, 9, 30, 45));
 
       await tester.pumpWidget(
-        MaterialApp(home: PhotoInfoView(asset: mockAsset)),
+        MaterialApp(
+          home: PhotoInfoView(asset: mockAsset, skipExifExtraction: true),
+        ),
       );
 
       expect(find.text('2024-12-15 09:30:45'), findsOneWidget);
@@ -263,7 +300,9 @@ void main() {
       ).thenReturn(DateTime(2024, 12, 15, 10, 5, 45));
 
       await tester.pumpWidget(
-        MaterialApp(home: PhotoInfoView(asset: mockAsset)),
+        MaterialApp(
+          home: PhotoInfoView(asset: mockAsset, skipExifExtraction: true),
+        ),
       );
 
       expect(find.text('2024-12-15 10:05:45'), findsOneWidget);
@@ -275,7 +314,9 @@ void main() {
       ).thenReturn(DateTime(2024, 12, 15, 10, 30, 5));
 
       await tester.pumpWidget(
-        MaterialApp(home: PhotoInfoView(asset: mockAsset)),
+        MaterialApp(
+          home: PhotoInfoView(asset: mockAsset, skipExifExtraction: true),
+        ),
       );
 
       expect(find.text('2024-12-15 10:30:05'), findsOneWidget);
@@ -299,7 +340,9 @@ void main() {
       );
 
       await tester.pumpWidget(
-        MaterialApp(home: PhotoInfoView(asset: mockAsset)),
+        MaterialApp(
+          home: PhotoInfoView(asset: mockAsset, skipExifExtraction: true),
+        ),
       );
 
       await tester.pumpAndSettle();
@@ -313,7 +356,9 @@ void main() {
       );
 
       await tester.pumpWidget(
-        MaterialApp(home: PhotoInfoView(asset: mockAsset)),
+        MaterialApp(
+          home: PhotoInfoView(asset: mockAsset, skipExifExtraction: true),
+        ),
       );
 
       await tester.pumpAndSettle();
@@ -340,12 +385,426 @@ void main() {
           theme: ThemeData(
             colorScheme: ColorScheme.fromSeed(seedColor: Colors.cyan),
           ),
-          home: PhotoInfoView(asset: mockAsset),
+          home: PhotoInfoView(asset: mockAsset, skipExifExtraction: true),
         ),
       );
 
       final appBar = tester.widget<AppBar>(find.byType(AppBar));
       expect(appBar.backgroundColor, isNotNull);
+    });
+  });
+
+  group('PhotoInfoView section headers', () {
+    late MockAssetEntity mockAsset;
+
+    setUp(() {
+      mockAsset = MockAssetEntity();
+      when(() => mockAsset.title).thenReturn('photo.jpg');
+      when(() => mockAsset.width).thenReturn(1920);
+      when(() => mockAsset.height).thenReturn(1080);
+      when(() => mockAsset.createDateTime).thenReturn(DateTime(2024, 6, 15));
+      when(() => mockAsset.latlngAsync()).thenAnswer((_) async => null);
+    });
+
+    testWidgets('displays FILE INFORMATION section header', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: PhotoInfoView(asset: mockAsset, skipExifExtraction: true),
+        ),
+      );
+
+      expect(find.text('FILE INFORMATION'), findsOneWidget);
+    });
+
+    testWidgets('displays CAMERA section header when camera info present', (
+      tester,
+    ) async {
+      final exif = ExifMetadata(cameraMake: 'Canon');
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: PhotoInfoView(
+            asset: mockAsset,
+            skipExifExtraction: true,
+            exifMetadata: exif,
+          ),
+        ),
+      );
+
+      expect(find.text('CAMERA'), findsOneWidget);
+    });
+
+    testWidgets('does not display CAMERA section header when no camera info', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: PhotoInfoView(
+            asset: mockAsset,
+            skipExifExtraction: true,
+            exifMetadata: const ExifMetadata(),
+          ),
+        ),
+      );
+
+      expect(find.text('CAMERA'), findsNothing);
+    });
+
+    testWidgets(
+      'displays EXPOSURE SETTINGS section header when exposure info present',
+      (tester) async {
+        final exif = ExifMetadata(iso: 200);
+
+        await tester.pumpWidget(
+          MaterialApp(
+            home: PhotoInfoView(
+              asset: mockAsset,
+              skipExifExtraction: true,
+              exifMetadata: exif,
+            ),
+          ),
+        );
+
+        expect(find.text('EXPOSURE SETTINGS'), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'does not display EXPOSURE SETTINGS header when no exposure info',
+      (tester) async {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: PhotoInfoView(
+              asset: mockAsset,
+              skipExifExtraction: true,
+              exifMetadata: const ExifMetadata(),
+            ),
+          ),
+        );
+
+        expect(find.text('EXPOSURE SETTINGS'), findsNothing);
+      },
+    );
+
+    testWidgets('displays LOCATION section header when location present', (
+      tester,
+    ) async {
+      when(() => mockAsset.latlngAsync()).thenAnswer(
+        (_) async => const LatLng(latitude: 37.7749, longitude: -122.4194),
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: PhotoInfoView(asset: mockAsset, skipExifExtraction: true),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+
+      expect(find.text('LOCATION'), findsOneWidget);
+    });
+
+    testWidgets('does not display LOCATION section header when no location', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: PhotoInfoView(asset: mockAsset, skipExifExtraction: true),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+
+      expect(find.text('LOCATION'), findsNothing);
+    });
+  });
+
+  group('PhotoInfoView EXIF camera metadata display', () {
+    late MockAssetEntity mockAsset;
+
+    setUp(() {
+      mockAsset = MockAssetEntity();
+      when(() => mockAsset.title).thenReturn('photo.jpg');
+      when(() => mockAsset.width).thenReturn(1920);
+      when(() => mockAsset.height).thenReturn(1080);
+      when(() => mockAsset.createDateTime).thenReturn(DateTime(2024, 6, 15));
+      when(() => mockAsset.latlngAsync()).thenAnswer((_) async => null);
+    });
+
+    testWidgets('displays camera make tile', (tester) async {
+      final exif = ExifMetadata(cameraMake: 'Canon');
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: PhotoInfoView(
+            asset: mockAsset,
+            skipExifExtraction: true,
+            exifMetadata: exif,
+          ),
+        ),
+      );
+
+      expect(find.text('Camera Make'), findsOneWidget);
+      expect(find.text('Canon'), findsOneWidget);
+      expect(find.byIcon(Icons.business), findsOneWidget);
+    });
+
+    testWidgets('displays camera model tile', (tester) async {
+      final exif = ExifMetadata(cameraModel: 'EOS R5');
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: PhotoInfoView(
+            asset: mockAsset,
+            skipExifExtraction: true,
+            exifMetadata: exif,
+          ),
+        ),
+      );
+
+      expect(find.text('Camera Model'), findsOneWidget);
+      expect(find.text('EOS R5'), findsOneWidget);
+    });
+
+    testWidgets('displays lens tile', (tester) async {
+      final exif = ExifMetadata(lensModel: 'RF 85mm F1.2L USM');
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: PhotoInfoView(
+            asset: mockAsset,
+            skipExifExtraction: true,
+            exifMetadata: exif,
+          ),
+        ),
+      );
+
+      expect(find.text('Lens'), findsOneWidget);
+      expect(find.text('RF 85mm F1.2L USM'), findsOneWidget);
+      expect(find.byIcon(Icons.camera_outdoor), findsOneWidget);
+    });
+
+    testWidgets('displays focal length tile', (tester) async {
+      final exif = ExifMetadata(focalLength: 85.0);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: PhotoInfoView(
+            asset: mockAsset,
+            skipExifExtraction: true,
+            exifMetadata: exif,
+          ),
+        ),
+      );
+
+      expect(find.text('Focal Length'), findsOneWidget);
+      expect(find.text('85.0mm'), findsOneWidget);
+      expect(find.byIcon(Icons.straighten), findsOneWidget);
+    });
+
+    testWidgets('displays aperture tile', (tester) async {
+      final exif = ExifMetadata(aperture: 1.8);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: PhotoInfoView(
+            asset: mockAsset,
+            skipExifExtraction: true,
+            exifMetadata: exif,
+          ),
+        ),
+      );
+
+      expect(find.text('Aperture'), findsOneWidget);
+      expect(find.text('f/1.8'), findsOneWidget);
+    });
+
+    testWidgets('displays shutter speed tile', (tester) async {
+      final exif = ExifMetadata(exposureTime: 0.001);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: PhotoInfoView(
+            asset: mockAsset,
+            skipExifExtraction: true,
+            exifMetadata: exif,
+          ),
+        ),
+      );
+
+      expect(find.text('Shutter Speed'), findsOneWidget);
+      expect(find.text('1/1000s'), findsOneWidget);
+      expect(find.byIcon(Icons.shutter_speed), findsOneWidget);
+    });
+
+    testWidgets('displays ISO tile', (tester) async {
+      final exif = ExifMetadata(iso: 200);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: PhotoInfoView(
+            asset: mockAsset,
+            skipExifExtraction: true,
+            exifMetadata: exif,
+          ),
+        ),
+      );
+
+      expect(find.text('ISO'), findsOneWidget);
+      expect(find.text('200'), findsOneWidget);
+      expect(find.byIcon(Icons.iso), findsOneWidget);
+    });
+
+    testWidgets('displays all camera and exposure metadata', (tester) async {
+      final exif = ExifMetadata(
+        cameraMake: 'Canon',
+        cameraModel: 'EOS R5',
+        lensModel: 'RF 85mm F1.2L USM',
+        focalLength: 85.0,
+        aperture: 1.8,
+        exposureTime: 0.004, // 1/250s
+        iso: 400,
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: PhotoInfoView(
+            asset: mockAsset,
+            skipExifExtraction: true,
+            exifMetadata: exif,
+          ),
+        ),
+      );
+
+      // Camera info - should be visible initially
+      expect(find.text('CAMERA'), findsOneWidget);
+      expect(find.text('Camera Make'), findsOneWidget);
+      expect(find.text('Canon'), findsOneWidget);
+      expect(find.text('Camera Model'), findsOneWidget);
+      expect(find.text('EOS R5'), findsOneWidget);
+      expect(find.text('Lens'), findsOneWidget);
+      expect(find.text('RF 85mm F1.2L USM'), findsOneWidget);
+
+      // Scroll to focal length
+      await tester.scrollUntilVisible(find.text('85.0mm'), 100);
+      expect(find.text('Focal Length'), findsOneWidget);
+      expect(find.text('85.0mm'), findsOneWidget);
+
+      // Scroll to aperture
+      await tester.scrollUntilVisible(find.text('f/1.8'), 100);
+      expect(find.text('Aperture'), findsOneWidget);
+      expect(find.text('f/1.8'), findsOneWidget);
+
+      // Scroll to shutter speed
+      await tester.scrollUntilVisible(find.text('1/250s'), 100);
+      expect(find.text('Shutter Speed'), findsOneWidget);
+      expect(find.text('1/250s'), findsOneWidget);
+
+      // Scroll to ISO
+      await tester.scrollUntilVisible(find.text('400'), 100);
+      expect(find.text('ISO'), findsOneWidget);
+      expect(find.text('400'), findsOneWidget);
+    });
+
+    testWidgets('does not display camera tiles when metadata is empty', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: PhotoInfoView(
+            asset: mockAsset,
+            skipExifExtraction: true,
+            exifMetadata: const ExifMetadata(),
+          ),
+        ),
+      );
+
+      expect(find.text('Camera Make'), findsNothing);
+      expect(find.text('Camera Model'), findsNothing);
+      expect(find.text('Lens'), findsNothing);
+      expect(find.text('Focal Length'), findsNothing);
+      expect(find.text('Aperture'), findsNothing);
+      expect(find.text('Shutter Speed'), findsNothing);
+      expect(find.text('ISO'), findsNothing);
+    });
+
+    testWidgets('formats long exposure time correctly', (tester) async {
+      final exif = ExifMetadata(exposureTime: 2.5); // 2.5 seconds
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: PhotoInfoView(
+            asset: mockAsset,
+            skipExifExtraction: true,
+            exifMetadata: exif,
+          ),
+        ),
+      );
+
+      expect(find.text('Shutter Speed'), findsOneWidget);
+      expect(find.text('2.5s'), findsOneWidget);
+    });
+  });
+
+  group('ExifMetadata model', () {
+    test('hasCameraInfo returns true when camera make present', () {
+      const exif = ExifMetadata(cameraMake: 'Canon');
+      expect(exif.hasCameraInfo, isTrue);
+    });
+
+    test('hasCameraInfo returns true when camera model present', () {
+      const exif = ExifMetadata(cameraModel: 'EOS R5');
+      expect(exif.hasCameraInfo, isTrue);
+    });
+
+    test('hasCameraInfo returns true when lens model present', () {
+      const exif = ExifMetadata(lensModel: 'RF 85mm');
+      expect(exif.hasCameraInfo, isTrue);
+    });
+
+    test('hasCameraInfo returns false when all camera fields empty', () {
+      const exif = ExifMetadata();
+      expect(exif.hasCameraInfo, isFalse);
+    });
+
+    test('hasExposureInfo returns true when focal length present', () {
+      const exif = ExifMetadata(focalLength: 85.0);
+      expect(exif.hasExposureInfo, isTrue);
+    });
+
+    test('hasExposureInfo returns true when aperture present', () {
+      const exif = ExifMetadata(aperture: 1.8);
+      expect(exif.hasExposureInfo, isTrue);
+    });
+
+    test('hasExposureInfo returns true when exposure time present', () {
+      const exif = ExifMetadata(exposureTime: 0.001);
+      expect(exif.hasExposureInfo, isTrue);
+    });
+
+    test('hasExposureInfo returns true when ISO present', () {
+      const exif = ExifMetadata(iso: 200);
+      expect(exif.hasExposureInfo, isTrue);
+    });
+
+    test('hasExposureInfo returns false when all exposure fields empty', () {
+      const exif = ExifMetadata();
+      expect(exif.hasExposureInfo, isFalse);
+    });
+
+    test('hasAnyMetadata returns true when camera info present', () {
+      const exif = ExifMetadata(cameraMake: 'Canon');
+      expect(exif.hasAnyMetadata, isTrue);
+    });
+
+    test('hasAnyMetadata returns true when exposure info present', () {
+      const exif = ExifMetadata(iso: 200);
+      expect(exif.hasAnyMetadata, isTrue);
+    });
+
+    test('hasAnyMetadata returns false when no metadata present', () {
+      const exif = ExifMetadata();
+      expect(exif.hasAnyMetadata, isFalse);
     });
   });
 }
