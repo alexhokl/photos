@@ -428,7 +428,7 @@ class _CloudPhotoViewerState extends State<CloudPhotoViewer> {
                 value: CloudPhotoViewerAction.download,
                 child: ListTile(
                   leading: Icon(Icons.download),
-                  title: Text('Save to Device'),
+                  title: Text('Download to Device'),
                   contentPadding: EdgeInsets.zero,
                 ),
               ),
