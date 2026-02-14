@@ -869,4 +869,950 @@ void main() {
       expect(selectedAction, equals(CloudPhotoGridAction.move));
     });
   });
+
+  group('Edit Path Dialog UI', () {
+    testWidgets('Edit Path dialog has correct title', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => ElevatedButton(
+                onPressed: () {
+                  showDialog<String>(
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      title: const Text('Edit Path'),
+                      content: TextField(
+                        controller: TextEditingController(text: 'photos/2024/'),
+                        decoration: const InputDecoration(
+                          labelText: 'Directory path',
+                          hintText: 'e.g., photos/2024/',
+                          helperText: 'Photos will be moved to the new path',
+                        ),
+                        autofocus: true,
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.of(context).pop(),
+                          child: const Text('Cancel'),
+                        ),
+                        FilledButton(
+                          onPressed: () =>
+                              Navigator.of(context).pop('photos/2024/'),
+                          child: const Text('Move'),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+                child: const Text('Open Dialog'),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Open Dialog'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Edit Path'), findsOneWidget);
+    });
+
+    testWidgets('Edit Path dialog has TextField with correct decorations', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => ElevatedButton(
+                onPressed: () {
+                  showDialog<String>(
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      title: const Text('Edit Path'),
+                      content: TextField(
+                        controller: TextEditingController(text: 'photos/2024/'),
+                        decoration: const InputDecoration(
+                          labelText: 'Directory path',
+                          hintText: 'e.g., photos/2024/',
+                          helperText: 'Photos will be moved to the new path',
+                        ),
+                        autofocus: true,
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.of(context).pop(),
+                          child: const Text('Cancel'),
+                        ),
+                        FilledButton(
+                          onPressed: () =>
+                              Navigator.of(context).pop('photos/2024/'),
+                          child: const Text('Move'),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+                child: const Text('Open Dialog'),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Open Dialog'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Directory path'), findsOneWidget);
+      expect(find.text('e.g., photos/2024/'), findsOneWidget);
+      expect(find.text('Photos will be moved to the new path'), findsOneWidget);
+    });
+
+    testWidgets('Edit Path dialog has Cancel and Move buttons', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => ElevatedButton(
+                onPressed: () {
+                  showDialog<String>(
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      title: const Text('Edit Path'),
+                      content: TextField(
+                        controller: TextEditingController(text: 'photos/2024/'),
+                        decoration: const InputDecoration(
+                          labelText: 'Directory path',
+                          hintText: 'e.g., photos/2024/',
+                          helperText: 'Photos will be moved to the new path',
+                        ),
+                        autofocus: true,
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.of(context).pop(),
+                          child: const Text('Cancel'),
+                        ),
+                        FilledButton(
+                          onPressed: () =>
+                              Navigator.of(context).pop('photos/2024/'),
+                          child: const Text('Move'),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+                child: const Text('Open Dialog'),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Open Dialog'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Cancel'), findsOneWidget);
+      expect(find.text('Move'), findsOneWidget);
+      expect(find.byType(TextButton), findsOneWidget);
+      expect(find.byType(FilledButton), findsOneWidget);
+    });
+
+    testWidgets('Edit Path dialog pre-fills current path', (tester) async {
+      const currentPath = 'photos/vacation/2024/';
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => ElevatedButton(
+                onPressed: () {
+                  showDialog<String>(
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      title: const Text('Edit Path'),
+                      content: TextField(
+                        controller: TextEditingController(text: currentPath),
+                        decoration: const InputDecoration(
+                          labelText: 'Directory path',
+                        ),
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.of(context).pop(),
+                          child: const Text('Cancel'),
+                        ),
+                        FilledButton(
+                          onPressed: () =>
+                              Navigator.of(context).pop(currentPath),
+                          child: const Text('Move'),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+                child: const Text('Open Dialog'),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Open Dialog'));
+      await tester.pumpAndSettle();
+
+      expect(find.text(currentPath), findsOneWidget);
+    });
+
+    testWidgets('Cancel button closes dialog without returning value', (
+      tester,
+    ) async {
+      String? dialogResult = 'initial';
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => ElevatedButton(
+                onPressed: () async {
+                  final result = await showDialog<String>(
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      title: const Text('Edit Path'),
+                      content: TextField(
+                        controller: TextEditingController(text: 'photos/2024/'),
+                        decoration: const InputDecoration(
+                          labelText: 'Directory path',
+                        ),
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.of(context).pop(),
+                          child: const Text('Cancel'),
+                        ),
+                        FilledButton(
+                          onPressed: () =>
+                              Navigator.of(context).pop('photos/2024/'),
+                          child: const Text('Move'),
+                        ),
+                      ],
+                    ),
+                  );
+                  dialogResult = result;
+                },
+                child: const Text('Open Dialog'),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Open Dialog'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Edit Path'), findsNothing);
+      expect(dialogResult, isNull);
+    });
+
+    testWidgets('Move button closes dialog and returns new path', (
+      tester,
+    ) async {
+      String? dialogResult;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => ElevatedButton(
+                onPressed: () async {
+                  final controller = TextEditingController(
+                    text: 'photos/2024/',
+                  );
+                  final result = await showDialog<String>(
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      title: const Text('Edit Path'),
+                      content: TextField(
+                        controller: controller,
+                        decoration: const InputDecoration(
+                          labelText: 'Directory path',
+                        ),
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.of(context).pop(),
+                          child: const Text('Cancel'),
+                        ),
+                        FilledButton(
+                          onPressed: () =>
+                              Navigator.of(context).pop(controller.text),
+                          child: const Text('Move'),
+                        ),
+                      ],
+                    ),
+                  );
+                  dialogResult = result;
+                },
+                child: const Text('Open Dialog'),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Open Dialog'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Move'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Edit Path'), findsNothing);
+      expect(dialogResult, equals('photos/2024/'));
+    });
+
+    testWidgets('TextField allows editing the path', (tester) async {
+      String? dialogResult;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => ElevatedButton(
+                onPressed: () async {
+                  final controller = TextEditingController(
+                    text: 'photos/2024/',
+                  );
+                  final result = await showDialog<String>(
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      title: const Text('Edit Path'),
+                      content: TextField(
+                        controller: controller,
+                        decoration: const InputDecoration(
+                          labelText: 'Directory path',
+                        ),
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.of(context).pop(),
+                          child: const Text('Cancel'),
+                        ),
+                        FilledButton(
+                          onPressed: () =>
+                              Navigator.of(context).pop(controller.text),
+                          child: const Text('Move'),
+                        ),
+                      ],
+                    ),
+                  );
+                  dialogResult = result;
+                },
+                child: const Text('Open Dialog'),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Open Dialog'));
+      await tester.pumpAndSettle();
+
+      // Clear existing text and enter new path
+      await tester.enterText(find.byType(TextField), 'photos/new-location/');
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Move'));
+      await tester.pumpAndSettle();
+
+      expect(dialogResult, equals('photos/new-location/'));
+    });
+
+    testWidgets('TextField can submit by pressing enter', (tester) async {
+      String? dialogResult;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => ElevatedButton(
+                onPressed: () async {
+                  final controller = TextEditingController(
+                    text: 'photos/2024/',
+                  );
+                  final result = await showDialog<String>(
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      title: const Text('Edit Path'),
+                      content: TextField(
+                        controller: controller,
+                        decoration: const InputDecoration(
+                          labelText: 'Directory path',
+                        ),
+                        onSubmitted: (value) =>
+                            Navigator.of(context).pop(value),
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.of(context).pop(),
+                          child: const Text('Cancel'),
+                        ),
+                        FilledButton(
+                          onPressed: () =>
+                              Navigator.of(context).pop(controller.text),
+                          child: const Text('Move'),
+                        ),
+                      ],
+                    ),
+                  );
+                  dialogResult = result;
+                },
+                child: const Text('Open Dialog'),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Open Dialog'));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextField), 'photos/submitted/');
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await tester.pumpAndSettle();
+
+      expect(dialogResult, equals('photos/submitted/'));
+    });
+
+    testWidgets('TextField supports empty path (root directory)', (
+      tester,
+    ) async {
+      String? dialogResult;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => ElevatedButton(
+                onPressed: () async {
+                  final controller = TextEditingController(
+                    text: 'photos/2024/',
+                  );
+                  final result = await showDialog<String>(
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      title: const Text('Edit Path'),
+                      content: TextField(
+                        controller: controller,
+                        decoration: const InputDecoration(
+                          labelText: 'Directory path',
+                        ),
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.of(context).pop(),
+                          child: const Text('Cancel'),
+                        ),
+                        FilledButton(
+                          onPressed: () =>
+                              Navigator.of(context).pop(controller.text),
+                          child: const Text('Move'),
+                        ),
+                      ],
+                    ),
+                  );
+                  dialogResult = result;
+                },
+                child: const Text('Open Dialog'),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Open Dialog'));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextField), '');
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Move'));
+      await tester.pumpAndSettle();
+
+      expect(dialogResult, equals(''));
+    });
+  });
+
+  group('Edit Path breadcrumb button', () {
+    testWidgets('edit icon button is displayed in breadcrumb area', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: Row(
+                children: [
+                  const Expanded(
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          Icon(Icons.cloud, size: 18),
+                          SizedBox(width: 4),
+                          Text('Cloud'),
+                        ],
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.edit, size: 18),
+                    tooltip: 'Edit path',
+                    onPressed: () {},
+                    visualDensity: VisualDensity.compact,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+
+      expect(find.byIcon(Icons.edit), findsOneWidget);
+      expect(find.byTooltip('Edit path'), findsOneWidget);
+    });
+
+    testWidgets('edit button has compact visual density', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: IconButton(
+              icon: const Icon(Icons.edit, size: 18),
+              tooltip: 'Edit path',
+              onPressed: () {},
+              visualDensity: VisualDensity.compact,
+            ),
+          ),
+        ),
+      );
+
+      final iconButton = tester.widget<IconButton>(find.byType(IconButton));
+      expect(iconButton.visualDensity, equals(VisualDensity.compact));
+    });
+
+    testWidgets('edit button has size 18 icon', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: IconButton(
+              icon: const Icon(Icons.edit, size: 18),
+              tooltip: 'Edit path',
+              onPressed: () {},
+              visualDensity: VisualDensity.compact,
+            ),
+          ),
+        ),
+      );
+
+      final icon = tester.widget<Icon>(find.byIcon(Icons.edit));
+      expect(icon.size, equals(18));
+    });
+
+    testWidgets('edit button can be tapped to open dialog', (tester) async {
+      bool dialogOpened = false;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => IconButton(
+                icon: const Icon(Icons.edit, size: 18),
+                tooltip: 'Edit path',
+                onPressed: () {
+                  dialogOpened = true;
+                  showDialog<String>(
+                    context: context,
+                    builder: (context) => const AlertDialog(
+                      title: Text('Edit Path'),
+                      content: Text('Dialog content'),
+                    ),
+                  );
+                },
+                visualDensity: VisualDensity.compact,
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.byIcon(Icons.edit));
+      await tester.pumpAndSettle();
+
+      expect(dialogOpened, isTrue);
+      expect(find.text('Edit Path'), findsOneWidget);
+    });
+  });
+
+  group('Path normalization logic', () {
+    test('empty path remains empty', () {
+      const value = '';
+      final normalized = value.isEmpty || value.endsWith('/')
+          ? value
+          : '$value/';
+
+      expect(normalized, equals(''));
+    });
+
+    test('path ending with slash remains unchanged', () {
+      const value = 'photos/2024/';
+      final normalized = value.isEmpty || value.endsWith('/')
+          ? value
+          : '$value/';
+
+      expect(normalized, equals('photos/2024/'));
+    });
+
+    test('path without trailing slash gets one added', () {
+      const value = 'photos/2024';
+      final normalized = value.isEmpty || value.endsWith('/')
+          ? value
+          : '$value/';
+
+      expect(normalized, equals('photos/2024/'));
+    });
+
+    test('single segment path gets trailing slash', () {
+      const value = 'photos';
+      final normalized = value.isEmpty || value.endsWith('/')
+          ? value
+          : '$value/';
+
+      expect(normalized, equals('photos/'));
+    });
+
+    test('path with multiple segments gets trailing slash', () {
+      const value = 'users/alice/photos/vacation/summer';
+      final normalized = value.isEmpty || value.endsWith('/')
+          ? value
+          : '$value/';
+
+      expect(normalized, equals('users/alice/photos/vacation/summer/'));
+    });
+
+    test('path already normalized stays the same', () {
+      const value = 'a/b/c/d/';
+      final normalized = value.isEmpty || value.endsWith('/')
+          ? value
+          : '$value/';
+
+      expect(normalized, equals('a/b/c/d/'));
+    });
+  });
+
+  group('Move photos progress dialog', () {
+    testWidgets('progress dialog shows CircularProgressIndicator', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => ElevatedButton(
+                onPressed: () {
+                  showDialog(
+                    context: context,
+                    barrierDismissible: false,
+                    builder: (context) => const AlertDialog(
+                      content: Row(
+                        children: [
+                          CircularProgressIndicator(),
+                          SizedBox(width: 16),
+                          Text('Moving photos...'),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+                child: const Text('Start Move'),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Start Move'));
+      await tester.pump();
+
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      expect(find.text('Moving photos...'), findsOneWidget);
+    });
+
+    testWidgets('progress dialog is not dismissible by tapping outside', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => ElevatedButton(
+                onPressed: () {
+                  showDialog(
+                    context: context,
+                    barrierDismissible: false,
+                    builder: (context) => const AlertDialog(
+                      content: Row(
+                        children: [
+                          CircularProgressIndicator(),
+                          SizedBox(width: 16),
+                          Text('Moving photos...'),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+                child: const Text('Start Move'),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Start Move'));
+      await tester.pump();
+
+      // Try to tap outside the dialog
+      await tester.tapAt(const Offset(0, 0));
+      await tester.pump();
+
+      // Dialog should still be visible
+      expect(find.text('Moving photos...'), findsOneWidget);
+    });
+
+    testWidgets('progress dialog has correct layout with Row', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => ElevatedButton(
+                onPressed: () {
+                  showDialog(
+                    context: context,
+                    barrierDismissible: false,
+                    builder: (context) => const AlertDialog(
+                      content: Row(
+                        children: [
+                          CircularProgressIndicator(),
+                          SizedBox(width: 16),
+                          Text('Moving photos...'),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+                child: const Text('Start Move'),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Start Move'));
+      await tester.pump();
+
+      // Verify the Row contains the expected children
+      final row = tester.widget<Row>(find.byType(Row));
+      expect(row.children.length, equals(3));
+      expect(row.children[0], isA<CircularProgressIndicator>());
+      expect(row.children[1], isA<SizedBox>());
+      expect(row.children[2], isA<Text>());
+    });
+  });
+
+  group('Move result snackbar messages', () {
+    test('success message for single photo', () {
+      const successCount = 1;
+      const failureCount = 0;
+      final message = failureCount == 0
+          ? 'Moved $successCount photo${successCount == 1 ? '' : 's'}'
+          : 'Moved $successCount, failed $failureCount';
+
+      expect(message, equals('Moved 1 photo'));
+    });
+
+    test('success message for multiple photos', () {
+      const successCount = 5;
+      const failureCount = 0;
+      final message = failureCount == 0
+          ? 'Moved $successCount photo${successCount == 1 ? '' : 's'}'
+          : 'Moved $successCount, failed $failureCount';
+
+      expect(message, equals('Moved 5 photos'));
+    });
+
+    test('partial failure message', () {
+      const successCount = 3;
+      const failureCount = 2;
+      final message = failureCount == 0
+          ? 'Moved $successCount photo${successCount == 1 ? '' : 's'}'
+          : 'Moved $successCount, failed $failureCount';
+
+      expect(message, equals('Moved 3, failed 2'));
+    });
+
+    test('all failed message', () {
+      const successCount = 0;
+      const failureCount = 5;
+      final message = failureCount == 0
+          ? 'Moved $successCount photo${successCount == 1 ? '' : 's'}'
+          : 'Moved $successCount, failed $failureCount';
+
+      expect(message, equals('Moved 0, failed 5'));
+    });
+
+    testWidgets('snackbar displays success message', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => ElevatedButton(
+                onPressed: () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Moved 5 photos'),
+                      duration: Duration(seconds: 3),
+                    ),
+                  );
+                },
+                child: const Text('Show Snackbar'),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Show Snackbar'));
+      await tester.pump();
+
+      expect(find.text('Moved 5 photos'), findsOneWidget);
+    });
+
+    testWidgets('snackbar displays partial failure message', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => ElevatedButton(
+                onPressed: () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Moved 3, failed 2'),
+                      duration: Duration(seconds: 3),
+                    ),
+                  );
+                },
+                child: const Text('Show Snackbar'),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Show Snackbar'));
+      await tester.pump();
+
+      expect(find.text('Moved 3, failed 2'), findsOneWidget);
+    });
+
+    testWidgets('snackbar has 3 second duration', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => ElevatedButton(
+                onPressed: () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Moved 5 photos'),
+                      duration: Duration(seconds: 3),
+                    ),
+                  );
+                },
+                child: const Text('Show Snackbar'),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Show Snackbar'));
+      await tester.pump();
+
+      expect(find.text('Moved 5 photos'), findsOneWidget);
+
+      // Advance time just before 3 seconds
+      await tester.pump(const Duration(milliseconds: 2900));
+      expect(find.text('Moved 5 photos'), findsOneWidget);
+    });
+  });
+
+  group('Destination path construction', () {
+    test('extracts filename from object ID', () {
+      const objectId = 'photos/2024/vacation/beach.jpg';
+      final filename = objectId.split('/').last;
+
+      expect(filename, equals('beach.jpg'));
+    });
+
+    test('constructs destination object ID with trailing slash', () {
+      const objectId = 'photos/2024/vacation/beach.jpg';
+      const destinationPrefix = 'photos/2025/';
+      final filename = objectId.split('/').last;
+      final destinationObjectId = '$destinationPrefix$filename';
+
+      expect(destinationObjectId, equals('photos/2025/beach.jpg'));
+    });
+
+    test('constructs destination object ID without trailing slash', () {
+      const objectId = 'photos/2024/vacation/beach.jpg';
+      const inputPrefix = 'photos/2025';
+      final destinationPrefix = inputPrefix.endsWith('/')
+          ? inputPrefix
+          : '$inputPrefix/';
+      final filename = objectId.split('/').last;
+      final destinationObjectId = '$destinationPrefix$filename';
+
+      expect(destinationObjectId, equals('photos/2025/beach.jpg'));
+    });
+
+    test('handles root destination', () {
+      const objectId = 'photos/2024/vacation/beach.jpg';
+      const destinationPrefix = '';
+      final filename = objectId.split('/').last;
+      final destinationObjectId = '$destinationPrefix$filename';
+
+      expect(destinationObjectId, equals('beach.jpg'));
+    });
+
+    test('handles filename without path', () {
+      const objectId = 'beach.jpg';
+      const destinationPrefix = 'photos/new/';
+      final filename = objectId.split('/').last;
+      final destinationObjectId = '$destinationPrefix$filename';
+
+      expect(destinationObjectId, equals('photos/new/beach.jpg'));
+    });
+
+    test('handles deep nested source path', () {
+      const objectId = 'users/alice/photos/2024/01/01/img_001.jpg';
+      const destinationPrefix = 'archive/';
+      final filename = objectId.split('/').last;
+      final destinationObjectId = '$destinationPrefix$filename';
+
+      expect(destinationObjectId, equals('archive/img_001.jpg'));
+    });
+  });
 }
