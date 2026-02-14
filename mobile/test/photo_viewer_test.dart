@@ -235,12 +235,16 @@ void main() {
       expect(PhotoViewerAction.values, contains(PhotoViewerAction.upload));
     });
 
+    test('has uploadTo value', () {
+      expect(PhotoViewerAction.values, contains(PhotoViewerAction.uploadTo));
+    });
+
     test('has rename value', () {
       expect(PhotoViewerAction.values, contains(PhotoViewerAction.rename));
     });
 
-    test('has exactly 4 values', () {
-      expect(PhotoViewerAction.values.length, equals(4));
+    test('has exactly 5 values', () {
+      expect(PhotoViewerAction.values.length, equals(5));
     });
 
     test('info has index 0', () {
@@ -255,8 +259,12 @@ void main() {
       expect(PhotoViewerAction.upload.index, equals(2));
     });
 
-    test('rename has index 3', () {
-      expect(PhotoViewerAction.rename.index, equals(3));
+    test('uploadTo has index 3', () {
+      expect(PhotoViewerAction.uploadTo.index, equals(3));
+    });
+
+    test('rename has index 4', () {
+      expect(PhotoViewerAction.rename.index, equals(4));
     });
   });
 

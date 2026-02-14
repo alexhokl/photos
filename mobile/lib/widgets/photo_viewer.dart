@@ -2,11 +2,12 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:photo_manager/photo_manager.dart';
+import 'package:photos/services/library_service.dart';
 import 'package:photos/services/upload_service.dart';
 import 'package:photos/widgets/photo_info_view.dart';
 import 'package:photos/widgets/settings_page.dart';
 
-enum PhotoViewerAction { info, delete, upload, rename }
+enum PhotoViewerAction { info, delete, upload, uploadTo, rename }
 
 class PhotoViewer extends StatefulWidget {
   final List<AssetEntity> assets;
@@ -298,9 +299,95 @@ class _PhotoViewerState extends State<PhotoViewer> {
       case PhotoViewerAction.upload:
         _uploadPhoto();
         break;
+      case PhotoViewerAction.uploadTo:
+        _showUploadToDialog();
+        break;
       case PhotoViewerAction.rename:
         _renamePhoto();
         break;
+    }
+  }
+
+  void _showUploadToDialog() {
+    showDialog(
+      context: context,
+      builder: (dialogContext) => _UploadToDirectoryDialog(
+        onDirectorySelected: (directory) {
+          Navigator.pop(dialogContext);
+          _uploadPhotoToDirectory(directory);
+        },
+      ),
+    );
+  }
+
+  Future<void> _uploadPhotoToDirectory(String directory) async {
+    final config = await BackendConfig.load();
+    final uploadService = UploadService(host: config.host, port: config.port);
+    final uploadedAssetId = _currentAsset.id;
+
+    try {
+      // Show uploading indicator
+      if (!mounted) return;
+
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('Uploading'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const CircularProgressIndicator(),
+              const SizedBox(height: 16),
+              Text(_currentAsset.title ?? 'Photo'),
+              const SizedBox(height: 8),
+              Text(
+                'to $directory',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ],
+          ),
+        ),
+      );
+
+      final response = await uploadService.uploadPhoto(
+        _currentAsset,
+        directoryPrefix: directory,
+      );
+
+      // Delete from device if setting is enabled
+      if (config.deleteAfterUpload) {
+        await PhotoManager.editor.deleteWithIds([uploadedAssetId]);
+      }
+
+      if (!mounted) return;
+      Navigator.pop(context); // Close progress dialog
+
+      final message = config.deleteAfterUpload
+          ? 'Uploaded and deleted: ${response.photo.objectId}'
+          : 'Uploaded: ${response.photo.objectId}';
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message), duration: const Duration(seconds: 2)),
+      );
+
+      // Navigate back if photo was deleted
+      if (config.deleteAfterUpload && mounted) {
+        Navigator.pop(context, uploadedAssetId);
+      }
+    } on UploadException catch (e) {
+      if (!mounted) return;
+      Navigator.pop(context); // Close progress dialog
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Upload failed: ${e.message}'),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    } finally {
+      await uploadService.dispose();
     }
   }
 
@@ -370,6 +457,14 @@ class _PhotoViewerState extends State<PhotoViewer> {
                 ),
               ),
               const PopupMenuItem(
+                value: PhotoViewerAction.uploadTo,
+                child: ListTile(
+                  leading: Icon(Icons.cloud_upload_outlined),
+                  title: Text('Upload to...'),
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+              const PopupMenuItem(
                 value: PhotoViewerAction.delete,
                 child: ListTile(
                   leading: Icon(Icons.delete),
@@ -390,6 +485,190 @@ class _PhotoViewerState extends State<PhotoViewer> {
         onPageChanged: _resetZoomOnPageChange,
         itemBuilder: (context, index) => _buildPhotoPage(index),
       ),
+    );
+  }
+}
+
+/// Dialog for selecting a directory to upload a photo to
+class _UploadToDirectoryDialog extends StatefulWidget {
+  final void Function(String directory) onDirectorySelected;
+
+  const _UploadToDirectoryDialog({required this.onDirectorySelected});
+
+  @override
+  State<_UploadToDirectoryDialog> createState() =>
+      _UploadToDirectoryDialogState();
+}
+
+class _UploadToDirectoryDialogState extends State<_UploadToDirectoryDialog> {
+  final TextEditingController _directoryController = TextEditingController();
+  List<String> _directorySuggestions = [];
+  bool _isLoadingDirectories = false;
+  String? _errorText;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadDirectorySuggestions();
+  }
+
+  @override
+  void dispose() {
+    _directoryController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadDirectorySuggestions() async {
+    setState(() {
+      _isLoadingDirectories = true;
+    });
+
+    try {
+      final config = await BackendConfig.load();
+      final libraryService = LibraryService(
+        host: config.host,
+        port: config.port,
+      );
+
+      final directories = await libraryService.listDirectories(recursive: true);
+      await libraryService.dispose();
+
+      if (mounted) {
+        setState(() {
+          _directorySuggestions = directories
+              .map((d) => d.endsWith('/') ? d : '$d/')
+              .toList();
+          _isLoadingDirectories = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoadingDirectories = false;
+        });
+      }
+    }
+  }
+
+  void _onSubmit() {
+    final directory = _directoryController.text.trim();
+    if (directory.isEmpty) {
+      setState(() {
+        _errorText = 'Directory cannot be empty';
+      });
+      return;
+    }
+    widget.onDirectorySelected(directory);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Upload to Directory'),
+      content: SizedBox(
+        width: double.maxFinite,
+        child: Autocomplete<String>(
+          optionsBuilder: (TextEditingValue textEditingValue) {
+            if (_directorySuggestions.isEmpty) {
+              return const Iterable<String>.empty();
+            }
+            final input = textEditingValue.text.toLowerCase();
+            if (input.isEmpty) {
+              return _directorySuggestions;
+            }
+            return _directorySuggestions.where(
+              (directory) => directory.toLowerCase().contains(input),
+            );
+          },
+          onSelected: (String selection) {
+            _directoryController.text = selection;
+            setState(() {
+              _errorText = null;
+            });
+          },
+          fieldViewBuilder:
+              (
+                BuildContext context,
+                TextEditingController fieldController,
+                FocusNode focusNode,
+                VoidCallback onFieldSubmitted,
+              ) {
+                // Keep controllers in sync
+                fieldController.addListener(() {
+                  _directoryController.text = fieldController.text;
+                });
+                return TextField(
+                  controller: fieldController,
+                  focusNode: focusNode,
+                  autofocus: true,
+                  decoration: InputDecoration(
+                    labelText: 'Directory',
+                    hintText: 'e.g., photos/2026/vacation',
+                    prefixIcon: const Icon(Icons.folder),
+                    suffixIcon: _isLoadingDirectories
+                        ? const Padding(
+                            padding: EdgeInsets.all(12.0),
+                            child: SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                          )
+                        : IconButton(
+                            icon: const Icon(Icons.refresh),
+                            onPressed: _loadDirectorySuggestions,
+                            tooltip: 'Refresh directories',
+                          ),
+                    errorText: _errorText,
+                  ),
+                  onChanged: (_) {
+                    if (_errorText != null) {
+                      setState(() {
+                        _errorText = null;
+                      });
+                    }
+                  },
+                  onSubmitted: (_) => _onSubmit(),
+                );
+              },
+          optionsViewBuilder:
+              (
+                BuildContext context,
+                AutocompleteOnSelected<String> onSelected,
+                Iterable<String> options,
+              ) {
+                return Align(
+                  alignment: Alignment.topLeft,
+                  child: Material(
+                    elevation: 4.0,
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxHeight: 200),
+                      child: ListView.builder(
+                        padding: EdgeInsets.zero,
+                        shrinkWrap: true,
+                        itemCount: options.length,
+                        itemBuilder: (BuildContext context, int index) {
+                          final option = options.elementAt(index);
+                          return ListTile(
+                            leading: const Icon(Icons.folder_outlined),
+                            title: Text(option),
+                            onTap: () => onSelected(option),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                );
+              },
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        TextButton(onPressed: _onSubmit, child: const Text('Upload')),
+      ],
     );
   }
 }
