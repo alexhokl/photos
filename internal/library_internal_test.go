@@ -1626,3 +1626,465 @@ func TestDeleteMarkdown_WrongUser(t *testing.T) {
 	})
 	assertGRPCError(t, err, codes.NotFound)
 }
+
+// =============================================================================
+// ListPhotos Sorting Order Tests
+// =============================================================================
+
+// TestListPhotos_DefaultSortOrder tests that photos are sorted newest first by default
+func TestListPhotos_DefaultSortOrder(t *testing.T) {
+	db := setupLibraryTestDB(t)
+
+	// Create a user
+	user := database.User{Username: "testuser"}
+	if err := db.Create(&user).Error; err != nil {
+		t.Fatalf("failed to create user: %v", err)
+	}
+
+	// Create photos with different time_taken values
+	now := time.Now().UTC()
+	photos := []database.PhotoObject{
+		{
+			ObjectID:    "photo1.jpg",
+			ContentType: "image/jpeg",
+			MD5Hash:     "hash1",
+			UserID:      user.ID,
+			TimeTaken:   timePtr(now.Add(-2 * time.Hour)), // 2 hours ago (oldest)
+		},
+		{
+			ObjectID:    "photo2.jpg",
+			ContentType: "image/jpeg",
+			MD5Hash:     "hash2",
+			UserID:      user.ID,
+			TimeTaken:   timePtr(now.Add(-1 * time.Hour)), // 1 hour ago (middle)
+		},
+		{
+			ObjectID:    "photo3.jpg",
+			ContentType: "image/jpeg",
+			MD5Hash:     "hash3",
+			UserID:      user.ID,
+			TimeTaken:   timePtr(now), // now (newest)
+		},
+	}
+
+	for i := range photos {
+		if err := db.Create(&photos[i]).Error; err != nil {
+			t.Fatalf("failed to create photo: %v", err)
+		}
+	}
+
+	server := &LibraryServer{DB: db}
+	ctx := contextWithUserID(user.ID)
+
+	// ListPhotos without a prefix should use default sort order (newest first)
+	resp, err := server.ListPhotos(ctx, &proto.ListPhotosRequest{})
+	if err != nil {
+		t.Fatalf("ListPhotos failed: %v", err)
+	}
+
+	if len(resp.Photos) != 3 {
+		t.Fatalf("expected 3 photos, got %d", len(resp.Photos))
+	}
+
+	// Verify order: newest first (photo3, photo2, photo1)
+	expectedOrder := []string{"photo3.jpg", "photo2.jpg", "photo1.jpg"}
+	for i, photo := range resp.Photos {
+		if photo.ObjectId != expectedOrder[i] {
+			t.Errorf("position %d: expected %q, got %q", i, expectedOrder[i], photo.ObjectId)
+		}
+	}
+}
+
+// TestListPhotos_DefaultSortOrder_WithPrefix tests that photos are sorted newest first
+// when a prefix is specified but no index.md exists (no GCS client configured)
+func TestListPhotos_DefaultSortOrder_WithPrefix(t *testing.T) {
+	db := setupLibraryTestDB(t)
+
+	// Create a user
+	user := database.User{Username: "testuser"}
+	if err := db.Create(&user).Error; err != nil {
+		t.Fatalf("failed to create user: %v", err)
+	}
+
+	// Create photos with different time_taken values in a directory
+	now := time.Now().UTC()
+	photos := []database.PhotoObject{
+		{
+			ObjectID:    "vacation/photo1.jpg",
+			ContentType: "image/jpeg",
+			MD5Hash:     "hash1",
+			UserID:      user.ID,
+			TimeTaken:   timePtr(now.Add(-2 * time.Hour)), // oldest
+		},
+		{
+			ObjectID:    "vacation/photo2.jpg",
+			ContentType: "image/jpeg",
+			MD5Hash:     "hash2",
+			UserID:      user.ID,
+			TimeTaken:   timePtr(now.Add(-1 * time.Hour)), // middle
+		},
+		{
+			ObjectID:    "vacation/photo3.jpg",
+			ContentType: "image/jpeg",
+			MD5Hash:     "hash3",
+			UserID:      user.ID,
+			TimeTaken:   timePtr(now), // newest
+		},
+	}
+
+	for i := range photos {
+		if err := db.Create(&photos[i]).Error; err != nil {
+			t.Fatalf("failed to create photo: %v", err)
+		}
+	}
+
+	// Server without GCS client - getDirectoryConfiguration will return nil
+	server := &LibraryServer{DB: db}
+	ctx := contextWithUserID(user.ID)
+
+	// ListPhotos with prefix but no GCS client should use default sort order
+	resp, err := server.ListPhotos(ctx, &proto.ListPhotosRequest{
+		Prefix: "vacation/",
+	})
+	if err != nil {
+		t.Fatalf("ListPhotos failed: %v", err)
+	}
+
+	if len(resp.Photos) != 3 {
+		t.Fatalf("expected 3 photos, got %d", len(resp.Photos))
+	}
+
+	// Verify order: newest first (photo3, photo2, photo1)
+	expectedOrder := []string{"vacation/photo3.jpg", "vacation/photo2.jpg", "vacation/photo1.jpg"}
+	for i, photo := range resp.Photos {
+		if photo.ObjectId != expectedOrder[i] {
+			t.Errorf("position %d: expected %q, got %q", i, expectedOrder[i], photo.ObjectId)
+		}
+	}
+}
+
+// TestListPhotos_SortOrderWithNullTimeTaken tests that photos without time_taken
+// are sorted to the end and then by object_id
+func TestListPhotos_SortOrderWithNullTimeTaken(t *testing.T) {
+	db := setupLibraryTestDB(t)
+
+	// Create a user
+	user := database.User{Username: "testuser"}
+	if err := db.Create(&user).Error; err != nil {
+		t.Fatalf("failed to create user: %v", err)
+	}
+
+	// Create photos: some with time_taken, some without
+	now := time.Now().UTC()
+	photos := []database.PhotoObject{
+		{
+			ObjectID:    "a_photo.jpg", // will be sorted last alphabetically among nulls
+			ContentType: "image/jpeg",
+			MD5Hash:     "hash1",
+			UserID:      user.ID,
+			TimeTaken:   nil, // no time_taken
+		},
+		{
+			ObjectID:    "b_photo.jpg",
+			ContentType: "image/jpeg",
+			MD5Hash:     "hash2",
+			UserID:      user.ID,
+			TimeTaken:   timePtr(now.Add(-1 * time.Hour)),
+		},
+		{
+			ObjectID:    "c_photo.jpg",
+			ContentType: "image/jpeg",
+			MD5Hash:     "hash3",
+			UserID:      user.ID,
+			TimeTaken:   nil, // no time_taken
+		},
+		{
+			ObjectID:    "d_photo.jpg",
+			ContentType: "image/jpeg",
+			MD5Hash:     "hash4",
+			UserID:      user.ID,
+			TimeTaken:   timePtr(now), // newest
+		},
+	}
+
+	for i := range photos {
+		if err := db.Create(&photos[i]).Error; err != nil {
+			t.Fatalf("failed to create photo: %v", err)
+		}
+	}
+
+	server := &LibraryServer{DB: db}
+	ctx := contextWithUserID(user.ID)
+
+	resp, err := server.ListPhotos(ctx, &proto.ListPhotosRequest{})
+	if err != nil {
+		t.Fatalf("ListPhotos failed: %v", err)
+	}
+
+	if len(resp.Photos) != 4 {
+		t.Fatalf("expected 4 photos, got %d", len(resp.Photos))
+	}
+
+	// Verify order: photos with time_taken first (newest to oldest), then NULLs by object_id
+	// d_photo (newest), b_photo (older), a_photo (null, first alphabetically), c_photo (null, second alphabetically)
+	expectedOrder := []string{"d_photo.jpg", "b_photo.jpg", "a_photo.jpg", "c_photo.jpg"}
+	for i, photo := range resp.Photos {
+		if photo.ObjectId != expectedOrder[i] {
+			t.Errorf("position %d: expected %q, got %q", i, expectedOrder[i], photo.ObjectId)
+		}
+	}
+}
+
+// TestListPhotos_ExcludesSubdirectories tests that photos in subdirectories are excluded
+func TestListPhotos_ExcludesSubdirectories(t *testing.T) {
+	db := setupLibraryTestDB(t)
+
+	// Create a user
+	user := database.User{Username: "testuser"}
+	if err := db.Create(&user).Error; err != nil {
+		t.Fatalf("failed to create user: %v", err)
+	}
+
+	now := time.Now().UTC()
+	photos := []database.PhotoObject{
+		{
+			ObjectID:    "vacation/photo1.jpg", // in the requested directory
+			ContentType: "image/jpeg",
+			MD5Hash:     "hash1",
+			UserID:      user.ID,
+			TimeTaken:   timePtr(now),
+		},
+		{
+			ObjectID:    "vacation/summer/photo2.jpg", // in a subdirectory - should be excluded
+			ContentType: "image/jpeg",
+			MD5Hash:     "hash2",
+			UserID:      user.ID,
+			TimeTaken:   timePtr(now),
+		},
+		{
+			ObjectID:    "vacation/photo3.jpg", // in the requested directory
+			ContentType: "image/jpeg",
+			MD5Hash:     "hash3",
+			UserID:      user.ID,
+			TimeTaken:   timePtr(now.Add(-1 * time.Hour)),
+		},
+	}
+
+	for i := range photos {
+		if err := db.Create(&photos[i]).Error; err != nil {
+			t.Fatalf("failed to create photo: %v", err)
+		}
+	}
+
+	server := &LibraryServer{DB: db}
+	ctx := contextWithUserID(user.ID)
+
+	resp, err := server.ListPhotos(ctx, &proto.ListPhotosRequest{
+		Prefix: "vacation/",
+	})
+	if err != nil {
+		t.Fatalf("ListPhotos failed: %v", err)
+	}
+
+	// Should only return photos directly in vacation/, not in vacation/summer/
+	if len(resp.Photos) != 2 {
+		t.Fatalf("expected 2 photos (excluding subdirectory), got %d", len(resp.Photos))
+	}
+
+	// Verify the returned photos are correct
+	foundPhoto1 := false
+	foundPhoto3 := false
+	for _, photo := range resp.Photos {
+		if photo.ObjectId == "vacation/photo1.jpg" {
+			foundPhoto1 = true
+		}
+		if photo.ObjectId == "vacation/photo3.jpg" {
+			foundPhoto3 = true
+		}
+		if photo.ObjectId == "vacation/summer/photo2.jpg" {
+			t.Error("subdirectory photo should not be included")
+		}
+	}
+	if !foundPhoto1 || !foundPhoto3 {
+		t.Error("expected both vacation/photo1.jpg and vacation/photo3.jpg to be returned")
+	}
+}
+
+// TestListPhotos_ExcludesMarkdownFiles tests that .md files are excluded from results
+func TestListPhotos_ExcludesMarkdownFiles(t *testing.T) {
+	db := setupLibraryTestDB(t)
+
+	// Create a user
+	user := database.User{Username: "testuser"}
+	if err := db.Create(&user).Error; err != nil {
+		t.Fatalf("failed to create user: %v", err)
+	}
+
+	now := time.Now().UTC()
+	photos := []database.PhotoObject{
+		{
+			ObjectID:    "vacation/photo1.jpg",
+			ContentType: "image/jpeg",
+			MD5Hash:     "hash1",
+			UserID:      user.ID,
+			TimeTaken:   timePtr(now),
+		},
+		{
+			ObjectID:    "vacation/index.md", // markdown file - should be excluded
+			ContentType: "text/markdown",
+			MD5Hash:     "hash2",
+			UserID:      user.ID,
+		},
+		{
+			ObjectID:    "vacation/README.MD", // uppercase .MD - should also be excluded
+			ContentType: "text/markdown",
+			MD5Hash:     "hash3",
+			UserID:      user.ID,
+		},
+	}
+
+	for i := range photos {
+		if err := db.Create(&photos[i]).Error; err != nil {
+			t.Fatalf("failed to create photo: %v", err)
+		}
+	}
+
+	server := &LibraryServer{DB: db}
+	ctx := contextWithUserID(user.ID)
+
+	resp, err := server.ListPhotos(ctx, &proto.ListPhotosRequest{
+		Prefix: "vacation/",
+	})
+	if err != nil {
+		t.Fatalf("ListPhotos failed: %v", err)
+	}
+
+	// Should only return the photo, not the markdown files
+	if len(resp.Photos) != 1 {
+		t.Fatalf("expected 1 photo (excluding markdown files), got %d", len(resp.Photos))
+	}
+
+	if resp.Photos[0].ObjectId != "vacation/photo1.jpg" {
+		t.Errorf("expected vacation/photo1.jpg, got %s", resp.Photos[0].ObjectId)
+	}
+}
+
+// TestListPhotos_Pagination tests that pagination works correctly
+func TestListPhotos_Pagination(t *testing.T) {
+	db := setupLibraryTestDB(t)
+
+	// Create a user
+	user := database.User{Username: "testuser"}
+	if err := db.Create(&user).Error; err != nil {
+		t.Fatalf("failed to create user: %v", err)
+	}
+
+	// Create 5 photos
+	now := time.Now().UTC()
+	for i := 0; i < 5; i++ {
+		photo := database.PhotoObject{
+			ObjectID:    "photo" + string(rune('A'+i)) + ".jpg", // photoA.jpg, photoB.jpg, etc.
+			ContentType: "image/jpeg",
+			MD5Hash:     "hash" + string(rune('A'+i)),
+			UserID:      user.ID,
+			TimeTaken:   timePtr(now.Add(time.Duration(-i) * time.Hour)), // A is newest, E is oldest
+		}
+		if err := db.Create(&photo).Error; err != nil {
+			t.Fatalf("failed to create photo: %v", err)
+		}
+	}
+
+	server := &LibraryServer{DB: db}
+	ctx := contextWithUserID(user.ID)
+
+	// First page - get 2 photos
+	resp1, err := server.ListPhotos(ctx, &proto.ListPhotosRequest{
+		PageSize: 2,
+	})
+	if err != nil {
+		t.Fatalf("ListPhotos page 1 failed: %v", err)
+	}
+
+	if len(resp1.Photos) != 2 {
+		t.Fatalf("page 1: expected 2 photos, got %d", len(resp1.Photos))
+	}
+
+	// Verify first page has newest photos (A, B)
+	if resp1.Photos[0].ObjectId != "photoA.jpg" || resp1.Photos[1].ObjectId != "photoB.jpg" {
+		t.Errorf("page 1: expected photoA.jpg and photoB.jpg, got %s and %s",
+			resp1.Photos[0].ObjectId, resp1.Photos[1].ObjectId)
+	}
+
+	// Should have a next page token
+	if resp1.NextPageToken == "" {
+		t.Fatal("page 1: expected next page token")
+	}
+
+	// Second page - use the token
+	resp2, err := server.ListPhotos(ctx, &proto.ListPhotosRequest{
+		PageSize:  2,
+		PageToken: resp1.NextPageToken,
+	})
+	if err != nil {
+		t.Fatalf("ListPhotos page 2 failed: %v", err)
+	}
+
+	if len(resp2.Photos) != 2 {
+		t.Fatalf("page 2: expected 2 photos, got %d", len(resp2.Photos))
+	}
+
+	// Verify second page has next photos (C, D)
+	if resp2.Photos[0].ObjectId != "photoC.jpg" || resp2.Photos[1].ObjectId != "photoD.jpg" {
+		t.Errorf("page 2: expected photoC.jpg and photoD.jpg, got %s and %s",
+			resp2.Photos[0].ObjectId, resp2.Photos[1].ObjectId)
+	}
+
+	// Third page - should have 1 photo
+	resp3, err := server.ListPhotos(ctx, &proto.ListPhotosRequest{
+		PageSize:  2,
+		PageToken: resp2.NextPageToken,
+	})
+	if err != nil {
+		t.Fatalf("ListPhotos page 3 failed: %v", err)
+	}
+
+	if len(resp3.Photos) != 1 {
+		t.Fatalf("page 3: expected 1 photo, got %d", len(resp3.Photos))
+	}
+
+	if resp3.Photos[0].ObjectId != "photoE.jpg" {
+		t.Errorf("page 3: expected photoE.jpg, got %s", resp3.Photos[0].ObjectId)
+	}
+
+	// No more pages
+	if resp3.NextPageToken != "" {
+		t.Error("page 3: expected no next page token")
+	}
+}
+
+// TestGetDirectoryConfiguration_NilGCSClient tests that getDirectoryConfiguration returns nil
+// when GCS client is not configured
+func TestGetDirectoryConfiguration_NilGCSClient(t *testing.T) {
+	server := &LibraryServer{
+		GCSClient:  nil,
+		BucketName: "test-bucket",
+	}
+
+	config := server.getDirectoryConfiguration(context.Background(), "photos/vacation")
+	if config != nil {
+		t.Error("expected nil config when GCS client is nil")
+	}
+}
+
+// TestGetDirectoryConfiguration_EmptyBucketName tests that getDirectoryConfiguration returns nil
+// when bucket name is empty
+func TestGetDirectoryConfiguration_EmptyBucketName(t *testing.T) {
+	server := &LibraryServer{
+		BucketName: "",
+	}
+
+	config := server.getDirectoryConfiguration(context.Background(), "photos/vacation")
+	if config != nil {
+		t.Error("expected nil config when bucket name is empty")
+	}
+}
