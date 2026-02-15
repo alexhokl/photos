@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:grpc/grpc.dart';
 import 'package:photo_manager/photo_manager.dart';
+import 'package:photos/services/library_service.dart';
 import 'package:photos/widgets/cloud_photo_grid.dart';
+import 'package:photos/widgets/markdown_viewer_page.dart';
 import 'package:photos/widgets/photo_grid.dart';
 import 'package:photos/widgets/photo_viewer.dart';
 import 'package:photos/widgets/settings_page.dart';
@@ -75,6 +78,44 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  Future<void> _onNotesPressed() async {
+    final cloudGridState = _cloudPhotoGridKey.currentState;
+    if (cloudGridState == null) return;
+
+    final currentPrefix = cloudGridState.currentPrefix;
+
+    LibraryService? libraryService;
+    try {
+      final config = await BackendConfig.load();
+      libraryService = LibraryService(host: config.host, port: config.port);
+
+      final markdown = await libraryService.getMarkdown(currentPrefix);
+
+      if (!mounted) return;
+
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => MarkdownViewerPage(markdown: markdown),
+        ),
+      );
+    } on LibraryException catch (e) {
+      if (!mounted) return;
+      // Check if it's a NOT_FOUND error (no markdown configured)
+      if (e.grpcError?.code == StatusCode.notFound) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No notes found in this directory')),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error loading notes: ${e.message}')),
+        );
+      }
+    } finally {
+      await libraryService?.dispose();
+    }
+  }
+
   List<Widget> _buildAppBarActions() {
     if (_selectedIndex == 0) {
       return [
@@ -117,6 +158,7 @@ class _HomePageState extends State<HomePage> {
       ];
     } else if (_selectedIndex == 1) {
       return [
+        IconButton(icon: const Icon(Icons.note), onPressed: _onNotesPressed),
         PopupMenuButton<CloudPhotoGridAction>(
           enabled: _cloudSelectedCount > 0,
           icon: Icon(

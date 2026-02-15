@@ -208,6 +208,22 @@ class LibraryService {
     }
   }
 
+  /// Get markdown content from a directory prefix.
+  /// Returns the markdown content if an index.md file exists in the directory.
+  /// Throws [LibraryException] if the markdown is not found or on gRPC errors.
+  Future<String> getMarkdown(String prefix) async {
+    _ensureInitialized();
+
+    final request = GetMarkdownRequest(prefix: prefix);
+
+    try {
+      final response = await _client!.getMarkdown(request);
+      return response.markdown;
+    } on GrpcError catch (e) {
+      throw LibraryException('gRPC error: ${e.message}', grpcError: e);
+    }
+  }
+
   /// Close the gRPC channel
   Future<void> dispose() async {
     await _channel?.shutdown();

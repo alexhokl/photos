@@ -51,6 +51,9 @@ dependencies:
   # For EXIF metadata extraction from local photos
   exif: ^3.3.0
 
+  # For rendering markdown content
+  flutter_markdown: ^0.7.6
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

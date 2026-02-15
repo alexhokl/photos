@@ -43,6 +43,9 @@ class CloudPhotoGridState extends State<CloudPhotoGrid> {
   bool get isSelectionMode => _isSelectionMode;
   int get selectedCount => _selectedObjectIds.length;
 
+  /// Returns the current directory prefix being displayed.
+  String get currentPrefix => _currentPrefix;
+
   /// Returns an unmodifiable view of the current photos list.
   List<Photo> get photos => List.unmodifiable(_photos);
 

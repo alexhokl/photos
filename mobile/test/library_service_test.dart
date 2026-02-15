@@ -205,5 +205,20 @@ void main() {
         expect(exception.grpcError!.code, equals(expectedCode));
       }
     });
+
+    test('notFound error can be checked for getMarkdown use case', () {
+      final grpcError = GrpcError.notFound('markdown not found');
+      final exception = LibraryException(
+        'gRPC error: markdown not found',
+        grpcError: grpcError,
+      );
+
+      expect(exception.grpcError!.code, equals(StatusCode.notFound));
+      expect(
+        exception.grpcError!.code == StatusCode.notFound,
+        isTrue,
+        reason: 'Should be able to check for NOT_FOUND status code',
+      );
+    });
   });
 }
