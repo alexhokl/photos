@@ -2123,6 +2123,499 @@ class StreamingDownloadResponse extends $pb.GeneratedMessage {
   void clearChunk() => $_clearField(2);
 }
 
+/// CreateMarkdownRequest specifies parameters for creating a markdown file
+class CreateMarkdownRequest extends $pb.GeneratedMessage {
+  factory CreateMarkdownRequest({
+    $core.String? prefix,
+    $core.String? markdown,
+  }) {
+    final result = create();
+    if (prefix != null) result.prefix = prefix;
+    if (markdown != null) result.markdown = markdown;
+    return result;
+  }
+
+  CreateMarkdownRequest._();
+
+  factory CreateMarkdownRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory CreateMarkdownRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'CreateMarkdownRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'photos'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'prefix')
+    ..aOS(2, _omitFieldNames ? '' : 'markdown')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  CreateMarkdownRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  CreateMarkdownRequest copyWith(
+          void Function(CreateMarkdownRequest) updates) =>
+      super.copyWith((message) => updates(message as CreateMarkdownRequest))
+          as CreateMarkdownRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static CreateMarkdownRequest create() => CreateMarkdownRequest._();
+  @$core.override
+  CreateMarkdownRequest createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static CreateMarkdownRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<CreateMarkdownRequest>(create);
+  static CreateMarkdownRequest? _defaultInstance;
+
+  /// The prefix (directory path) where index.md will be created
+  @$pb.TagNumber(1)
+  $core.String get prefix => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set prefix($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasPrefix() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearPrefix() => $_clearField(1);
+
+  /// The markdown content with YAML frontmatter
+  @$pb.TagNumber(2)
+  $core.String get markdown => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set markdown($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasMarkdown() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearMarkdown() => $_clearField(2);
+}
+
+/// CreateMarkdownResponse confirms the markdown file creation
+class CreateMarkdownResponse extends $pb.GeneratedMessage {
+  factory CreateMarkdownResponse({
+    $core.String? objectId,
+  }) {
+    final result = create();
+    if (objectId != null) result.objectId = objectId;
+    return result;
+  }
+
+  CreateMarkdownResponse._();
+
+  factory CreateMarkdownResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory CreateMarkdownResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'CreateMarkdownResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'photos'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'objectId')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  CreateMarkdownResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  CreateMarkdownResponse copyWith(
+          void Function(CreateMarkdownResponse) updates) =>
+      super.copyWith((message) => updates(message as CreateMarkdownResponse))
+          as CreateMarkdownResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static CreateMarkdownResponse create() => CreateMarkdownResponse._();
+  @$core.override
+  CreateMarkdownResponse createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static CreateMarkdownResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<CreateMarkdownResponse>(create);
+  static CreateMarkdownResponse? _defaultInstance;
+
+  /// The full object ID of the created markdown file
+  @$pb.TagNumber(1)
+  $core.String get objectId => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set objectId($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasObjectId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearObjectId() => $_clearField(1);
+}
+
+/// GetMarkdownRequest specifies parameters for retrieving a markdown file
+class GetMarkdownRequest extends $pb.GeneratedMessage {
+  factory GetMarkdownRequest({
+    $core.String? prefix,
+  }) {
+    final result = create();
+    if (prefix != null) result.prefix = prefix;
+    return result;
+  }
+
+  GetMarkdownRequest._();
+
+  factory GetMarkdownRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory GetMarkdownRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'GetMarkdownRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'photos'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'prefix')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  GetMarkdownRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  GetMarkdownRequest copyWith(void Function(GetMarkdownRequest) updates) =>
+      super.copyWith((message) => updates(message as GetMarkdownRequest))
+          as GetMarkdownRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static GetMarkdownRequest create() => GetMarkdownRequest._();
+  @$core.override
+  GetMarkdownRequest createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static GetMarkdownRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<GetMarkdownRequest>(create);
+  static GetMarkdownRequest? _defaultInstance;
+
+  /// The prefix (directory path) where index.md is located
+  @$pb.TagNumber(1)
+  $core.String get prefix => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set prefix($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasPrefix() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearPrefix() => $_clearField(1);
+}
+
+/// GetMarkdownResponse returns the markdown file content
+class GetMarkdownResponse extends $pb.GeneratedMessage {
+  factory GetMarkdownResponse({
+    $core.String? objectId,
+    $core.String? markdown,
+  }) {
+    final result = create();
+    if (objectId != null) result.objectId = objectId;
+    if (markdown != null) result.markdown = markdown;
+    return result;
+  }
+
+  GetMarkdownResponse._();
+
+  factory GetMarkdownResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory GetMarkdownResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'GetMarkdownResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'photos'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'objectId')
+    ..aOS(2, _omitFieldNames ? '' : 'markdown')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  GetMarkdownResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  GetMarkdownResponse copyWith(void Function(GetMarkdownResponse) updates) =>
+      super.copyWith((message) => updates(message as GetMarkdownResponse))
+          as GetMarkdownResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static GetMarkdownResponse create() => GetMarkdownResponse._();
+  @$core.override
+  GetMarkdownResponse createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static GetMarkdownResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<GetMarkdownResponse>(create);
+  static GetMarkdownResponse? _defaultInstance;
+
+  /// The full object ID of the markdown file
+  @$pb.TagNumber(1)
+  $core.String get objectId => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set objectId($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasObjectId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearObjectId() => $_clearField(1);
+
+  /// The markdown content with YAML frontmatter
+  @$pb.TagNumber(2)
+  $core.String get markdown => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set markdown($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasMarkdown() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearMarkdown() => $_clearField(2);
+}
+
+/// UpdateMarkdownRequest specifies parameters for updating a markdown file
+class UpdateMarkdownRequest extends $pb.GeneratedMessage {
+  factory UpdateMarkdownRequest({
+    $core.String? prefix,
+    $core.String? markdown,
+  }) {
+    final result = create();
+    if (prefix != null) result.prefix = prefix;
+    if (markdown != null) result.markdown = markdown;
+    return result;
+  }
+
+  UpdateMarkdownRequest._();
+
+  factory UpdateMarkdownRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory UpdateMarkdownRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'UpdateMarkdownRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'photos'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'prefix')
+    ..aOS(2, _omitFieldNames ? '' : 'markdown')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  UpdateMarkdownRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  UpdateMarkdownRequest copyWith(
+          void Function(UpdateMarkdownRequest) updates) =>
+      super.copyWith((message) => updates(message as UpdateMarkdownRequest))
+          as UpdateMarkdownRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static UpdateMarkdownRequest create() => UpdateMarkdownRequest._();
+  @$core.override
+  UpdateMarkdownRequest createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static UpdateMarkdownRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<UpdateMarkdownRequest>(create);
+  static UpdateMarkdownRequest? _defaultInstance;
+
+  /// The prefix (directory path) where index.md is located
+  @$pb.TagNumber(1)
+  $core.String get prefix => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set prefix($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasPrefix() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearPrefix() => $_clearField(1);
+
+  /// The new markdown content with YAML frontmatter
+  @$pb.TagNumber(2)
+  $core.String get markdown => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set markdown($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasMarkdown() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearMarkdown() => $_clearField(2);
+}
+
+/// UpdateMarkdownResponse confirms the markdown file update
+class UpdateMarkdownResponse extends $pb.GeneratedMessage {
+  factory UpdateMarkdownResponse({
+    $core.String? objectId,
+  }) {
+    final result = create();
+    if (objectId != null) result.objectId = objectId;
+    return result;
+  }
+
+  UpdateMarkdownResponse._();
+
+  factory UpdateMarkdownResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory UpdateMarkdownResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'UpdateMarkdownResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'photos'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'objectId')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  UpdateMarkdownResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  UpdateMarkdownResponse copyWith(
+          void Function(UpdateMarkdownResponse) updates) =>
+      super.copyWith((message) => updates(message as UpdateMarkdownResponse))
+          as UpdateMarkdownResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static UpdateMarkdownResponse create() => UpdateMarkdownResponse._();
+  @$core.override
+  UpdateMarkdownResponse createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static UpdateMarkdownResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<UpdateMarkdownResponse>(create);
+  static UpdateMarkdownResponse? _defaultInstance;
+
+  /// The full object ID of the updated markdown file
+  @$pb.TagNumber(1)
+  $core.String get objectId => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set objectId($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasObjectId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearObjectId() => $_clearField(1);
+}
+
+/// DeleteMarkdownRequest specifies parameters for deleting a markdown file
+class DeleteMarkdownRequest extends $pb.GeneratedMessage {
+  factory DeleteMarkdownRequest({
+    $core.String? prefix,
+  }) {
+    final result = create();
+    if (prefix != null) result.prefix = prefix;
+    return result;
+  }
+
+  DeleteMarkdownRequest._();
+
+  factory DeleteMarkdownRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory DeleteMarkdownRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'DeleteMarkdownRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'photos'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'prefix')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  DeleteMarkdownRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  DeleteMarkdownRequest copyWith(
+          void Function(DeleteMarkdownRequest) updates) =>
+      super.copyWith((message) => updates(message as DeleteMarkdownRequest))
+          as DeleteMarkdownRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static DeleteMarkdownRequest create() => DeleteMarkdownRequest._();
+  @$core.override
+  DeleteMarkdownRequest createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static DeleteMarkdownRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<DeleteMarkdownRequest>(create);
+  static DeleteMarkdownRequest? _defaultInstance;
+
+  /// The prefix (directory path) where index.md is located
+  @$pb.TagNumber(1)
+  $core.String get prefix => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set prefix($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasPrefix() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearPrefix() => $_clearField(1);
+}
+
+/// DeleteMarkdownResponse confirms the markdown file deletion
+class DeleteMarkdownResponse extends $pb.GeneratedMessage {
+  factory DeleteMarkdownResponse({
+    $core.bool? success,
+  }) {
+    final result = create();
+    if (success != null) result.success = success;
+    return result;
+  }
+
+  DeleteMarkdownResponse._();
+
+  factory DeleteMarkdownResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory DeleteMarkdownResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'DeleteMarkdownResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'photos'),
+      createEmptyInstance: create)
+    ..aOB(1, _omitFieldNames ? '' : 'success')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  DeleteMarkdownResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  DeleteMarkdownResponse copyWith(
+          void Function(DeleteMarkdownResponse) updates) =>
+      super.copyWith((message) => updates(message as DeleteMarkdownResponse))
+          as DeleteMarkdownResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static DeleteMarkdownResponse create() => DeleteMarkdownResponse._();
+  @$core.override
+  DeleteMarkdownResponse createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static DeleteMarkdownResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<DeleteMarkdownResponse>(create);
+  static DeleteMarkdownResponse? _defaultInstance;
+
+  /// Whether the deletion was successful
+  @$pb.TagNumber(1)
+  $core.bool get success => $_getBF(0);
+  @$pb.TagNumber(1)
+  set success($core.bool value) => $_setBool(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasSuccess() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSuccess() => $_clearField(1);
+}
+
 const $core.bool _omitFieldNames =
     $core.bool.fromEnvironment('protobuf.omit_field_names');
 const $core.bool _omitMessageNames =

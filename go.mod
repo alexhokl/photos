@@ -4,10 +4,13 @@ go 1.25.5
 
 require (
 	cloud.google.com/go/storage v1.59.1
+	github.com/dsoprea/go-exif/v3 v3.0.1
+	github.com/dsoprea/go-jpeg-image-structure/v2 v2.0.0-20221012074422-4f3f7e934102
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.27.4
 	github.com/rwcarlsen/goexif v0.0.0-20190401172101-9e8deecbddbd
 	golang.org/x/sync v0.19.0
 	google.golang.org/api v0.260.0
+	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (
@@ -29,9 +32,7 @@ require (
 	github.com/coder/websocket v1.8.12 // indirect
 	github.com/creachadair/msync v0.7.1 // indirect
 	github.com/dblohm7/wingoes v0.0.0-20240119213807-a09d6be7affa // indirect
-	github.com/dsoprea/go-exif/v3 v3.0.1 // indirect
 	github.com/dsoprea/go-iptc v0.0.0-20200609062250-162ae6b44feb // indirect
-	github.com/dsoprea/go-jpeg-image-structure/v2 v2.0.0-20221012074422-4f3f7e934102 // indirect
 	github.com/dsoprea/go-logging v0.0.0-20200710184922-b02d349568dd // indirect
 	github.com/dsoprea/go-photoshop-info-format v0.0.0-20200609050348-3db9b63b202c // indirect
 	github.com/dsoprea/go-utility/v2 v2.0.0-20221003172846-a3e1774ef349 // indirect

@@ -1099,3 +1099,530 @@ func searchSubstring(s, substr string) bool {
 	}
 	return false
 }
+
+// =============================================================================
+// CreateMarkdown Tests
+// =============================================================================
+
+func TestCreateMarkdown_Unauthenticated(t *testing.T) {
+	server := &LibraryServer{}
+	ctx := context.Background() // No user ID in context
+
+	_, err := server.CreateMarkdown(ctx, &proto.CreateMarkdownRequest{
+		Prefix:   "photos/vacation",
+		Markdown: "---\n---\n# Hello",
+	})
+	assertGRPCError(t, err, codes.Unauthenticated)
+}
+
+func TestCreateMarkdown_MissingPrefix(t *testing.T) {
+	server := &LibraryServer{}
+	ctx := contextWithUserID(1)
+
+	_, err := server.CreateMarkdown(ctx, &proto.CreateMarkdownRequest{
+		Prefix:   "",
+		Markdown: "---\n---\n# Hello",
+	})
+	assertGRPCError(t, err, codes.InvalidArgument)
+}
+
+func TestCreateMarkdown_MissingMarkdown(t *testing.T) {
+	server := &LibraryServer{}
+	ctx := contextWithUserID(1)
+
+	_, err := server.CreateMarkdown(ctx, &proto.CreateMarkdownRequest{
+		Prefix:   "photos/vacation",
+		Markdown: "",
+	})
+	assertGRPCError(t, err, codes.InvalidArgument)
+}
+
+func TestCreateMarkdown_InvalidFrontmatter(t *testing.T) {
+	server := &LibraryServer{}
+	ctx := contextWithUserID(1)
+
+	tests := []struct {
+		name     string
+		markdown string
+	}{
+		{
+			name:     "missing opening delimiter",
+			markdown: "# Hello\n---\n",
+		},
+		{
+			name:     "missing closing delimiter",
+			markdown: "---\nsome: value\n",
+		},
+		{
+			name:     "unknown field in frontmatter",
+			markdown: "---\nunknown_field: value\n---\n# Content",
+		},
+		{
+			name:     "invalid YAML syntax",
+			markdown: "---\n: invalid yaml\n---\n# Content",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			_, err := server.CreateMarkdown(ctx, &proto.CreateMarkdownRequest{
+				Prefix:   "photos/vacation",
+				Markdown: test.markdown,
+			})
+			assertGRPCError(t, err, codes.InvalidArgument)
+		})
+	}
+}
+
+func TestCreateMarkdown_ValidFrontmatter(t *testing.T) {
+	// These test cases verify that valid frontmatter passes validation
+	// Since DirectoryConfiguration is currently empty, only empty frontmatter is valid
+	tests := []struct {
+		name     string
+		markdown string
+	}{
+		{
+			name:     "empty frontmatter",
+			markdown: "---\n---\n# Hello",
+		},
+		{
+			name:     "empty frontmatter with content",
+			markdown: "---\n---\n\nSome markdown content here\n\n## Section\n\nMore content",
+		},
+		{
+			name:     "empty frontmatter with only newlines",
+			markdown: "---\n\n---\n# Hello",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			// Validate frontmatter parsing succeeds
+			config, err := ParseMarkdownFrontmatter(test.markdown)
+			if err != nil {
+				t.Errorf("expected valid frontmatter, got error: %v", err)
+			}
+			if config == nil {
+				t.Error("expected non-nil config")
+			}
+		})
+	}
+}
+
+func TestCreateMarkdown_ObjectIDConstruction(t *testing.T) {
+	// Test that the object ID is correctly constructed from the prefix
+	tests := []struct {
+		name             string
+		prefix           string
+		expectedObjectID string
+	}{
+		{
+			name:             "simple prefix",
+			prefix:           "photos/vacation",
+			expectedObjectID: "photos/vacation/index.md",
+		},
+		{
+			name:             "prefix with trailing slash",
+			prefix:           "photos/vacation/",
+			expectedObjectID: "photos/vacation/index.md",
+		},
+		{
+			name:             "nested prefix",
+			prefix:           "photos/2024/summer/beach",
+			expectedObjectID: "photos/2024/summer/beach/index.md",
+		},
+		{
+			name:             "single segment prefix",
+			prefix:           "albums",
+			expectedObjectID: "albums/index.md",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			// Simulate the object ID construction logic from CreateMarkdown
+			objectID := trimSuffix(test.prefix, "/") + "/index.md"
+			if objectID != test.expectedObjectID {
+				t.Errorf("expected object ID %q, got %q", test.expectedObjectID, objectID)
+			}
+		})
+	}
+}
+
+// trimSuffix mimics strings.TrimSuffix for testing
+func trimSuffix(s, suffix string) string {
+	if len(s) >= len(suffix) && s[len(s)-len(suffix):] == suffix {
+		return s[:len(s)-len(suffix)]
+	}
+	return s
+}
+
+// =============================================================================
+// GetMarkdown Tests
+// =============================================================================
+
+func TestGetMarkdown_Unauthenticated(t *testing.T) {
+	server := &LibraryServer{}
+	ctx := context.Background() // No user ID in context
+
+	_, err := server.GetMarkdown(ctx, &proto.GetMarkdownRequest{
+		Prefix: "photos/vacation",
+	})
+	assertGRPCError(t, err, codes.Unauthenticated)
+}
+
+func TestGetMarkdown_MissingPrefix(t *testing.T) {
+	server := &LibraryServer{}
+	ctx := contextWithUserID(1)
+
+	_, err := server.GetMarkdown(ctx, &proto.GetMarkdownRequest{
+		Prefix: "",
+	})
+	assertGRPCError(t, err, codes.InvalidArgument)
+}
+
+func TestGetMarkdown_NotFound(t *testing.T) {
+	db := setupLibraryTestDB(t)
+	server := &LibraryServer{DB: db}
+	ctx := contextWithUserID(1)
+
+	// Query for a markdown file that doesn't exist in the database
+	_, err := server.GetMarkdown(ctx, &proto.GetMarkdownRequest{
+		Prefix: "photos/nonexistent",
+	})
+	assertGRPCError(t, err, codes.NotFound)
+}
+
+func TestGetMarkdown_ObjectIDConstruction(t *testing.T) {
+	// Test that the object ID is correctly constructed from the prefix (same logic as CreateMarkdown)
+	tests := []struct {
+		name             string
+		prefix           string
+		expectedObjectID string
+	}{
+		{
+			name:             "simple prefix",
+			prefix:           "photos/vacation",
+			expectedObjectID: "photos/vacation/index.md",
+		},
+		{
+			name:             "prefix with trailing slash",
+			prefix:           "photos/vacation/",
+			expectedObjectID: "photos/vacation/index.md",
+		},
+		{
+			name:             "nested prefix",
+			prefix:           "photos/2024/summer/beach",
+			expectedObjectID: "photos/2024/summer/beach/index.md",
+		},
+		{
+			name:             "single segment prefix",
+			prefix:           "albums",
+			expectedObjectID: "albums/index.md",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			// Simulate the object ID construction logic from GetMarkdown
+			objectID := trimSuffix(test.prefix, "/") + "/index.md"
+			if objectID != test.expectedObjectID {
+				t.Errorf("expected object ID %q, got %q", test.expectedObjectID, objectID)
+			}
+		})
+	}
+}
+
+func TestGetMarkdown_WrongUser(t *testing.T) {
+	db := setupLibraryTestDB(t)
+
+	// Create a user and a markdown file owned by that user
+	user := database.User{Username: "testuser"}
+	if err := db.Create(&user).Error; err != nil {
+		t.Fatalf("failed to create user: %v", err)
+	}
+
+	photoObject := database.PhotoObject{
+		ObjectID:    "photos/vacation/index.md",
+		ContentType: "text/markdown",
+		MD5Hash:     "abc123",
+		UserID:      user.ID,
+	}
+	if err := db.Create(&photoObject).Error; err != nil {
+		t.Fatalf("failed to create photo object: %v", err)
+	}
+
+	server := &LibraryServer{DB: db}
+	// Use a different user ID
+	ctx := contextWithUserID(user.ID + 1)
+
+	// Query should return NotFound because the file belongs to a different user
+	_, err := server.GetMarkdown(ctx, &proto.GetMarkdownRequest{
+		Prefix: "photos/vacation",
+	})
+	assertGRPCError(t, err, codes.NotFound)
+}
+
+// =============================================================================
+// UpdateMarkdown Tests
+// =============================================================================
+
+func TestUpdateMarkdown_Unauthenticated(t *testing.T) {
+	server := &LibraryServer{}
+	ctx := context.Background() // No user ID in context
+
+	_, err := server.UpdateMarkdown(ctx, &proto.UpdateMarkdownRequest{
+		Prefix:   "photos/vacation",
+		Markdown: "---\n---\n# Updated",
+	})
+	assertGRPCError(t, err, codes.Unauthenticated)
+}
+
+func TestUpdateMarkdown_MissingPrefix(t *testing.T) {
+	server := &LibraryServer{}
+	ctx := contextWithUserID(1)
+
+	_, err := server.UpdateMarkdown(ctx, &proto.UpdateMarkdownRequest{
+		Prefix:   "",
+		Markdown: "---\n---\n# Updated",
+	})
+	assertGRPCError(t, err, codes.InvalidArgument)
+}
+
+func TestUpdateMarkdown_MissingMarkdown(t *testing.T) {
+	server := &LibraryServer{}
+	ctx := contextWithUserID(1)
+
+	_, err := server.UpdateMarkdown(ctx, &proto.UpdateMarkdownRequest{
+		Prefix:   "photos/vacation",
+		Markdown: "",
+	})
+	assertGRPCError(t, err, codes.InvalidArgument)
+}
+
+func TestUpdateMarkdown_InvalidFrontmatter(t *testing.T) {
+	server := &LibraryServer{}
+	ctx := contextWithUserID(1)
+
+	tests := []struct {
+		name     string
+		markdown string
+	}{
+		{
+			name:     "missing opening delimiter",
+			markdown: "# Hello\n---\n",
+		},
+		{
+			name:     "missing closing delimiter",
+			markdown: "---\nsome: value\n",
+		},
+		{
+			name:     "unknown field in frontmatter",
+			markdown: "---\nunknown_field: value\n---\n# Content",
+		},
+		{
+			name:     "invalid YAML syntax",
+			markdown: "---\n: invalid yaml\n---\n# Content",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			_, err := server.UpdateMarkdown(ctx, &proto.UpdateMarkdownRequest{
+				Prefix:   "photos/vacation",
+				Markdown: test.markdown,
+			})
+			assertGRPCError(t, err, codes.InvalidArgument)
+		})
+	}
+}
+
+func TestUpdateMarkdown_NotFound(t *testing.T) {
+	db := setupLibraryTestDB(t)
+	server := &LibraryServer{DB: db}
+	ctx := contextWithUserID(1)
+
+	// Try to update a markdown file that doesn't exist in the database
+	_, err := server.UpdateMarkdown(ctx, &proto.UpdateMarkdownRequest{
+		Prefix:   "photos/nonexistent",
+		Markdown: "---\n---\n# Updated",
+	})
+	assertGRPCError(t, err, codes.NotFound)
+}
+
+func TestUpdateMarkdown_ObjectIDConstruction(t *testing.T) {
+	// Test that the object ID is correctly constructed from the prefix (same logic as CreateMarkdown)
+	tests := []struct {
+		name             string
+		prefix           string
+		expectedObjectID string
+	}{
+		{
+			name:             "simple prefix",
+			prefix:           "photos/vacation",
+			expectedObjectID: "photos/vacation/index.md",
+		},
+		{
+			name:             "prefix with trailing slash",
+			prefix:           "photos/vacation/",
+			expectedObjectID: "photos/vacation/index.md",
+		},
+		{
+			name:             "nested prefix",
+			prefix:           "photos/2024/summer/beach",
+			expectedObjectID: "photos/2024/summer/beach/index.md",
+		},
+		{
+			name:             "single segment prefix",
+			prefix:           "albums",
+			expectedObjectID: "albums/index.md",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			// Simulate the object ID construction logic from UpdateMarkdown
+			objectID := trimSuffix(test.prefix, "/") + "/index.md"
+			if objectID != test.expectedObjectID {
+				t.Errorf("expected object ID %q, got %q", test.expectedObjectID, objectID)
+			}
+		})
+	}
+}
+
+func TestUpdateMarkdown_WrongUser(t *testing.T) {
+	db := setupLibraryTestDB(t)
+
+	// Create a user and a markdown file owned by that user
+	user := database.User{Username: "testuser"}
+	if err := db.Create(&user).Error; err != nil {
+		t.Fatalf("failed to create user: %v", err)
+	}
+
+	photoObject := database.PhotoObject{
+		ObjectID:    "photos/vacation/index.md",
+		ContentType: "text/markdown",
+		MD5Hash:     "abc123",
+		UserID:      user.ID,
+	}
+	if err := db.Create(&photoObject).Error; err != nil {
+		t.Fatalf("failed to create photo object: %v", err)
+	}
+
+	server := &LibraryServer{DB: db}
+	// Use a different user ID
+	ctx := contextWithUserID(user.ID + 1)
+
+	// Update should return NotFound because the file belongs to a different user
+	_, err := server.UpdateMarkdown(ctx, &proto.UpdateMarkdownRequest{
+		Prefix:   "photos/vacation",
+		Markdown: "---\n---\n# Updated",
+	})
+	assertGRPCError(t, err, codes.NotFound)
+}
+
+// =============================================================================
+// DeleteMarkdown Tests
+// =============================================================================
+
+func TestDeleteMarkdown_Unauthenticated(t *testing.T) {
+	server := &LibraryServer{}
+	ctx := context.Background() // No user ID in context
+
+	_, err := server.DeleteMarkdown(ctx, &proto.DeleteMarkdownRequest{
+		Prefix: "photos/vacation",
+	})
+	assertGRPCError(t, err, codes.Unauthenticated)
+}
+
+func TestDeleteMarkdown_MissingPrefix(t *testing.T) {
+	server := &LibraryServer{}
+	ctx := contextWithUserID(1)
+
+	_, err := server.DeleteMarkdown(ctx, &proto.DeleteMarkdownRequest{
+		Prefix: "",
+	})
+	assertGRPCError(t, err, codes.InvalidArgument)
+}
+
+func TestDeleteMarkdown_NotFound(t *testing.T) {
+	db := setupLibraryTestDB(t)
+	server := &LibraryServer{DB: db}
+	ctx := contextWithUserID(1)
+
+	// Try to delete a markdown file that doesn't exist in the database
+	_, err := server.DeleteMarkdown(ctx, &proto.DeleteMarkdownRequest{
+		Prefix: "photos/nonexistent",
+	})
+	assertGRPCError(t, err, codes.NotFound)
+}
+
+func TestDeleteMarkdown_ObjectIDConstruction(t *testing.T) {
+	// Test that the object ID is correctly constructed from the prefix
+	tests := []struct {
+		name             string
+		prefix           string
+		expectedObjectID string
+	}{
+		{
+			name:             "simple prefix",
+			prefix:           "photos/vacation",
+			expectedObjectID: "photos/vacation/index.md",
+		},
+		{
+			name:             "prefix with trailing slash",
+			prefix:           "photos/vacation/",
+			expectedObjectID: "photos/vacation/index.md",
+		},
+		{
+			name:             "nested prefix",
+			prefix:           "photos/2024/summer/beach",
+			expectedObjectID: "photos/2024/summer/beach/index.md",
+		},
+		{
+			name:             "single segment prefix",
+			prefix:           "albums",
+			expectedObjectID: "albums/index.md",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			// Simulate the object ID construction logic from DeleteMarkdown
+			objectID := trimSuffix(test.prefix, "/") + "/index.md"
+			if objectID != test.expectedObjectID {
+				t.Errorf("expected object ID %q, got %q", test.expectedObjectID, objectID)
+			}
+		})
+	}
+}
+
+func TestDeleteMarkdown_WrongUser(t *testing.T) {
+	db := setupLibraryTestDB(t)
+
+	// Create a user and a markdown file owned by that user
+	user := database.User{Username: "testuser"}
+	if err := db.Create(&user).Error; err != nil {
+		t.Fatalf("failed to create user: %v", err)
+	}
+
+	photoObject := database.PhotoObject{
+		ObjectID:    "photos/vacation/index.md",
+		ContentType: "text/markdown",
+		MD5Hash:     "abc123",
+		UserID:      user.ID,
+	}
+	if err := db.Create(&photoObject).Error; err != nil {
+		t.Fatalf("failed to create photo object: %v", err)
+	}
+
+	server := &LibraryServer{DB: db}
+	// Use a different user ID
+	ctx := contextWithUserID(user.ID + 1)
+
+	// Delete should return NotFound because the file belongs to a different user
+	_, err := server.DeleteMarkdown(ctx, &proto.DeleteMarkdownRequest{
+		Prefix: "photos/vacation",
+	})
+	assertGRPCError(t, err, codes.NotFound)
+}

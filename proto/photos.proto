@@ -211,6 +211,60 @@ message StreamingDownloadResponse {
   }
 }
 
+// CreateMarkdownRequest specifies parameters for creating a markdown file
+message CreateMarkdownRequest {
+  // The prefix (directory path) where index.md will be created
+  string prefix = 1;
+  // The markdown content with YAML frontmatter
+  string markdown = 2;
+}
+
+// CreateMarkdownResponse confirms the markdown file creation
+message CreateMarkdownResponse {
+  // The full object ID of the created markdown file
+  string object_id = 1;
+}
+
+// GetMarkdownRequest specifies parameters for retrieving a markdown file
+message GetMarkdownRequest {
+  // The prefix (directory path) where index.md is located
+  string prefix = 1;
+}
+
+// GetMarkdownResponse returns the markdown file content
+message GetMarkdownResponse {
+  // The full object ID of the markdown file
+  string object_id = 1;
+  // The markdown content with YAML frontmatter
+  string markdown = 2;
+}
+
+// UpdateMarkdownRequest specifies parameters for updating a markdown file
+message UpdateMarkdownRequest {
+  // The prefix (directory path) where index.md is located
+  string prefix = 1;
+  // The new markdown content with YAML frontmatter
+  string markdown = 2;
+}
+
+// UpdateMarkdownResponse confirms the markdown file update
+message UpdateMarkdownResponse {
+  // The full object ID of the updated markdown file
+  string object_id = 1;
+}
+
+// DeleteMarkdownRequest specifies parameters for deleting a markdown file
+message DeleteMarkdownRequest {
+  // The prefix (directory path) where index.md is located
+  string prefix = 1;
+}
+
+// DeleteMarkdownResponse confirms the markdown file deletion
+message DeleteMarkdownResponse {
+  // Whether the deletion was successful
+  bool success = 1;
+}
+
 // ByteService provides photo upload, retrieval, and deletion operations
 service ByteService {
   // Upload uploads a new photo
@@ -308,6 +362,36 @@ service LibraryService {
     option (google.api.http) = {
       post: "/v1/photos/sync"
       body: "*"
+    };
+  }
+
+  // CreateMarkdown creates an index.md file in a specified prefix (directory)
+  rpc CreateMarkdown(CreateMarkdownRequest) returns (CreateMarkdownResponse) {
+    option (google.api.http) = {
+      post: "/v1/directories/{prefix}/markdown"
+      body: "*"
+    };
+  }
+
+  // GetMarkdown retrieves an index.md file from a specified prefix (directory)
+  rpc GetMarkdown(GetMarkdownRequest) returns (GetMarkdownResponse) {
+    option (google.api.http) = {
+      get: "/v1/directories/{prefix}/markdown"
+    };
+  }
+
+  // UpdateMarkdown updates an existing index.md file in a specified prefix (directory)
+  rpc UpdateMarkdown(UpdateMarkdownRequest) returns (UpdateMarkdownResponse) {
+    option (google.api.http) = {
+      put: "/v1/directories/{prefix}/markdown"
+      body: "*"
+    };
+  }
+
+  // DeleteMarkdown deletes an index.md file from a specified prefix (directory)
+  rpc DeleteMarkdown(DeleteMarkdownRequest) returns (DeleteMarkdownResponse) {
+    option (google.api.http) = {
+      delete: "/v1/directories/{prefix}/markdown"
     };
   }
 }

@@ -553,3 +553,110 @@ final $typed_data.Uint8List streamingDownloadResponseDescriptor =
     $convert.base64Decode(
         'ChlTdHJlYW1pbmdEb3dubG9hZFJlc3BvbnNlEisKCG1ldGFkYXRhGAEgASgLMg0ucGhvdG9zLl'
         'Bob3RvSABSCG1ldGFkYXRhEhYKBWNodW5rGAIgASgMSABSBWNodW5rQgYKBGRhdGE=');
+
+@$core.Deprecated('Use createMarkdownRequestDescriptor instead')
+const CreateMarkdownRequest$json = {
+  '1': 'CreateMarkdownRequest',
+  '2': [
+    {'1': 'prefix', '3': 1, '4': 1, '5': 9, '10': 'prefix'},
+    {'1': 'markdown', '3': 2, '4': 1, '5': 9, '10': 'markdown'},
+  ],
+};
+
+/// Descriptor for `CreateMarkdownRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List createMarkdownRequestDescriptor = $convert.base64Decode(
+    'ChVDcmVhdGVNYXJrZG93blJlcXVlc3QSFgoGcHJlZml4GAEgASgJUgZwcmVmaXgSGgoIbWFya2'
+    'Rvd24YAiABKAlSCG1hcmtkb3du');
+
+@$core.Deprecated('Use createMarkdownResponseDescriptor instead')
+const CreateMarkdownResponse$json = {
+  '1': 'CreateMarkdownResponse',
+  '2': [
+    {'1': 'object_id', '3': 1, '4': 1, '5': 9, '10': 'objectId'},
+  ],
+};
+
+/// Descriptor for `CreateMarkdownResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List createMarkdownResponseDescriptor =
+    $convert.base64Decode(
+        'ChZDcmVhdGVNYXJrZG93blJlc3BvbnNlEhsKCW9iamVjdF9pZBgBIAEoCVIIb2JqZWN0SWQ=');
+
+@$core.Deprecated('Use getMarkdownRequestDescriptor instead')
+const GetMarkdownRequest$json = {
+  '1': 'GetMarkdownRequest',
+  '2': [
+    {'1': 'prefix', '3': 1, '4': 1, '5': 9, '10': 'prefix'},
+  ],
+};
+
+/// Descriptor for `GetMarkdownRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List getMarkdownRequestDescriptor =
+    $convert.base64Decode(
+        'ChJHZXRNYXJrZG93blJlcXVlc3QSFgoGcHJlZml4GAEgASgJUgZwcmVmaXg=');
+
+@$core.Deprecated('Use getMarkdownResponseDescriptor instead')
+const GetMarkdownResponse$json = {
+  '1': 'GetMarkdownResponse',
+  '2': [
+    {'1': 'object_id', '3': 1, '4': 1, '5': 9, '10': 'objectId'},
+    {'1': 'markdown', '3': 2, '4': 1, '5': 9, '10': 'markdown'},
+  ],
+};
+
+/// Descriptor for `GetMarkdownResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List getMarkdownResponseDescriptor = $convert.base64Decode(
+    'ChNHZXRNYXJrZG93blJlc3BvbnNlEhsKCW9iamVjdF9pZBgBIAEoCVIIb2JqZWN0SWQSGgoIbW'
+    'Fya2Rvd24YAiABKAlSCG1hcmtkb3du');
+
+@$core.Deprecated('Use updateMarkdownRequestDescriptor instead')
+const UpdateMarkdownRequest$json = {
+  '1': 'UpdateMarkdownRequest',
+  '2': [
+    {'1': 'prefix', '3': 1, '4': 1, '5': 9, '10': 'prefix'},
+    {'1': 'markdown', '3': 2, '4': 1, '5': 9, '10': 'markdown'},
+  ],
+};
+
+/// Descriptor for `UpdateMarkdownRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List updateMarkdownRequestDescriptor = $convert.base64Decode(
+    'ChVVcGRhdGVNYXJrZG93blJlcXVlc3QSFgoGcHJlZml4GAEgASgJUgZwcmVmaXgSGgoIbWFya2'
+    'Rvd24YAiABKAlSCG1hcmtkb3du');
+
+@$core.Deprecated('Use updateMarkdownResponseDescriptor instead')
+const UpdateMarkdownResponse$json = {
+  '1': 'UpdateMarkdownResponse',
+  '2': [
+    {'1': 'object_id', '3': 1, '4': 1, '5': 9, '10': 'objectId'},
+  ],
+};
+
+/// Descriptor for `UpdateMarkdownResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List updateMarkdownResponseDescriptor =
+    $convert.base64Decode(
+        'ChZVcGRhdGVNYXJrZG93blJlc3BvbnNlEhsKCW9iamVjdF9pZBgBIAEoCVIIb2JqZWN0SWQ=');
+
+@$core.Deprecated('Use deleteMarkdownRequestDescriptor instead')
+const DeleteMarkdownRequest$json = {
+  '1': 'DeleteMarkdownRequest',
+  '2': [
+    {'1': 'prefix', '3': 1, '4': 1, '5': 9, '10': 'prefix'},
+  ],
+};
+
+/// Descriptor for `DeleteMarkdownRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List deleteMarkdownRequestDescriptor =
+    $convert.base64Decode(
+        'ChVEZWxldGVNYXJrZG93blJlcXVlc3QSFgoGcHJlZml4GAEgASgJUgZwcmVmaXg=');
+
+@$core.Deprecated('Use deleteMarkdownResponseDescriptor instead')
+const DeleteMarkdownResponse$json = {
+  '1': 'DeleteMarkdownResponse',
+  '2': [
+    {'1': 'success', '3': 1, '4': 1, '5': 8, '10': 'success'},
+  ],
+};
+
+/// Descriptor for `DeleteMarkdownResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List deleteMarkdownResponseDescriptor =
+    $convert.base64Decode(
+        'ChZEZWxldGVNYXJrZG93blJlc3BvbnNlEhgKB3N1Y2Nlc3MYASABKAhSB3N1Y2Nlc3M=');

@@ -1007,3 +1007,231 @@ func getGCSObjectsMap(ctx context.Context, client *storage.Client, bucketName st
 
 	return objects, nil
 }
+
+// CreateMarkdown creates an index.md file with YAML frontmatter in a specified prefix (directory).
+func (s *LibraryServer) CreateMarkdown(ctx context.Context, req *proto.CreateMarkdownRequest) (*proto.CreateMarkdownResponse, error) {
+	userID, ok := ctx.Value(contextKeyUser{}).(uint)
+	if !ok {
+		return nil, status.Errorf(codes.Unauthenticated, "authentication required")
+	}
+
+	prefix := req.GetPrefix()
+	if prefix == "" {
+		return nil, status.Errorf(codes.InvalidArgument, "prefix is required")
+	}
+
+	markdown := req.GetMarkdown()
+	if markdown == "" {
+		return nil, status.Errorf(codes.InvalidArgument, "markdown is required")
+	}
+
+	// Validate that the markdown has valid YAML frontmatter matching DirectoryConfiguration schema
+	if _, err := ParseMarkdownFrontmatter(markdown); err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid markdown frontmatter: %v", err)
+	}
+
+	// Construct the object ID for index.md
+	objectID := strings.TrimSuffix(prefix, "/") + "/index.md"
+
+	// Write the markdown file to GCS
+	bucket := s.GCSClient.Bucket(s.BucketName)
+	obj := bucket.Object(objectID)
+
+	writer := obj.NewWriter(ctx)
+	writer.ContentType = "text/markdown"
+
+	if _, err := writer.Write([]byte(markdown)); err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to write markdown to GCS: %v", err)
+	}
+
+	if err := writer.Close(); err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to close GCS writer: %v", err)
+	}
+
+	// Create directory entry if applicable (create or restore if soft-deleted)
+	dir := ExtractDirectoryFromPath(objectID)
+	if dir != "" {
+		if err := database.CreateOrRestorePhotoDirectory(s.DB, dir); err != nil {
+			slog.Warn("failed to create photo directory for markdown",
+				slog.String("path", dir),
+				slog.String("error", err.Error()),
+			)
+		}
+	}
+
+	slog.Info("Created markdown file",
+		slog.String("object_id", objectID),
+		slog.String("prefix", prefix),
+		slog.Uint64("user_id", uint64(userID)),
+	)
+
+	return &proto.CreateMarkdownResponse{
+		ObjectId: objectID,
+	}, nil
+}
+
+// GetMarkdown retrieves an index.md file from a specified prefix (directory).
+func (s *LibraryServer) GetMarkdown(ctx context.Context, req *proto.GetMarkdownRequest) (*proto.GetMarkdownResponse, error) {
+	userID, ok := ctx.Value(contextKeyUser{}).(uint)
+	if !ok {
+		return nil, status.Errorf(codes.Unauthenticated, "authentication required")
+	}
+
+	prefix := req.GetPrefix()
+	if prefix == "" {
+		return nil, status.Errorf(codes.InvalidArgument, "prefix is required")
+	}
+
+	// Construct the object ID for index.md
+	objectID := strings.TrimSuffix(prefix, "/") + "/index.md"
+
+	// Check if the directory exists in the database
+	dir := ExtractDirectoryFromPath(objectID)
+	var photoDir database.PhotoDirectory
+	if err := s.DB.Where("path = ?", dir).First(&photoDir).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, status.Errorf(codes.NotFound, "directory not found: %s", dir)
+		}
+		return nil, status.Errorf(codes.Internal, "failed to query directory: %v", err)
+	}
+
+	// Read the markdown file from GCS
+	bucket := s.GCSClient.Bucket(s.BucketName)
+	obj := bucket.Object(objectID)
+
+	reader, err := obj.NewReader(ctx)
+	if err != nil {
+		if err == storage.ErrObjectNotExist {
+			return nil, status.Errorf(codes.NotFound, "markdown file not found in storage: %s", objectID)
+		}
+		return nil, status.Errorf(codes.Internal, "failed to read markdown file: %v", err)
+	}
+	defer func() { _ = reader.Close() }()
+
+	data, err := io.ReadAll(reader)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to read markdown content: %v", err)
+	}
+
+	slog.Info("Retrieved markdown file",
+		slog.String("object_id", objectID),
+		slog.String("prefix", prefix),
+		slog.Uint64("user_id", uint64(userID)),
+	)
+
+	return &proto.GetMarkdownResponse{
+		ObjectId: objectID,
+		Markdown: string(data),
+	}, nil
+}
+
+// UpdateMarkdown updates an existing index.md file in a specified prefix (directory).
+func (s *LibraryServer) UpdateMarkdown(ctx context.Context, req *proto.UpdateMarkdownRequest) (*proto.UpdateMarkdownResponse, error) {
+	userID, ok := ctx.Value(contextKeyUser{}).(uint)
+	if !ok {
+		return nil, status.Errorf(codes.Unauthenticated, "authentication required")
+	}
+
+	prefix := req.GetPrefix()
+	if prefix == "" {
+		return nil, status.Errorf(codes.InvalidArgument, "prefix is required")
+	}
+
+	markdown := req.GetMarkdown()
+	if markdown == "" {
+		return nil, status.Errorf(codes.InvalidArgument, "markdown is required")
+	}
+
+	// Validate that the markdown has valid YAML frontmatter matching DirectoryConfiguration schema
+	if _, err := ParseMarkdownFrontmatter(markdown); err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid markdown frontmatter: %v", err)
+	}
+
+	// Construct the object ID for index.md
+	objectID := strings.TrimSuffix(prefix, "/") + "/index.md"
+
+	// Check if the directory exists in the database
+	dir := ExtractDirectoryFromPath(objectID)
+	var photoDir database.PhotoDirectory
+	if err := s.DB.Where("path = ?", dir).First(&photoDir).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, status.Errorf(codes.NotFound, "directory not found: %s", dir)
+		}
+		return nil, status.Errorf(codes.Internal, "failed to query directory: %v", err)
+	}
+
+	// Write the updated markdown file to GCS
+	bucket := s.GCSClient.Bucket(s.BucketName)
+	obj := bucket.Object(objectID)
+
+	writer := obj.NewWriter(ctx)
+	writer.ContentType = "text/markdown"
+
+	if _, err := writer.Write([]byte(markdown)); err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to write markdown to GCS: %v", err)
+	}
+
+	if err := writer.Close(); err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to close GCS writer: %v", err)
+	}
+
+	slog.Info("Updated markdown file",
+		slog.String("object_id", objectID),
+		slog.String("prefix", prefix),
+		slog.Uint64("user_id", uint64(userID)),
+	)
+
+	return &proto.UpdateMarkdownResponse{
+		ObjectId: objectID,
+	}, nil
+}
+
+// DeleteMarkdown deletes an index.md file from a specified prefix (directory).
+func (s *LibraryServer) DeleteMarkdown(ctx context.Context, req *proto.DeleteMarkdownRequest) (*proto.DeleteMarkdownResponse, error) {
+	userID, ok := ctx.Value(contextKeyUser{}).(uint)
+	if !ok {
+		return nil, status.Errorf(codes.Unauthenticated, "authentication required")
+	}
+
+	prefix := req.GetPrefix()
+	if prefix == "" {
+		return nil, status.Errorf(codes.InvalidArgument, "prefix is required")
+	}
+
+	// Construct the object ID for index.md
+	objectID := strings.TrimSuffix(prefix, "/") + "/index.md"
+
+	// Check if the directory exists in the database
+	dir := ExtractDirectoryFromPath(objectID)
+	var photoDir database.PhotoDirectory
+	if err := s.DB.Where("path = ?", dir).First(&photoDir).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, status.Errorf(codes.NotFound, "directory not found: %s", dir)
+		}
+		return nil, status.Errorf(codes.Internal, "failed to query directory: %v", err)
+	}
+
+	// Delete from GCS bucket
+	bucket := s.GCSClient.Bucket(s.BucketName)
+	obj := bucket.Object(objectID)
+
+	if err := obj.Delete(ctx); err != nil {
+		if err == storage.ErrObjectNotExist {
+			slog.Warn("markdown file not found in GCS, continuing with database deletion",
+				slog.String("object_id", objectID),
+			)
+		} else {
+			return nil, status.Errorf(codes.Internal, "failed to delete markdown from storage: %v", err)
+		}
+	}
+
+	slog.Info("Deleted markdown file",
+		slog.String("object_id", objectID),
+		slog.String("prefix", prefix),
+		slog.Uint64("user_id", uint64(userID)),
+	)
+
+	return &proto.DeleteMarkdownResponse{
+		Success: true,
+	}, nil
+}

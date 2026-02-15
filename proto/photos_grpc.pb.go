@@ -255,6 +255,10 @@ const (
 	LibraryService_PhotoExists_FullMethodName         = "/photos.LibraryService/PhotoExists"
 	LibraryService_ListDirectories_FullMethodName     = "/photos.LibraryService/ListDirectories"
 	LibraryService_SyncDatabase_FullMethodName        = "/photos.LibraryService/SyncDatabase"
+	LibraryService_CreateMarkdown_FullMethodName      = "/photos.LibraryService/CreateMarkdown"
+	LibraryService_GetMarkdown_FullMethodName         = "/photos.LibraryService/GetMarkdown"
+	LibraryService_UpdateMarkdown_FullMethodName      = "/photos.LibraryService/UpdateMarkdown"
+	LibraryService_DeleteMarkdown_FullMethodName      = "/photos.LibraryService/DeleteMarkdown"
 )
 
 // LibraryServiceClient is the client API for LibraryService service.
@@ -281,6 +285,14 @@ type LibraryServiceClient interface {
 	ListDirectories(ctx context.Context, in *ListDirectoriesRequest, opts ...grpc.CallOption) (*ListDirectoriesResponse, error)
 	// SyncDatabase syncs the photo database with the storage backend
 	SyncDatabase(ctx context.Context, in *SyncDatabaseRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// CreateMarkdown creates an index.md file in a specified prefix (directory)
+	CreateMarkdown(ctx context.Context, in *CreateMarkdownRequest, opts ...grpc.CallOption) (*CreateMarkdownResponse, error)
+	// GetMarkdown retrieves an index.md file from a specified prefix (directory)
+	GetMarkdown(ctx context.Context, in *GetMarkdownRequest, opts ...grpc.CallOption) (*GetMarkdownResponse, error)
+	// UpdateMarkdown updates an existing index.md file in a specified prefix (directory)
+	UpdateMarkdown(ctx context.Context, in *UpdateMarkdownRequest, opts ...grpc.CallOption) (*UpdateMarkdownResponse, error)
+	// DeleteMarkdown deletes an index.md file from a specified prefix (directory)
+	DeleteMarkdown(ctx context.Context, in *DeleteMarkdownRequest, opts ...grpc.CallOption) (*DeleteMarkdownResponse, error)
 }
 
 type libraryServiceClient struct {
@@ -391,6 +403,46 @@ func (c *libraryServiceClient) SyncDatabase(ctx context.Context, in *SyncDatabas
 	return out, nil
 }
 
+func (c *libraryServiceClient) CreateMarkdown(ctx context.Context, in *CreateMarkdownRequest, opts ...grpc.CallOption) (*CreateMarkdownResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CreateMarkdownResponse)
+	err := c.cc.Invoke(ctx, LibraryService_CreateMarkdown_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *libraryServiceClient) GetMarkdown(ctx context.Context, in *GetMarkdownRequest, opts ...grpc.CallOption) (*GetMarkdownResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetMarkdownResponse)
+	err := c.cc.Invoke(ctx, LibraryService_GetMarkdown_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *libraryServiceClient) UpdateMarkdown(ctx context.Context, in *UpdateMarkdownRequest, opts ...grpc.CallOption) (*UpdateMarkdownResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(UpdateMarkdownResponse)
+	err := c.cc.Invoke(ctx, LibraryService_UpdateMarkdown_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *libraryServiceClient) DeleteMarkdown(ctx context.Context, in *DeleteMarkdownRequest, opts ...grpc.CallOption) (*DeleteMarkdownResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DeleteMarkdownResponse)
+	err := c.cc.Invoke(ctx, LibraryService_DeleteMarkdown_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // LibraryServiceServer is the server API for LibraryService service.
 // All implementations must embed UnimplementedLibraryServiceServer
 // for forward compatibility.
@@ -415,6 +467,14 @@ type LibraryServiceServer interface {
 	ListDirectories(context.Context, *ListDirectoriesRequest) (*ListDirectoriesResponse, error)
 	// SyncDatabase syncs the photo database with the storage backend
 	SyncDatabase(context.Context, *SyncDatabaseRequest) (*emptypb.Empty, error)
+	// CreateMarkdown creates an index.md file in a specified prefix (directory)
+	CreateMarkdown(context.Context, *CreateMarkdownRequest) (*CreateMarkdownResponse, error)
+	// GetMarkdown retrieves an index.md file from a specified prefix (directory)
+	GetMarkdown(context.Context, *GetMarkdownRequest) (*GetMarkdownResponse, error)
+	// UpdateMarkdown updates an existing index.md file in a specified prefix (directory)
+	UpdateMarkdown(context.Context, *UpdateMarkdownRequest) (*UpdateMarkdownResponse, error)
+	// DeleteMarkdown deletes an index.md file from a specified prefix (directory)
+	DeleteMarkdown(context.Context, *DeleteMarkdownRequest) (*DeleteMarkdownResponse, error)
 	mustEmbedUnimplementedLibraryServiceServer()
 }
 
@@ -454,6 +514,18 @@ func (UnimplementedLibraryServiceServer) ListDirectories(context.Context, *ListD
 }
 func (UnimplementedLibraryServiceServer) SyncDatabase(context.Context, *SyncDatabaseRequest) (*emptypb.Empty, error) {
 	return nil, status.Error(codes.Unimplemented, "method SyncDatabase not implemented")
+}
+func (UnimplementedLibraryServiceServer) CreateMarkdown(context.Context, *CreateMarkdownRequest) (*CreateMarkdownResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateMarkdown not implemented")
+}
+func (UnimplementedLibraryServiceServer) GetMarkdown(context.Context, *GetMarkdownRequest) (*GetMarkdownResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetMarkdown not implemented")
+}
+func (UnimplementedLibraryServiceServer) UpdateMarkdown(context.Context, *UpdateMarkdownRequest) (*UpdateMarkdownResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateMarkdown not implemented")
+}
+func (UnimplementedLibraryServiceServer) DeleteMarkdown(context.Context, *DeleteMarkdownRequest) (*DeleteMarkdownResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteMarkdown not implemented")
 }
 func (UnimplementedLibraryServiceServer) mustEmbedUnimplementedLibraryServiceServer() {}
 func (UnimplementedLibraryServiceServer) testEmbeddedByValue()                        {}
@@ -656,6 +728,78 @@ func _LibraryService_SyncDatabase_Handler(srv interface{}, ctx context.Context, 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _LibraryService_CreateMarkdown_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateMarkdownRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LibraryServiceServer).CreateMarkdown(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LibraryService_CreateMarkdown_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LibraryServiceServer).CreateMarkdown(ctx, req.(*CreateMarkdownRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _LibraryService_GetMarkdown_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetMarkdownRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LibraryServiceServer).GetMarkdown(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LibraryService_GetMarkdown_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LibraryServiceServer).GetMarkdown(ctx, req.(*GetMarkdownRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _LibraryService_UpdateMarkdown_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateMarkdownRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LibraryServiceServer).UpdateMarkdown(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LibraryService_UpdateMarkdown_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LibraryServiceServer).UpdateMarkdown(ctx, req.(*UpdateMarkdownRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _LibraryService_DeleteMarkdown_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteMarkdownRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LibraryServiceServer).DeleteMarkdown(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LibraryService_DeleteMarkdown_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LibraryServiceServer).DeleteMarkdown(ctx, req.(*DeleteMarkdownRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // LibraryService_ServiceDesc is the grpc.ServiceDesc for LibraryService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -702,6 +846,22 @@ var LibraryService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "SyncDatabase",
 			Handler:    _LibraryService_SyncDatabase_Handler,
+		},
+		{
+			MethodName: "CreateMarkdown",
+			Handler:    _LibraryService_CreateMarkdown_Handler,
+		},
+		{
+			MethodName: "GetMarkdown",
+			Handler:    _LibraryService_GetMarkdown_Handler,
+		},
+		{
+			MethodName: "UpdateMarkdown",
+			Handler:    _LibraryService_UpdateMarkdown_Handler,
+		},
+		{
+			MethodName: "DeleteMarkdown",
+			Handler:    _LibraryService_DeleteMarkdown_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

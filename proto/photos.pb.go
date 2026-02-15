@@ -1690,6 +1690,401 @@ func (*StreamingDownloadResponse_Metadata) isStreamingDownloadResponse_Data() {}
 
 func (*StreamingDownloadResponse_Chunk) isStreamingDownloadResponse_Data() {}
 
+// CreateMarkdownRequest specifies parameters for creating a markdown file
+type CreateMarkdownRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The prefix (directory path) where index.md will be created
+	Prefix string `protobuf:"bytes,1,opt,name=prefix,proto3" json:"prefix,omitempty"`
+	// The markdown content with YAML frontmatter
+	Markdown      string `protobuf:"bytes,2,opt,name=markdown,proto3" json:"markdown,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateMarkdownRequest) Reset() {
+	*x = CreateMarkdownRequest{}
+	mi := &file_proto_photos_proto_msgTypes[28]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateMarkdownRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateMarkdownRequest) ProtoMessage() {}
+
+func (x *CreateMarkdownRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_photos_proto_msgTypes[28]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateMarkdownRequest.ProtoReflect.Descriptor instead.
+func (*CreateMarkdownRequest) Descriptor() ([]byte, []int) {
+	return file_proto_photos_proto_rawDescGZIP(), []int{28}
+}
+
+func (x *CreateMarkdownRequest) GetPrefix() string {
+	if x != nil {
+		return x.Prefix
+	}
+	return ""
+}
+
+func (x *CreateMarkdownRequest) GetMarkdown() string {
+	if x != nil {
+		return x.Markdown
+	}
+	return ""
+}
+
+// CreateMarkdownResponse confirms the markdown file creation
+type CreateMarkdownResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The full object ID of the created markdown file
+	ObjectId      string `protobuf:"bytes,1,opt,name=object_id,json=objectId,proto3" json:"object_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateMarkdownResponse) Reset() {
+	*x = CreateMarkdownResponse{}
+	mi := &file_proto_photos_proto_msgTypes[29]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateMarkdownResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateMarkdownResponse) ProtoMessage() {}
+
+func (x *CreateMarkdownResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_photos_proto_msgTypes[29]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateMarkdownResponse.ProtoReflect.Descriptor instead.
+func (*CreateMarkdownResponse) Descriptor() ([]byte, []int) {
+	return file_proto_photos_proto_rawDescGZIP(), []int{29}
+}
+
+func (x *CreateMarkdownResponse) GetObjectId() string {
+	if x != nil {
+		return x.ObjectId
+	}
+	return ""
+}
+
+// GetMarkdownRequest specifies parameters for retrieving a markdown file
+type GetMarkdownRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The prefix (directory path) where index.md is located
+	Prefix        string `protobuf:"bytes,1,opt,name=prefix,proto3" json:"prefix,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetMarkdownRequest) Reset() {
+	*x = GetMarkdownRequest{}
+	mi := &file_proto_photos_proto_msgTypes[30]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetMarkdownRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetMarkdownRequest) ProtoMessage() {}
+
+func (x *GetMarkdownRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_photos_proto_msgTypes[30]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetMarkdownRequest.ProtoReflect.Descriptor instead.
+func (*GetMarkdownRequest) Descriptor() ([]byte, []int) {
+	return file_proto_photos_proto_rawDescGZIP(), []int{30}
+}
+
+func (x *GetMarkdownRequest) GetPrefix() string {
+	if x != nil {
+		return x.Prefix
+	}
+	return ""
+}
+
+// GetMarkdownResponse returns the markdown file content
+type GetMarkdownResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The full object ID of the markdown file
+	ObjectId string `protobuf:"bytes,1,opt,name=object_id,json=objectId,proto3" json:"object_id,omitempty"`
+	// The markdown content with YAML frontmatter
+	Markdown      string `protobuf:"bytes,2,opt,name=markdown,proto3" json:"markdown,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetMarkdownResponse) Reset() {
+	*x = GetMarkdownResponse{}
+	mi := &file_proto_photos_proto_msgTypes[31]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetMarkdownResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetMarkdownResponse) ProtoMessage() {}
+
+func (x *GetMarkdownResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_photos_proto_msgTypes[31]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetMarkdownResponse.ProtoReflect.Descriptor instead.
+func (*GetMarkdownResponse) Descriptor() ([]byte, []int) {
+	return file_proto_photos_proto_rawDescGZIP(), []int{31}
+}
+
+func (x *GetMarkdownResponse) GetObjectId() string {
+	if x != nil {
+		return x.ObjectId
+	}
+	return ""
+}
+
+func (x *GetMarkdownResponse) GetMarkdown() string {
+	if x != nil {
+		return x.Markdown
+	}
+	return ""
+}
+
+// UpdateMarkdownRequest specifies parameters for updating a markdown file
+type UpdateMarkdownRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The prefix (directory path) where index.md is located
+	Prefix string `protobuf:"bytes,1,opt,name=prefix,proto3" json:"prefix,omitempty"`
+	// The new markdown content with YAML frontmatter
+	Markdown      string `protobuf:"bytes,2,opt,name=markdown,proto3" json:"markdown,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateMarkdownRequest) Reset() {
+	*x = UpdateMarkdownRequest{}
+	mi := &file_proto_photos_proto_msgTypes[32]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateMarkdownRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateMarkdownRequest) ProtoMessage() {}
+
+func (x *UpdateMarkdownRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_photos_proto_msgTypes[32]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateMarkdownRequest.ProtoReflect.Descriptor instead.
+func (*UpdateMarkdownRequest) Descriptor() ([]byte, []int) {
+	return file_proto_photos_proto_rawDescGZIP(), []int{32}
+}
+
+func (x *UpdateMarkdownRequest) GetPrefix() string {
+	if x != nil {
+		return x.Prefix
+	}
+	return ""
+}
+
+func (x *UpdateMarkdownRequest) GetMarkdown() string {
+	if x != nil {
+		return x.Markdown
+	}
+	return ""
+}
+
+// UpdateMarkdownResponse confirms the markdown file update
+type UpdateMarkdownResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The full object ID of the updated markdown file
+	ObjectId      string `protobuf:"bytes,1,opt,name=object_id,json=objectId,proto3" json:"object_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateMarkdownResponse) Reset() {
+	*x = UpdateMarkdownResponse{}
+	mi := &file_proto_photos_proto_msgTypes[33]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateMarkdownResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateMarkdownResponse) ProtoMessage() {}
+
+func (x *UpdateMarkdownResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_photos_proto_msgTypes[33]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateMarkdownResponse.ProtoReflect.Descriptor instead.
+func (*UpdateMarkdownResponse) Descriptor() ([]byte, []int) {
+	return file_proto_photos_proto_rawDescGZIP(), []int{33}
+}
+
+func (x *UpdateMarkdownResponse) GetObjectId() string {
+	if x != nil {
+		return x.ObjectId
+	}
+	return ""
+}
+
+// DeleteMarkdownRequest specifies parameters for deleting a markdown file
+type DeleteMarkdownRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The prefix (directory path) where index.md is located
+	Prefix        string `protobuf:"bytes,1,opt,name=prefix,proto3" json:"prefix,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteMarkdownRequest) Reset() {
+	*x = DeleteMarkdownRequest{}
+	mi := &file_proto_photos_proto_msgTypes[34]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteMarkdownRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteMarkdownRequest) ProtoMessage() {}
+
+func (x *DeleteMarkdownRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_photos_proto_msgTypes[34]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteMarkdownRequest.ProtoReflect.Descriptor instead.
+func (*DeleteMarkdownRequest) Descriptor() ([]byte, []int) {
+	return file_proto_photos_proto_rawDescGZIP(), []int{34}
+}
+
+func (x *DeleteMarkdownRequest) GetPrefix() string {
+	if x != nil {
+		return x.Prefix
+	}
+	return ""
+}
+
+// DeleteMarkdownResponse confirms the markdown file deletion
+type DeleteMarkdownResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Whether the deletion was successful
+	Success       bool `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteMarkdownResponse) Reset() {
+	*x = DeleteMarkdownResponse{}
+	mi := &file_proto_photos_proto_msgTypes[35]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteMarkdownResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteMarkdownResponse) ProtoMessage() {}
+
+func (x *DeleteMarkdownResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_photos_proto_msgTypes[35]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteMarkdownResponse.ProtoReflect.Descriptor instead.
+func (*DeleteMarkdownResponse) Descriptor() ([]byte, []int) {
+	return file_proto_photos_proto_rawDescGZIP(), []int{35}
+}
+
+func (x *DeleteMarkdownResponse) GetSuccess() bool {
+	if x != nil {
+		return x.Success
+	}
+	return false
+}
+
 var File_proto_photos_proto protoreflect.FileDescriptor
 
 const file_proto_photos_proto_rawDesc = "" +
@@ -1806,12 +2201,31 @@ const file_proto_photos_proto_rawDesc = "" +
 	"\x19StreamingDownloadResponse\x12+\n" +
 	"\bmetadata\x18\x01 \x01(\v2\r.photos.PhotoH\x00R\bmetadata\x12\x16\n" +
 	"\x05chunk\x18\x02 \x01(\fH\x00R\x05chunkB\x06\n" +
-	"\x04data2\xf5\x02\n" +
+	"\x04data\"K\n" +
+	"\x15CreateMarkdownRequest\x12\x16\n" +
+	"\x06prefix\x18\x01 \x01(\tR\x06prefix\x12\x1a\n" +
+	"\bmarkdown\x18\x02 \x01(\tR\bmarkdown\"5\n" +
+	"\x16CreateMarkdownResponse\x12\x1b\n" +
+	"\tobject_id\x18\x01 \x01(\tR\bobjectId\",\n" +
+	"\x12GetMarkdownRequest\x12\x16\n" +
+	"\x06prefix\x18\x01 \x01(\tR\x06prefix\"N\n" +
+	"\x13GetMarkdownResponse\x12\x1b\n" +
+	"\tobject_id\x18\x01 \x01(\tR\bobjectId\x12\x1a\n" +
+	"\bmarkdown\x18\x02 \x01(\tR\bmarkdown\"K\n" +
+	"\x15UpdateMarkdownRequest\x12\x16\n" +
+	"\x06prefix\x18\x01 \x01(\tR\x06prefix\x12\x1a\n" +
+	"\bmarkdown\x18\x02 \x01(\tR\bmarkdown\"5\n" +
+	"\x16UpdateMarkdownResponse\x12\x1b\n" +
+	"\tobject_id\x18\x01 \x01(\tR\bobjectId\"/\n" +
+	"\x15DeleteMarkdownRequest\x12\x16\n" +
+	"\x06prefix\x18\x01 \x01(\tR\x06prefix\"2\n" +
+	"\x16DeleteMarkdownResponse\x12\x18\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess2\xf5\x02\n" +
 	"\vByteService\x12U\n" +
 	"\x06Upload\x12\x15.photos.UploadRequest\x1a\x16.photos.UploadResponse\"\x1c\x82\xd3\xe4\x93\x02\x16:\x01*\"\x11/v1/photos/upload\x12f\n" +
 	"\bDownload\x12\x17.photos.DownloadRequest\x1a\x18.photos.DownloadResponse\"'\x82\xd3\xe4\x93\x02!\x12\x1f/v1/photos/{object_id}/download\x12K\n" +
 	"\x0fStreamingUpload\x12\x1e.photos.StreamingUploadRequest\x1a\x16.photos.UploadResponse(\x01\x12Z\n" +
-	"\x11StreamingDownload\x12 .photos.StreamingDownloadRequest\x1a!.photos.StreamingDownloadResponse0\x012\xed\b\n" +
+	"\x11StreamingDownload\x12 .photos.StreamingDownloadRequest\x1a!.photos.StreamingDownloadResponse0\x012\xda\f\n" +
 	"\x0eLibraryService\x12f\n" +
 	"\vDeletePhoto\x12\x1a.photos.DeletePhotoRequest\x1a\x1b.photos.DeletePhotoResponse\"\x1e\x82\xd3\xe4\x93\x02\x18*\x16/v1/photos/{object_id}\x12]\n" +
 	"\bGetPhoto\x12\x17.photos.GetPhotoRequest\x1a\x18.photos.GetPhotoResponse\"\x1e\x82\xd3\xe4\x93\x02\x18\x12\x16/v1/photos/{object_id}\x12W\n" +
@@ -1824,7 +2238,11 @@ const file_proto_photos_proto_rawDesc = "" +
 	"\x11GenerateSignedUrl\x12 .photos.GenerateSignedUrlRequest\x1a!.photos.GenerateSignedUrlResponse\",\x82\xd3\xe4\x93\x02&:\x01*\"!/v1/photos/{object_id}/signed-url\x12m\n" +
 	"\vPhotoExists\x12\x1a.photos.PhotoExistsRequest\x1a\x1b.photos.PhotoExistsResponse\"%\x82\xd3\xe4\x93\x02\x1f\x12\x1d/v1/photos/{object_id}/exists\x12k\n" +
 	"\x0fListDirectories\x12\x1e.photos.ListDirectoriesRequest\x1a\x1f.photos.ListDirectoriesResponse\"\x17\x82\xd3\xe4\x93\x02\x11\x12\x0f/v1/directories\x12_\n" +
-	"\fSyncDatabase\x12\x1b.photos.SyncDatabaseRequest\x1a\x16.google.protobuf.Empty\"\x1a\x82\xd3\xe4\x93\x02\x14:\x01*\"\x0f/v1/photos/syncB\x0eZ\fphotos/protob\x06proto3"
+	"\fSyncDatabase\x12\x1b.photos.SyncDatabaseRequest\x1a\x16.google.protobuf.Empty\"\x1a\x82\xd3\xe4\x93\x02\x14:\x01*\"\x0f/v1/photos/sync\x12}\n" +
+	"\x0eCreateMarkdown\x12\x1d.photos.CreateMarkdownRequest\x1a\x1e.photos.CreateMarkdownResponse\",\x82\xd3\xe4\x93\x02&:\x01*\"!/v1/directories/{prefix}/markdown\x12q\n" +
+	"\vGetMarkdown\x12\x1a.photos.GetMarkdownRequest\x1a\x1b.photos.GetMarkdownResponse\")\x82\xd3\xe4\x93\x02#\x12!/v1/directories/{prefix}/markdown\x12}\n" +
+	"\x0eUpdateMarkdown\x12\x1d.photos.UpdateMarkdownRequest\x1a\x1e.photos.UpdateMarkdownResponse\",\x82\xd3\xe4\x93\x02&:\x01*\x1a!/v1/directories/{prefix}/markdown\x12z\n" +
+	"\x0eDeleteMarkdown\x12\x1d.photos.DeleteMarkdownRequest\x1a\x1e.photos.DeleteMarkdownResponse\")\x82\xd3\xe4\x93\x02#*!/v1/directories/{prefix}/markdownB\x0eZ\fphotos/protob\x06proto3"
 
 var (
 	file_proto_photos_proto_rawDescOnce sync.Once
@@ -1838,7 +2256,7 @@ func file_proto_photos_proto_rawDescGZIP() []byte {
 	return file_proto_photos_proto_rawDescData
 }
 
-var file_proto_photos_proto_msgTypes = make([]protoimpl.MessageInfo, 29)
+var file_proto_photos_proto_msgTypes = make([]protoimpl.MessageInfo, 37)
 var file_proto_photos_proto_goTypes = []any{
 	(*Photo)(nil),                       // 0: photos.Photo
 	(*UploadRequest)(nil),               // 1: photos.UploadRequest
@@ -1868,8 +2286,16 @@ var file_proto_photos_proto_goTypes = []any{
 	(*PhotoMetadata)(nil),               // 25: photos.PhotoMetadata
 	(*StreamingDownloadRequest)(nil),    // 26: photos.StreamingDownloadRequest
 	(*StreamingDownloadResponse)(nil),   // 27: photos.StreamingDownloadResponse
-	nil,                                 // 28: photos.UpdatePhotoMetadataRequest.CustomMetadataEntry
-	(*emptypb.Empty)(nil),               // 29: google.protobuf.Empty
+	(*CreateMarkdownRequest)(nil),       // 28: photos.CreateMarkdownRequest
+	(*CreateMarkdownResponse)(nil),      // 29: photos.CreateMarkdownResponse
+	(*GetMarkdownRequest)(nil),          // 30: photos.GetMarkdownRequest
+	(*GetMarkdownResponse)(nil),         // 31: photos.GetMarkdownResponse
+	(*UpdateMarkdownRequest)(nil),       // 32: photos.UpdateMarkdownRequest
+	(*UpdateMarkdownResponse)(nil),      // 33: photos.UpdateMarkdownResponse
+	(*DeleteMarkdownRequest)(nil),       // 34: photos.DeleteMarkdownRequest
+	(*DeleteMarkdownResponse)(nil),      // 35: photos.DeleteMarkdownResponse
+	nil,                                 // 36: photos.UpdatePhotoMetadataRequest.CustomMetadataEntry
+	(*emptypb.Empty)(nil),               // 37: google.protobuf.Empty
 }
 var file_proto_photos_proto_depIdxs = []int32{
 	0,  // 0: photos.UploadResponse.photo:type_name -> photos.Photo
@@ -1878,7 +2304,7 @@ var file_proto_photos_proto_depIdxs = []int32{
 	0,  // 3: photos.ListPhotosResponse.photos:type_name -> photos.Photo
 	0,  // 4: photos.CopyPhotoResponse.photo:type_name -> photos.Photo
 	0,  // 5: photos.RenamePhotoResponse.photo:type_name -> photos.Photo
-	28, // 6: photos.UpdatePhotoMetadataRequest.custom_metadata:type_name -> photos.UpdatePhotoMetadataRequest.CustomMetadataEntry
+	36, // 6: photos.UpdatePhotoMetadataRequest.custom_metadata:type_name -> photos.UpdatePhotoMetadataRequest.CustomMetadataEntry
 	0,  // 7: photos.UpdatePhotoMetadataResponse.photo:type_name -> photos.Photo
 	25, // 8: photos.StreamingUploadRequest.metadata:type_name -> photos.PhotoMetadata
 	0,  // 9: photos.StreamingDownloadResponse.metadata:type_name -> photos.Photo
@@ -1896,22 +2322,30 @@ var file_proto_photos_proto_depIdxs = []int32{
 	19, // 21: photos.LibraryService.PhotoExists:input_type -> photos.PhotoExistsRequest
 	21, // 22: photos.LibraryService.ListDirectories:input_type -> photos.ListDirectoriesRequest
 	23, // 23: photos.LibraryService.SyncDatabase:input_type -> photos.SyncDatabaseRequest
-	2,  // 24: photos.ByteService.Upload:output_type -> photos.UploadResponse
-	4,  // 25: photos.ByteService.Download:output_type -> photos.DownloadResponse
-	2,  // 26: photos.ByteService.StreamingUpload:output_type -> photos.UploadResponse
-	27, // 27: photos.ByteService.StreamingDownload:output_type -> photos.StreamingDownloadResponse
-	6,  // 28: photos.LibraryService.DeletePhoto:output_type -> photos.DeletePhotoResponse
-	8,  // 29: photos.LibraryService.GetPhoto:output_type -> photos.GetPhotoResponse
-	10, // 30: photos.LibraryService.ListPhotos:output_type -> photos.ListPhotosResponse
-	12, // 31: photos.LibraryService.CopyPhoto:output_type -> photos.CopyPhotoResponse
-	14, // 32: photos.LibraryService.RenamePhoto:output_type -> photos.RenamePhotoResponse
-	16, // 33: photos.LibraryService.UpdatePhotoMetadata:output_type -> photos.UpdatePhotoMetadataResponse
-	18, // 34: photos.LibraryService.GenerateSignedUrl:output_type -> photos.GenerateSignedUrlResponse
-	20, // 35: photos.LibraryService.PhotoExists:output_type -> photos.PhotoExistsResponse
-	22, // 36: photos.LibraryService.ListDirectories:output_type -> photos.ListDirectoriesResponse
-	29, // 37: photos.LibraryService.SyncDatabase:output_type -> google.protobuf.Empty
-	24, // [24:38] is the sub-list for method output_type
-	10, // [10:24] is the sub-list for method input_type
+	28, // 24: photos.LibraryService.CreateMarkdown:input_type -> photos.CreateMarkdownRequest
+	30, // 25: photos.LibraryService.GetMarkdown:input_type -> photos.GetMarkdownRequest
+	32, // 26: photos.LibraryService.UpdateMarkdown:input_type -> photos.UpdateMarkdownRequest
+	34, // 27: photos.LibraryService.DeleteMarkdown:input_type -> photos.DeleteMarkdownRequest
+	2,  // 28: photos.ByteService.Upload:output_type -> photos.UploadResponse
+	4,  // 29: photos.ByteService.Download:output_type -> photos.DownloadResponse
+	2,  // 30: photos.ByteService.StreamingUpload:output_type -> photos.UploadResponse
+	27, // 31: photos.ByteService.StreamingDownload:output_type -> photos.StreamingDownloadResponse
+	6,  // 32: photos.LibraryService.DeletePhoto:output_type -> photos.DeletePhotoResponse
+	8,  // 33: photos.LibraryService.GetPhoto:output_type -> photos.GetPhotoResponse
+	10, // 34: photos.LibraryService.ListPhotos:output_type -> photos.ListPhotosResponse
+	12, // 35: photos.LibraryService.CopyPhoto:output_type -> photos.CopyPhotoResponse
+	14, // 36: photos.LibraryService.RenamePhoto:output_type -> photos.RenamePhotoResponse
+	16, // 37: photos.LibraryService.UpdatePhotoMetadata:output_type -> photos.UpdatePhotoMetadataResponse
+	18, // 38: photos.LibraryService.GenerateSignedUrl:output_type -> photos.GenerateSignedUrlResponse
+	20, // 39: photos.LibraryService.PhotoExists:output_type -> photos.PhotoExistsResponse
+	22, // 40: photos.LibraryService.ListDirectories:output_type -> photos.ListDirectoriesResponse
+	37, // 41: photos.LibraryService.SyncDatabase:output_type -> google.protobuf.Empty
+	29, // 42: photos.LibraryService.CreateMarkdown:output_type -> photos.CreateMarkdownResponse
+	31, // 43: photos.LibraryService.GetMarkdown:output_type -> photos.GetMarkdownResponse
+	33, // 44: photos.LibraryService.UpdateMarkdown:output_type -> photos.UpdateMarkdownResponse
+	35, // 45: photos.LibraryService.DeleteMarkdown:output_type -> photos.DeleteMarkdownResponse
+	28, // [28:46] is the sub-list for method output_type
+	10, // [10:28] is the sub-list for method input_type
 	10, // [10:10] is the sub-list for extension type_name
 	10, // [10:10] is the sub-list for extension extendee
 	0,  // [0:10] is the sub-list for field type_name
@@ -1936,7 +2370,7 @@ func file_proto_photos_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_photos_proto_rawDesc), len(file_proto_photos_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   29,
+			NumMessages:   37,
 			NumExtensions: 0,
 			NumServices:   2,
 		},

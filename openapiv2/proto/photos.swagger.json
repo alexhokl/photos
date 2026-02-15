@@ -56,6 +56,144 @@
         ]
       }
     },
+    "/v1/directories/{prefix}/markdown": {
+      "get": {
+        "summary": "GetMarkdown retrieves an index.md file from a specified prefix (directory)",
+        "operationId": "LibraryService_GetMarkdown",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/photosGetMarkdownResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "prefix",
+            "description": "The prefix (directory path) where index.md is located",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "LibraryService"
+        ]
+      },
+      "delete": {
+        "summary": "DeleteMarkdown deletes an index.md file from a specified prefix (directory)",
+        "operationId": "LibraryService_DeleteMarkdown",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/photosDeleteMarkdownResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "prefix",
+            "description": "The prefix (directory path) where index.md is located",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "LibraryService"
+        ]
+      },
+      "post": {
+        "summary": "CreateMarkdown creates an index.md file in a specified prefix (directory)",
+        "operationId": "LibraryService_CreateMarkdown",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/photosCreateMarkdownResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "prefix",
+            "description": "The prefix (directory path) where index.md will be created",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/LibraryServiceCreateMarkdownBody"
+            }
+          }
+        ],
+        "tags": [
+          "LibraryService"
+        ]
+      },
+      "put": {
+        "summary": "UpdateMarkdown updates an existing index.md file in a specified prefix (directory)",
+        "operationId": "LibraryService_UpdateMarkdown",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/photosUpdateMarkdownResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "prefix",
+            "description": "The prefix (directory path) where index.md is located",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/LibraryServiceUpdateMarkdownBody"
+            }
+          }
+        ],
+        "tags": [
+          "LibraryService"
+        ]
+      }
+    },
     "/v1/photos": {
       "get": {
         "summary": "ListPhotos returns a paginated list of photos with optional prefix filtering",
@@ -463,6 +601,16 @@
       },
       "title": "CopyPhotoRequest specifies source and destination for copy operation"
     },
+    "LibraryServiceCreateMarkdownBody": {
+      "type": "object",
+      "properties": {
+        "markdown": {
+          "type": "string",
+          "title": "The markdown content with YAML frontmatter"
+        }
+      },
+      "title": "CreateMarkdownRequest specifies parameters for creating a markdown file"
+    },
     "LibraryServiceGenerateSignedUrlBody": {
       "type": "object",
       "properties": {
@@ -484,6 +632,16 @@
         }
       },
       "title": "RenamePhotoRequest specifies source and destination for rename operation"
+    },
+    "LibraryServiceUpdateMarkdownBody": {
+      "type": "object",
+      "properties": {
+        "markdown": {
+          "type": "string",
+          "title": "The new markdown content with YAML frontmatter"
+        }
+      },
+      "title": "UpdateMarkdownRequest specifies parameters for updating a markdown file"
     },
     "LibraryServiceUpdatePhotoMetadataBody": {
       "type": "object",
@@ -508,6 +666,26 @@
         }
       },
       "title": "CopyPhotoResponse returns the copied photo metadata"
+    },
+    "photosCreateMarkdownResponse": {
+      "type": "object",
+      "properties": {
+        "objectId": {
+          "type": "string",
+          "title": "The full object ID of the created markdown file"
+        }
+      },
+      "title": "CreateMarkdownResponse confirms the markdown file creation"
+    },
+    "photosDeleteMarkdownResponse": {
+      "type": "object",
+      "properties": {
+        "success": {
+          "type": "boolean",
+          "title": "Whether the deletion was successful"
+        }
+      },
+      "title": "DeleteMarkdownResponse confirms the markdown file deletion"
     },
     "photosDeletePhotoResponse": {
       "type": "object",
@@ -542,6 +720,20 @@
         }
       },
       "title": "GenerateSignedUrlResponse returns the signed URL and expiration time"
+    },
+    "photosGetMarkdownResponse": {
+      "type": "object",
+      "properties": {
+        "objectId": {
+          "type": "string",
+          "title": "The full object ID of the markdown file"
+        },
+        "markdown": {
+          "type": "string",
+          "title": "The markdown content with YAML frontmatter"
+        }
+      },
+      "title": "GetMarkdownResponse returns the markdown file content"
     },
     "photosGetPhotoResponse": {
       "type": "object",
@@ -729,6 +921,16 @@
         }
       },
       "title": "SyncDatabaseRequest specifies options for database synchronization"
+    },
+    "photosUpdateMarkdownResponse": {
+      "type": "object",
+      "properties": {
+        "objectId": {
+          "type": "string",
+          "title": "The full object ID of the updated markdown file"
+        }
+      },
+      "title": "UpdateMarkdownResponse confirms the markdown file update"
     },
     "photosUpdatePhotoMetadataResponse": {
       "type": "object",

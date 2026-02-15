@@ -253,6 +253,38 @@ class LibraryServiceClient extends $grpc.Client {
     return $createUnaryCall(_$syncDatabase, request, options: options);
   }
 
+  /// CreateMarkdown creates an index.md file in a specified prefix (directory)
+  $grpc.ResponseFuture<$0.CreateMarkdownResponse> createMarkdown(
+    $0.CreateMarkdownRequest request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createUnaryCall(_$createMarkdown, request, options: options);
+  }
+
+  /// GetMarkdown retrieves an index.md file from a specified prefix (directory)
+  $grpc.ResponseFuture<$0.GetMarkdownResponse> getMarkdown(
+    $0.GetMarkdownRequest request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createUnaryCall(_$getMarkdown, request, options: options);
+  }
+
+  /// UpdateMarkdown updates an existing index.md file in a specified prefix (directory)
+  $grpc.ResponseFuture<$0.UpdateMarkdownResponse> updateMarkdown(
+    $0.UpdateMarkdownRequest request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createUnaryCall(_$updateMarkdown, request, options: options);
+  }
+
+  /// DeleteMarkdown deletes an index.md file from a specified prefix (directory)
+  $grpc.ResponseFuture<$0.DeleteMarkdownResponse> deleteMarkdown(
+    $0.DeleteMarkdownRequest request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createUnaryCall(_$deleteMarkdown, request, options: options);
+  }
+
   // method descriptors
 
   static final _$deletePhoto =
@@ -305,6 +337,26 @@ class LibraryServiceClient extends $grpc.Client {
           '/photos.LibraryService/SyncDatabase',
           ($0.SyncDatabaseRequest value) => value.writeToBuffer(),
           $1.Empty.fromBuffer);
+  static final _$createMarkdown =
+      $grpc.ClientMethod<$0.CreateMarkdownRequest, $0.CreateMarkdownResponse>(
+          '/photos.LibraryService/CreateMarkdown',
+          ($0.CreateMarkdownRequest value) => value.writeToBuffer(),
+          $0.CreateMarkdownResponse.fromBuffer);
+  static final _$getMarkdown =
+      $grpc.ClientMethod<$0.GetMarkdownRequest, $0.GetMarkdownResponse>(
+          '/photos.LibraryService/GetMarkdown',
+          ($0.GetMarkdownRequest value) => value.writeToBuffer(),
+          $0.GetMarkdownResponse.fromBuffer);
+  static final _$updateMarkdown =
+      $grpc.ClientMethod<$0.UpdateMarkdownRequest, $0.UpdateMarkdownResponse>(
+          '/photos.LibraryService/UpdateMarkdown',
+          ($0.UpdateMarkdownRequest value) => value.writeToBuffer(),
+          $0.UpdateMarkdownResponse.fromBuffer);
+  static final _$deleteMarkdown =
+      $grpc.ClientMethod<$0.DeleteMarkdownRequest, $0.DeleteMarkdownResponse>(
+          '/photos.LibraryService/DeleteMarkdown',
+          ($0.DeleteMarkdownRequest value) => value.writeToBuffer(),
+          $0.DeleteMarkdownResponse.fromBuffer);
 }
 
 @$pb.GrpcServiceName('photos.LibraryService')
@@ -395,6 +447,42 @@ abstract class LibraryServiceBase extends $grpc.Service {
         ($core.List<$core.int> value) =>
             $0.SyncDatabaseRequest.fromBuffer(value),
         ($1.Empty value) => value.writeToBuffer()));
+    $addMethod($grpc.ServiceMethod<$0.CreateMarkdownRequest,
+            $0.CreateMarkdownResponse>(
+        'CreateMarkdown',
+        createMarkdown_Pre,
+        false,
+        false,
+        ($core.List<$core.int> value) =>
+            $0.CreateMarkdownRequest.fromBuffer(value),
+        ($0.CreateMarkdownResponse value) => value.writeToBuffer()));
+    $addMethod(
+        $grpc.ServiceMethod<$0.GetMarkdownRequest, $0.GetMarkdownResponse>(
+            'GetMarkdown',
+            getMarkdown_Pre,
+            false,
+            false,
+            ($core.List<$core.int> value) =>
+                $0.GetMarkdownRequest.fromBuffer(value),
+            ($0.GetMarkdownResponse value) => value.writeToBuffer()));
+    $addMethod($grpc.ServiceMethod<$0.UpdateMarkdownRequest,
+            $0.UpdateMarkdownResponse>(
+        'UpdateMarkdown',
+        updateMarkdown_Pre,
+        false,
+        false,
+        ($core.List<$core.int> value) =>
+            $0.UpdateMarkdownRequest.fromBuffer(value),
+        ($0.UpdateMarkdownResponse value) => value.writeToBuffer()));
+    $addMethod($grpc.ServiceMethod<$0.DeleteMarkdownRequest,
+            $0.DeleteMarkdownResponse>(
+        'DeleteMarkdown',
+        deleteMarkdown_Pre,
+        false,
+        false,
+        ($core.List<$core.int> value) =>
+            $0.DeleteMarkdownRequest.fromBuffer(value),
+        ($0.DeleteMarkdownResponse value) => value.writeToBuffer()));
   }
 
   $async.Future<$0.DeletePhotoResponse> deletePhoto_Pre($grpc.ServiceCall $call,
@@ -479,4 +567,39 @@ abstract class LibraryServiceBase extends $grpc.Service {
 
   $async.Future<$1.Empty> syncDatabase(
       $grpc.ServiceCall call, $0.SyncDatabaseRequest request);
+
+  $async.Future<$0.CreateMarkdownResponse> createMarkdown_Pre(
+      $grpc.ServiceCall $call,
+      $async.Future<$0.CreateMarkdownRequest> $request) async {
+    return createMarkdown($call, await $request);
+  }
+
+  $async.Future<$0.CreateMarkdownResponse> createMarkdown(
+      $grpc.ServiceCall call, $0.CreateMarkdownRequest request);
+
+  $async.Future<$0.GetMarkdownResponse> getMarkdown_Pre($grpc.ServiceCall $call,
+      $async.Future<$0.GetMarkdownRequest> $request) async {
+    return getMarkdown($call, await $request);
+  }
+
+  $async.Future<$0.GetMarkdownResponse> getMarkdown(
+      $grpc.ServiceCall call, $0.GetMarkdownRequest request);
+
+  $async.Future<$0.UpdateMarkdownResponse> updateMarkdown_Pre(
+      $grpc.ServiceCall $call,
+      $async.Future<$0.UpdateMarkdownRequest> $request) async {
+    return updateMarkdown($call, await $request);
+  }
+
+  $async.Future<$0.UpdateMarkdownResponse> updateMarkdown(
+      $grpc.ServiceCall call, $0.UpdateMarkdownRequest request);
+
+  $async.Future<$0.DeleteMarkdownResponse> deleteMarkdown_Pre(
+      $grpc.ServiceCall $call,
+      $async.Future<$0.DeleteMarkdownRequest> $request) async {
+    return deleteMarkdown($call, await $request);
+  }
+
+  $async.Future<$0.DeleteMarkdownResponse> deleteMarkdown(
+      $grpc.ServiceCall call, $0.DeleteMarkdownRequest request);
 }
