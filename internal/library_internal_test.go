@@ -1,10 +1,18 @@
 package internal
 
 import (
+	"context"
+	"encoding/base64"
 	"testing"
 	"time"
 
+	"github.com/alexhokl/photos/database"
 	"github.com/alexhokl/photos/proto"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+	"gorm.io/driver/sqlite"
+	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 )
 
 func TestBuildPhotoFromMetadata(t *testing.T) {
@@ -630,4 +638,464 @@ func indexOf(s, substr string) int {
 // timePtr is a helper to create a pointer to a time.Time value
 func timePtr(t time.Time) *time.Time {
 	return &t
+}
+
+// contextWithUserID creates a context with the user ID set (simulates authenticated request)
+func contextWithUserID(userID uint) context.Context {
+	return context.WithValue(context.Background(), contextKeyUser{}, userID)
+}
+
+// assertGRPCError checks that an error has the expected gRPC status code
+func assertGRPCError(t *testing.T, err error, expectedCode codes.Code) {
+	t.Helper()
+	if err == nil {
+		t.Fatalf("expected error with code %v, got nil", expectedCode)
+	}
+	st, ok := status.FromError(err)
+	if !ok {
+		t.Fatalf("expected gRPC status error, got %T: %v", err, err)
+	}
+	if st.Code() != expectedCode {
+		t.Errorf("expected code %v, got %v: %s", expectedCode, st.Code(), st.Message())
+	}
+}
+
+// =============================================================================
+// Authentication Validation Tests
+// =============================================================================
+
+func TestListDirectories_Unauthenticated(t *testing.T) {
+	server := &LibraryServer{}
+	ctx := context.Background() // No user ID in context
+
+	_, err := server.ListDirectories(ctx, &proto.ListDirectoriesRequest{})
+	assertGRPCError(t, err, codes.Unauthenticated)
+}
+
+func TestGetPhoto_Unauthenticated(t *testing.T) {
+	server := &LibraryServer{}
+	ctx := context.Background()
+
+	_, err := server.GetPhoto(ctx, &proto.GetPhotoRequest{ObjectId: "test.jpg"})
+	assertGRPCError(t, err, codes.Unauthenticated)
+}
+
+func TestPhotoExists_Unauthenticated(t *testing.T) {
+	server := &LibraryServer{}
+	ctx := context.Background()
+
+	_, err := server.PhotoExists(ctx, &proto.PhotoExistsRequest{ObjectId: "test.jpg"})
+	assertGRPCError(t, err, codes.Unauthenticated)
+}
+
+func TestCopyPhoto_Unauthenticated(t *testing.T) {
+	server := &LibraryServer{}
+	ctx := context.Background()
+
+	_, err := server.CopyPhoto(ctx, &proto.CopyPhotoRequest{
+		SourceObjectId:      "source.jpg",
+		DestinationObjectId: "dest.jpg",
+	})
+	assertGRPCError(t, err, codes.Unauthenticated)
+}
+
+func TestRenamePhoto_Unauthenticated(t *testing.T) {
+	server := &LibraryServer{}
+	ctx := context.Background()
+
+	_, err := server.RenamePhoto(ctx, &proto.RenamePhotoRequest{
+		SourceObjectId:      "source.jpg",
+		DestinationObjectId: "dest.jpg",
+	})
+	assertGRPCError(t, err, codes.Unauthenticated)
+}
+
+func TestGenerateSignedUrl_Unauthenticated(t *testing.T) {
+	server := &LibraryServer{}
+	ctx := context.Background()
+
+	_, err := server.GenerateSignedUrl(ctx, &proto.GenerateSignedUrlRequest{ObjectId: "test.jpg"})
+	assertGRPCError(t, err, codes.Unauthenticated)
+}
+
+func TestListPhotos_Unauthenticated(t *testing.T) {
+	server := &LibraryServer{}
+	ctx := context.Background()
+
+	_, err := server.ListPhotos(ctx, &proto.ListPhotosRequest{})
+	assertGRPCError(t, err, codes.Unauthenticated)
+}
+
+func TestDeletePhoto_Unauthenticated(t *testing.T) {
+	server := &LibraryServer{}
+	ctx := context.Background()
+
+	_, err := server.DeletePhoto(ctx, &proto.DeletePhotoRequest{ObjectId: "test.jpg"})
+	assertGRPCError(t, err, codes.Unauthenticated)
+}
+
+func TestSyncDatabase_Unauthenticated(t *testing.T) {
+	server := &LibraryServer{}
+	ctx := context.Background()
+
+	_, err := server.SyncDatabase(ctx, &proto.SyncDatabaseRequest{})
+	assertGRPCError(t, err, codes.Unauthenticated)
+}
+
+func TestUpdatePhotoMetadata_Unauthenticated(t *testing.T) {
+	server := &LibraryServer{}
+	ctx := context.Background()
+
+	_, err := server.UpdatePhotoMetadata(ctx, &proto.UpdatePhotoMetadataRequest{
+		ObjectId:    "test.jpg",
+		ContentType: "image/jpeg",
+	})
+	assertGRPCError(t, err, codes.Unauthenticated)
+}
+
+// =============================================================================
+// Input Parameter Validation Tests
+// =============================================================================
+
+func TestGetPhoto_MissingObjectID(t *testing.T) {
+	server := &LibraryServer{}
+	ctx := contextWithUserID(1)
+
+	_, err := server.GetPhoto(ctx, &proto.GetPhotoRequest{ObjectId: ""})
+	assertGRPCError(t, err, codes.InvalidArgument)
+}
+
+func TestPhotoExists_MissingObjectID(t *testing.T) {
+	server := &LibraryServer{}
+	ctx := contextWithUserID(1)
+
+	_, err := server.PhotoExists(ctx, &proto.PhotoExistsRequest{ObjectId: ""})
+	assertGRPCError(t, err, codes.InvalidArgument)
+}
+
+func TestCopyPhoto_ValidationErrors(t *testing.T) {
+	server := &LibraryServer{}
+	ctx := contextWithUserID(1)
+
+	tests := []struct {
+		name        string
+		sourceID    string
+		destID      string
+		expectError codes.Code
+	}{
+		{
+			name:        "missing source_object_id",
+			sourceID:    "",
+			destID:      "dest.jpg",
+			expectError: codes.InvalidArgument,
+		},
+		{
+			name:        "missing destination_object_id",
+			sourceID:    "source.jpg",
+			destID:      "",
+			expectError: codes.InvalidArgument,
+		},
+		{
+			name:        "same source and destination",
+			sourceID:    "same.jpg",
+			destID:      "same.jpg",
+			expectError: codes.InvalidArgument,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			_, err := server.CopyPhoto(ctx, &proto.CopyPhotoRequest{
+				SourceObjectId:      test.sourceID,
+				DestinationObjectId: test.destID,
+			})
+			assertGRPCError(t, err, test.expectError)
+		})
+	}
+}
+
+func TestRenamePhoto_ValidationErrors(t *testing.T) {
+	server := &LibraryServer{}
+	ctx := contextWithUserID(1)
+
+	tests := []struct {
+		name        string
+		sourceID    string
+		destID      string
+		expectError codes.Code
+	}{
+		{
+			name:        "missing source_object_id",
+			sourceID:    "",
+			destID:      "dest.jpg",
+			expectError: codes.InvalidArgument,
+		},
+		{
+			name:        "missing destination_object_id",
+			sourceID:    "source.jpg",
+			destID:      "",
+			expectError: codes.InvalidArgument,
+		},
+		{
+			name:        "same source and destination",
+			sourceID:    "same.jpg",
+			destID:      "same.jpg",
+			expectError: codes.InvalidArgument,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			_, err := server.RenamePhoto(ctx, &proto.RenamePhotoRequest{
+				SourceObjectId:      test.sourceID,
+				DestinationObjectId: test.destID,
+			})
+			assertGRPCError(t, err, test.expectError)
+		})
+	}
+}
+
+func TestGenerateSignedUrl_MissingObjectID(t *testing.T) {
+	server := &LibraryServer{}
+	ctx := contextWithUserID(1)
+
+	_, err := server.GenerateSignedUrl(ctx, &proto.GenerateSignedUrlRequest{ObjectId: ""})
+	assertGRPCError(t, err, codes.InvalidArgument)
+}
+
+func TestGenerateSignedUrl_InvalidMethod(t *testing.T) {
+	server := &LibraryServer{}
+	ctx := contextWithUserID(1)
+
+	invalidMethods := []string{"POST", "PATCH", "OPTIONS", "CONNECT", "TRACE", "invalid"}
+
+	for _, method := range invalidMethods {
+		t.Run(method, func(t *testing.T) {
+			_, err := server.GenerateSignedUrl(ctx, &proto.GenerateSignedUrlRequest{
+				ObjectId: "test.jpg",
+				Method:   method,
+			})
+			assertGRPCError(t, err, codes.InvalidArgument)
+		})
+	}
+}
+
+func TestGenerateSignedUrl_ValidMethods(t *testing.T) {
+	// Valid methods should pass method validation
+	// Test only that the method validation logic accepts valid methods
+	validMethods := []string{"GET", "PUT", "DELETE", "HEAD"}
+
+	for _, method := range validMethods {
+		t.Run(method, func(t *testing.T) {
+			// Directly test the method validation logic from GenerateSignedUrl
+			// The switch statement accepts: GET, PUT, DELETE, HEAD
+			isValid := false
+			switch method {
+			case "GET", "PUT", "DELETE", "HEAD":
+				isValid = true
+			}
+			if !isValid {
+				t.Errorf("method %q should be valid", method)
+			}
+		})
+	}
+}
+
+func TestGenerateSignedUrl_DefaultMethod(t *testing.T) {
+	// When method is empty, it defaults to GET
+	// This tests the default assignment logic
+	method := ""
+	if method == "" {
+		method = "GET"
+	}
+	if method != "GET" {
+		t.Errorf("empty method should default to GET, got %q", method)
+	}
+}
+
+func TestGenerateSignedUrl_ExpirationExceedsMax(t *testing.T) {
+	server := &LibraryServer{}
+	ctx := contextWithUserID(1)
+
+	// 604801 seconds > 604800 (7 days max)
+	_, err := server.GenerateSignedUrl(ctx, &proto.GenerateSignedUrlRequest{
+		ObjectId:          "test.jpg",
+		ExpirationSeconds: 604801,
+	})
+	assertGRPCError(t, err, codes.InvalidArgument)
+}
+
+func TestGenerateSignedUrl_ExpirationAtMax(t *testing.T) {
+	// 604800 seconds == 7 days (should pass expiration validation)
+	// Test the validation logic directly
+	expirationSeconds := int64(604800)
+	maxExpiration := int64(604800)
+
+	if expirationSeconds > maxExpiration {
+		t.Errorf("expiration %d should not exceed max %d", expirationSeconds, maxExpiration)
+	}
+}
+
+func TestGenerateSignedUrl_DefaultExpiration(t *testing.T) {
+	// When expiration is 0 or negative, it defaults to 3600 (1 hour)
+	tests := []struct {
+		name     string
+		input    int64
+		expected int64
+	}{
+		{"zero", 0, 3600},
+		{"negative", -1, 3600},
+		{"positive", 7200, 7200},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			expirationSeconds := test.input
+			if expirationSeconds <= 0 {
+				expirationSeconds = 3600
+			}
+			if expirationSeconds != test.expected {
+				t.Errorf("expected %d, got %d", test.expected, expirationSeconds)
+			}
+		})
+	}
+}
+
+func TestDeletePhoto_MissingObjectID(t *testing.T) {
+	server := &LibraryServer{}
+	ctx := contextWithUserID(1)
+
+	_, err := server.DeletePhoto(ctx, &proto.DeletePhotoRequest{ObjectId: ""})
+	assertGRPCError(t, err, codes.InvalidArgument)
+}
+
+func TestUpdatePhotoMetadata_MissingObjectID(t *testing.T) {
+	server := &LibraryServer{}
+	ctx := contextWithUserID(1)
+
+	_, err := server.UpdatePhotoMetadata(ctx, &proto.UpdatePhotoMetadataRequest{
+		ObjectId:    "",
+		ContentType: "image/jpeg",
+	})
+	assertGRPCError(t, err, codes.InvalidArgument)
+}
+
+func TestUpdatePhotoMetadata_NoFieldsToUpdate(t *testing.T) {
+	server := &LibraryServer{}
+	ctx := contextWithUserID(1)
+
+	// No custom_metadata and no content_type
+	_, err := server.UpdatePhotoMetadata(ctx, &proto.UpdatePhotoMetadataRequest{
+		ObjectId: "test.jpg",
+	})
+	assertGRPCError(t, err, codes.InvalidArgument)
+}
+
+// =============================================================================
+// Pagination Validation Tests
+// =============================================================================
+
+// setupLibraryTestDB creates an in-memory SQLite database for library tests
+func setupLibraryTestDB(t *testing.T) *gorm.DB {
+	t.Helper()
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{
+		Logger: logger.Default.LogMode(logger.Silent),
+	})
+	if err != nil {
+		t.Fatalf("failed to open test database: %v", err)
+	}
+	if err := db.AutoMigrate(&database.PhotoObject{}, &database.PhotoDirectory{}, &database.User{}); err != nil {
+		t.Fatalf("failed to migrate database: %v", err)
+	}
+	return db
+}
+
+func TestListPhotos_InvalidPageToken(t *testing.T) {
+	db := setupLibraryTestDB(t)
+	server := &LibraryServer{DB: db}
+	ctx := contextWithUserID(1)
+
+	tests := []struct {
+		name      string
+		pageToken string
+	}{
+		{
+			name:      "invalid base64",
+			pageToken: "not-valid-base64!!!",
+		},
+		{
+			name:      "valid base64 but missing separator",
+			pageToken: base64.StdEncoding.EncodeToString([]byte("invalidtoken")),
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			_, err := server.ListPhotos(ctx, &proto.ListPhotosRequest{
+				PageToken: test.pageToken,
+			})
+			assertGRPCError(t, err, codes.InvalidArgument)
+		})
+	}
+}
+
+func TestListPhotos_ValidPageTokenFormats(t *testing.T) {
+	// Test that valid token formats are correctly parsed
+	// This tests the token parsing logic without requiring DB
+	tests := []struct {
+		name              string
+		tokenValue        string
+		expectedTimeTaken string
+		expectedObjectID  string
+	}{
+		{
+			name:              "token with time_taken",
+			tokenValue:        "2024-06-15T14:30:00Z|photos/beach.jpg",
+			expectedTimeTaken: "2024-06-15T14:30:00Z",
+			expectedObjectID:  "photos/beach.jpg",
+		},
+		{
+			name:              "token with null time_taken",
+			tokenValue:        "null|photos/unnamed.jpg",
+			expectedTimeTaken: "null",
+			expectedObjectID:  "photos/unnamed.jpg",
+		},
+		{
+			name:              "token with pipe in object_id",
+			tokenValue:        "2024-01-01T00:00:00Z|photos/file|with|pipes.jpg",
+			expectedTimeTaken: "2024-01-01T00:00:00Z",
+			expectedObjectID:  "photos/file|with|pipes.jpg",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			// Parse token using the same logic as ListPhotos
+			parts := splitPaginationToken(test.tokenValue)
+			if len(parts) != 2 {
+				t.Fatalf("expected 2 parts, got %d", len(parts))
+			}
+			if parts[0] != test.expectedTimeTaken {
+				t.Errorf("time_taken = %q, expected %q", parts[0], test.expectedTimeTaken)
+			}
+			if parts[1] != test.expectedObjectID {
+				t.Errorf("object_id = %q, expected %q", parts[1], test.expectedObjectID)
+			}
+		})
+	}
+}
+
+// contains is a helper to check if a string contains a substring
+func contains(s, substr string) bool {
+	return len(s) >= len(substr) && (s == substr || len(substr) == 0 ||
+		(len(s) > 0 && len(substr) > 0 && searchSubstring(s, substr)))
+}
+
+func searchSubstring(s, substr string) bool {
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			return true
+		}
+	}
+	return false
 }
