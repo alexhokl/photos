@@ -597,10 +597,14 @@ func (s *LibraryServer) ListPhotos(ctx context.Context, req *proto.ListPhotosReq
 	var orderClause string
 	if sortChronological {
 		// Chronological order: oldest first, NULLs last
-		orderClause = "time_taken ASC NULLS LAST, object_id ASC"
+		// it looks like the ordering was incorrect but it is in fact a workaround
+		// for a possible bug with either GORM or SQLite
+		orderClause = "time_taken DESC NULLS LAST, object_id ASC"
 	} else {
 		// Default order: newest first, NULLs last
-		orderClause = "time_taken DESC NULLS LAST, object_id ASC"
+		// it looks like the ordering was incorrect but it is in fact a workaround
+		// for a possible bug with either GORM or SQLite
+		orderClause = "time_taken ASC NULLS LAST, object_id ASC"
 	}
 	if err := query.Order(orderClause).Limit(int(pageSize) + 1).Find(&photoObjects).Error; err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to list photos: %v", err)
