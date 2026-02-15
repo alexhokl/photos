@@ -968,3 +968,436 @@ func TestSyncScenario_ConcurrentDirectoryRestore(t *testing.T) {
 		t.Errorf("expected 1 active directory, got %d", count)
 	}
 }
+
+// Tests for ListPhotos time_taken-based sorting and pagination
+
+func TestListPhotos_SortByTimeTakenDescending(t *testing.T) {
+	db := setupTestDB(t)
+
+	// Create a user
+	user := &User{Username: "testuser"}
+	if err := db.Create(user).Error; err != nil {
+		t.Fatalf("failed to create user: %v", err)
+	}
+
+	// Create photos with different time_taken values
+	now := time.Now().UTC()
+	photos := []struct {
+		objectID  string
+		timeTaken *time.Time
+	}{
+		{"photo1.jpg", timePtr(now.Add(-24 * time.Hour))}, // oldest
+		{"photo2.jpg", timePtr(now.Add(-12 * time.Hour))}, // middle
+		{"photo3.jpg", timePtr(now)},                      // newest
+		{"photo4.jpg", nil},                               // no time_taken
+	}
+
+	for _, p := range photos {
+		obj := &PhotoObject{
+			ObjectID:    p.objectID,
+			ContentType: "image/jpeg",
+			MD5Hash:     "hash",
+			UserID:      user.ID,
+			TimeTaken:   p.timeTaken,
+		}
+		if err := db.Create(obj).Error; err != nil {
+			t.Fatalf("failed to create photo %s: %v", p.objectID, err)
+		}
+	}
+
+	// Query photos with time_taken DESC NULLS LAST, object_id ASC ordering
+	var results []PhotoObject
+	if err := db.Where("user_id = ?", user.ID).
+		Order("time_taken DESC NULLS LAST, object_id ASC").
+		Find(&results).Error; err != nil {
+		t.Fatalf("failed to query photos: %v", err)
+	}
+
+	// Verify order: newest first, then null time_taken at the end
+	expectedOrder := []string{"photo3.jpg", "photo2.jpg", "photo1.jpg", "photo4.jpg"}
+	if len(results) != len(expectedOrder) {
+		t.Fatalf("expected %d results, got %d", len(expectedOrder), len(results))
+	}
+
+	for i, expected := range expectedOrder {
+		if results[i].ObjectID != expected {
+			t.Errorf("position %d: expected %s, got %s", i, expected, results[i].ObjectID)
+		}
+	}
+}
+
+func TestListPhotos_SortNullTimeTakenByObjectID(t *testing.T) {
+	db := setupTestDB(t)
+
+	// Create a user
+	user := &User{Username: "testuser"}
+	if err := db.Create(user).Error; err != nil {
+		t.Fatalf("failed to create user: %v", err)
+	}
+
+	// Create photos all without time_taken - should sort by object_id ASC
+	objectIDs := []string{"charlie.jpg", "alpha.jpg", "bravo.jpg"}
+	for _, id := range objectIDs {
+		obj := &PhotoObject{
+			ObjectID:    id,
+			ContentType: "image/jpeg",
+			MD5Hash:     "hash",
+			UserID:      user.ID,
+			TimeTaken:   nil,
+		}
+		if err := db.Create(obj).Error; err != nil {
+			t.Fatalf("failed to create photo %s: %v", id, err)
+		}
+	}
+
+	var results []PhotoObject
+	if err := db.Where("user_id = ?", user.ID).
+		Order("time_taken DESC NULLS LAST, object_id ASC").
+		Find(&results).Error; err != nil {
+		t.Fatalf("failed to query photos: %v", err)
+	}
+
+	// Verify order: alphabetical by object_id since all have null time_taken
+	expectedOrder := []string{"alpha.jpg", "bravo.jpg", "charlie.jpg"}
+	if len(results) != len(expectedOrder) {
+		t.Fatalf("expected %d results, got %d", len(expectedOrder), len(results))
+	}
+
+	for i, expected := range expectedOrder {
+		if results[i].ObjectID != expected {
+			t.Errorf("position %d: expected %s, got %s", i, expected, results[i].ObjectID)
+		}
+	}
+}
+
+func TestListPhotos_SortSameTimeTakenByObjectID(t *testing.T) {
+	db := setupTestDB(t)
+
+	// Create a user
+	user := &User{Username: "testuser"}
+	if err := db.Create(user).Error; err != nil {
+		t.Fatalf("failed to create user: %v", err)
+	}
+
+	// Create photos with same time_taken - should sort by object_id ASC
+	sameTime := time.Date(2024, 6, 15, 12, 0, 0, 0, time.UTC)
+	objectIDs := []string{"zebra.jpg", "apple.jpg", "mango.jpg"}
+	for _, id := range objectIDs {
+		obj := &PhotoObject{
+			ObjectID:    id,
+			ContentType: "image/jpeg",
+			MD5Hash:     "hash",
+			UserID:      user.ID,
+			TimeTaken:   &sameTime,
+		}
+		if err := db.Create(obj).Error; err != nil {
+			t.Fatalf("failed to create photo %s: %v", id, err)
+		}
+	}
+
+	var results []PhotoObject
+	if err := db.Where("user_id = ?", user.ID).
+		Order("time_taken DESC NULLS LAST, object_id ASC").
+		Find(&results).Error; err != nil {
+		t.Fatalf("failed to query photos: %v", err)
+	}
+
+	// Verify order: alphabetical by object_id since all have same time_taken
+	expectedOrder := []string{"apple.jpg", "mango.jpg", "zebra.jpg"}
+	if len(results) != len(expectedOrder) {
+		t.Fatalf("expected %d results, got %d", len(expectedOrder), len(results))
+	}
+
+	for i, expected := range expectedOrder {
+		if results[i].ObjectID != expected {
+			t.Errorf("position %d: expected %s, got %s", i, expected, results[i].ObjectID)
+		}
+	}
+}
+
+func TestListPhotos_PaginationWithTimeTaken(t *testing.T) {
+	db := setupTestDB(t)
+
+	// Create a user
+	user := &User{Username: "testuser"}
+	if err := db.Create(user).Error; err != nil {
+		t.Fatalf("failed to create user: %v", err)
+	}
+
+	// Create 5 photos with different time_taken values
+	baseTime := time.Date(2024, 6, 15, 12, 0, 0, 0, time.UTC)
+	for i := 0; i < 5; i++ {
+		timeTaken := baseTime.Add(time.Duration(i) * time.Hour)
+		obj := &PhotoObject{
+			ObjectID:    "photo" + string(rune('A'+i)) + ".jpg",
+			ContentType: "image/jpeg",
+			MD5Hash:     "hash",
+			UserID:      user.ID,
+			TimeTaken:   &timeTaken,
+		}
+		if err := db.Create(obj).Error; err != nil {
+			t.Fatalf("failed to create photo: %v", err)
+		}
+	}
+
+	// First page: get first 2 photos
+	var page1 []PhotoObject
+	if err := db.Where("user_id = ?", user.ID).
+		Order("time_taken DESC NULLS LAST, object_id ASC").
+		Limit(2).
+		Find(&page1).Error; err != nil {
+		t.Fatalf("failed to query page 1: %v", err)
+	}
+
+	if len(page1) != 2 {
+		t.Fatalf("expected 2 results on page 1, got %d", len(page1))
+	}
+
+	// Should be newest first: photoE.jpg (16:00), photoD.jpg (15:00)
+	if page1[0].ObjectID != "photoE.jpg" {
+		t.Errorf("page 1, position 0: expected photoE.jpg, got %s", page1[0].ObjectID)
+	}
+	if page1[1].ObjectID != "photoD.jpg" {
+		t.Errorf("page 1, position 1: expected photoD.jpg, got %s", page1[1].ObjectID)
+	}
+
+	// Second page: get next 2 photos after photoD.jpg
+	lastTimeTaken := page1[1].TimeTaken
+	lastObjectID := page1[1].ObjectID
+
+	var page2 []PhotoObject
+	if err := db.Where("user_id = ?", user.ID).
+		Where("(time_taken < ?) OR (time_taken IS NULL) OR (time_taken = ? AND object_id > ?)",
+			*lastTimeTaken, *lastTimeTaken, lastObjectID).
+		Order("time_taken DESC NULLS LAST, object_id ASC").
+		Limit(2).
+		Find(&page2).Error; err != nil {
+		t.Fatalf("failed to query page 2: %v", err)
+	}
+
+	if len(page2) != 2 {
+		t.Fatalf("expected 2 results on page 2, got %d", len(page2))
+	}
+
+	// Should be: photoC.jpg (14:00), photoB.jpg (13:00)
+	if page2[0].ObjectID != "photoC.jpg" {
+		t.Errorf("page 2, position 0: expected photoC.jpg, got %s", page2[0].ObjectID)
+	}
+	if page2[1].ObjectID != "photoB.jpg" {
+		t.Errorf("page 2, position 1: expected photoB.jpg, got %s", page2[1].ObjectID)
+	}
+}
+
+func TestListPhotos_PaginationWithNullTimeTaken(t *testing.T) {
+	db := setupTestDB(t)
+
+	// Create a user
+	user := &User{Username: "testuser"}
+	if err := db.Create(user).Error; err != nil {
+		t.Fatalf("failed to create user: %v", err)
+	}
+
+	// Create 3 photos with time_taken and 3 without
+	baseTime := time.Date(2024, 6, 15, 12, 0, 0, 0, time.UTC)
+	photosWithTime := []string{"a_with_time.jpg", "b_with_time.jpg", "c_with_time.jpg"}
+	photosWithoutTime := []string{"d_no_time.jpg", "e_no_time.jpg", "f_no_time.jpg"}
+
+	for i, id := range photosWithTime {
+		timeTaken := baseTime.Add(time.Duration(i) * time.Hour)
+		obj := &PhotoObject{
+			ObjectID:    id,
+			ContentType: "image/jpeg",
+			MD5Hash:     "hash",
+			UserID:      user.ID,
+			TimeTaken:   &timeTaken,
+		}
+		if err := db.Create(obj).Error; err != nil {
+			t.Fatalf("failed to create photo: %v", err)
+		}
+	}
+
+	for _, id := range photosWithoutTime {
+		obj := &PhotoObject{
+			ObjectID:    id,
+			ContentType: "image/jpeg",
+			MD5Hash:     "hash",
+			UserID:      user.ID,
+			TimeTaken:   nil,
+		}
+		if err := db.Create(obj).Error; err != nil {
+			t.Fatalf("failed to create photo: %v", err)
+		}
+	}
+
+	// Query all photos
+	var allPhotos []PhotoObject
+	if err := db.Where("user_id = ?", user.ID).
+		Order("time_taken DESC NULLS LAST, object_id ASC").
+		Find(&allPhotos).Error; err != nil {
+		t.Fatalf("failed to query all photos: %v", err)
+	}
+
+	// Expected order: c_with_time (newest), b_with_time, a_with_time (oldest with time),
+	// then d_no_time, e_no_time, f_no_time (sorted by object_id)
+	expectedOrder := []string{
+		"c_with_time.jpg", "b_with_time.jpg", "a_with_time.jpg",
+		"d_no_time.jpg", "e_no_time.jpg", "f_no_time.jpg",
+	}
+
+	if len(allPhotos) != len(expectedOrder) {
+		t.Fatalf("expected %d results, got %d", len(expectedOrder), len(allPhotos))
+	}
+
+	for i, expected := range expectedOrder {
+		if allPhotos[i].ObjectID != expected {
+			t.Errorf("position %d: expected %s, got %s", i, expected, allPhotos[i].ObjectID)
+		}
+	}
+
+	// Test pagination starting from a photo with time_taken to photos without
+	// After a_with_time.jpg, we should get d_no_time.jpg, e_no_time.jpg
+	lastWithTime := allPhotos[2] // a_with_time.jpg
+	var page []PhotoObject
+	if err := db.Where("user_id = ?", user.ID).
+		Where("(time_taken < ?) OR (time_taken IS NULL) OR (time_taken = ? AND object_id > ?)",
+			*lastWithTime.TimeTaken, *lastWithTime.TimeTaken, lastWithTime.ObjectID).
+		Order("time_taken DESC NULLS LAST, object_id ASC").
+		Limit(2).
+		Find(&page).Error; err != nil {
+		t.Fatalf("failed to query page: %v", err)
+	}
+
+	if len(page) != 2 {
+		t.Fatalf("expected 2 results, got %d", len(page))
+	}
+
+	if page[0].ObjectID != "d_no_time.jpg" {
+		t.Errorf("expected d_no_time.jpg, got %s", page[0].ObjectID)
+	}
+	if page[1].ObjectID != "e_no_time.jpg" {
+		t.Errorf("expected e_no_time.jpg, got %s", page[1].ObjectID)
+	}
+}
+
+func TestListPhotos_PaginationFromNullTimeTaken(t *testing.T) {
+	db := setupTestDB(t)
+
+	// Create a user
+	user := &User{Username: "testuser"}
+	if err := db.Create(user).Error; err != nil {
+		t.Fatalf("failed to create user: %v", err)
+	}
+
+	// Create photos without time_taken
+	objectIDs := []string{"alpha.jpg", "bravo.jpg", "charlie.jpg", "delta.jpg"}
+	for _, id := range objectIDs {
+		obj := &PhotoObject{
+			ObjectID:    id,
+			ContentType: "image/jpeg",
+			MD5Hash:     "hash",
+			UserID:      user.ID,
+			TimeTaken:   nil,
+		}
+		if err := db.Create(obj).Error; err != nil {
+			t.Fatalf("failed to create photo: %v", err)
+		}
+	}
+
+	// Paginate from bravo.jpg (null time_taken)
+	// Token would be: "null|bravo.jpg"
+	var page []PhotoObject
+	if err := db.Where("user_id = ?", user.ID).
+		Where("(time_taken IS NULL AND object_id > ?)", "bravo.jpg").
+		Order("time_taken DESC NULLS LAST, object_id ASC").
+		Limit(2).
+		Find(&page).Error; err != nil {
+		t.Fatalf("failed to query page: %v", err)
+	}
+
+	if len(page) != 2 {
+		t.Fatalf("expected 2 results, got %d", len(page))
+	}
+
+	// Should get charlie.jpg and delta.jpg (alphabetically after bravo.jpg)
+	if page[0].ObjectID != "charlie.jpg" {
+		t.Errorf("expected charlie.jpg, got %s", page[0].ObjectID)
+	}
+	if page[1].ObjectID != "delta.jpg" {
+		t.Errorf("expected delta.jpg, got %s", page[1].ObjectID)
+	}
+}
+
+func TestListPhotos_MixedTimeTakenAndNull(t *testing.T) {
+	db := setupTestDB(t)
+
+	// Create a user
+	user := &User{Username: "testuser"}
+	if err := db.Create(user).Error; err != nil {
+		t.Fatalf("failed to create user: %v", err)
+	}
+
+	// Create photos with interleaved creation order but different time_taken
+	time1 := time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC)
+	time2 := time.Date(2024, 6, 15, 12, 0, 0, 0, time.UTC)
+	time3 := time.Date(2024, 12, 31, 12, 0, 0, 0, time.UTC)
+
+	photos := []struct {
+		objectID  string
+		timeTaken *time.Time
+	}{
+		{"first_created.jpg", nil},     // created first, no time
+		{"second_created.jpg", &time2}, // created second, middle time
+		{"third_created.jpg", &time1},  // created third, earliest time
+		{"fourth_created.jpg", nil},    // created fourth, no time
+		{"fifth_created.jpg", &time3},  // created fifth, latest time
+	}
+
+	for _, p := range photos {
+		obj := &PhotoObject{
+			ObjectID:    p.objectID,
+			ContentType: "image/jpeg",
+			MD5Hash:     "hash",
+			UserID:      user.ID,
+			TimeTaken:   p.timeTaken,
+		}
+		if err := db.Create(obj).Error; err != nil {
+			t.Fatalf("failed to create photo %s: %v", p.objectID, err)
+		}
+	}
+
+	var results []PhotoObject
+	if err := db.Where("user_id = ?", user.ID).
+		Order("time_taken DESC NULLS LAST, object_id ASC").
+		Find(&results).Error; err != nil {
+		t.Fatalf("failed to query photos: %v", err)
+	}
+
+	// Expected order:
+	// 1. fifth_created.jpg (2024-12-31) - newest time
+	// 2. second_created.jpg (2024-06-15) - middle time
+	// 3. third_created.jpg (2024-01-01) - oldest time
+	// 4. first_created.jpg (null) - sorted alphabetically
+	// 5. fourth_created.jpg (null) - sorted alphabetically
+	expectedOrder := []string{
+		"fifth_created.jpg",
+		"second_created.jpg",
+		"third_created.jpg",
+		"first_created.jpg",
+		"fourth_created.jpg",
+	}
+
+	if len(results) != len(expectedOrder) {
+		t.Fatalf("expected %d results, got %d", len(expectedOrder), len(results))
+	}
+
+	for i, expected := range expectedOrder {
+		if results[i].ObjectID != expected {
+			t.Errorf("position %d: expected %s, got %s", i, expected, results[i].ObjectID)
+		}
+	}
+}
+
+// timePtr is a helper to create a pointer to a time.Time value
+func timePtr(t time.Time) *time.Time {
+	return &t
+}

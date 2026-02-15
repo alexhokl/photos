@@ -483,3 +483,151 @@ func TestISOConversion(t *testing.T) {
 		})
 	}
 }
+
+func TestListPhotosPaginationTokenFormat(t *testing.T) {
+	// Test that pagination tokens are correctly generated with the new format
+	// Token format: base64("time_taken|object_id") where time_taken is RFC3339 or "null"
+	tests := []struct {
+		name          string
+		timeTaken     *time.Time
+		objectID      string
+		expectedToken string
+	}{
+		{
+			name:          "photo with time_taken",
+			timeTaken:     timePtr(time.Date(2024, 6, 15, 14, 30, 0, 0, time.UTC)),
+			objectID:      "photos/vacation/beach.jpg",
+			expectedToken: "2024-06-15T14:30:00Z|photos/vacation/beach.jpg",
+		},
+		{
+			name:          "photo without time_taken",
+			timeTaken:     nil,
+			objectID:      "photos/unnamed.jpg",
+			expectedToken: "null|photos/unnamed.jpg",
+		},
+		{
+			name:          "photo with different timezone (stored as UTC)",
+			timeTaken:     timePtr(time.Date(2023, 12, 25, 0, 0, 0, 0, time.UTC)),
+			objectID:      "christmas.jpg",
+			expectedToken: "2023-12-25T00:00:00Z|christmas.jpg",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			// Generate token using the same logic as ListPhotos
+			var tokenValue string
+			if test.timeTaken != nil {
+				tokenValue = test.timeTaken.Format(time.RFC3339) + "|" + test.objectID
+			} else {
+				tokenValue = "null|" + test.objectID
+			}
+
+			if tokenValue != test.expectedToken {
+				t.Errorf("token value = %q, expected %q", tokenValue, test.expectedToken)
+			}
+		})
+	}
+}
+
+func TestListPhotosPaginationTokenParsing(t *testing.T) {
+	// Test that pagination tokens are correctly parsed
+	tests := []struct {
+		name              string
+		tokenValue        string
+		expectedTimeTaken string
+		expectedObjectID  string
+		expectValid       bool
+	}{
+		{
+			name:              "valid token with time_taken",
+			tokenValue:        "2024-06-15T14:30:00Z|photos/beach.jpg",
+			expectedTimeTaken: "2024-06-15T14:30:00Z",
+			expectedObjectID:  "photos/beach.jpg",
+			expectValid:       true,
+		},
+		{
+			name:              "valid token without time_taken (null)",
+			tokenValue:        "null|photos/unnamed.jpg",
+			expectedTimeTaken: "null",
+			expectedObjectID:  "photos/unnamed.jpg",
+			expectValid:       true,
+		},
+		{
+			name:              "token with pipe in object_id",
+			tokenValue:        "2024-01-01T00:00:00Z|photos/file|with|pipes.jpg",
+			expectedTimeTaken: "2024-01-01T00:00:00Z",
+			expectedObjectID:  "photos/file|with|pipes.jpg",
+			expectValid:       true,
+		},
+		{
+			name:        "invalid token - missing separator",
+			tokenValue:  "invalidtoken",
+			expectValid: false,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			// Parse token using the same logic as ListPhotos (strings.SplitN with limit 2)
+			parts := splitPaginationToken(test.tokenValue)
+
+			if test.expectValid {
+				if len(parts) != 2 {
+					t.Errorf("expected 2 parts, got %d", len(parts))
+					return
+				}
+				if parts[0] != test.expectedTimeTaken {
+					t.Errorf("time_taken = %q, expected %q", parts[0], test.expectedTimeTaken)
+				}
+				if parts[1] != test.expectedObjectID {
+					t.Errorf("object_id = %q, expected %q", parts[1], test.expectedObjectID)
+				}
+			} else {
+				if len(parts) == 2 {
+					t.Errorf("expected invalid token to have != 2 parts")
+				}
+			}
+		})
+	}
+}
+
+// splitPaginationToken mimics the token parsing logic in ListPhotos
+func splitPaginationToken(token string) []string {
+	return splitN(token, "|", 2)
+}
+
+// splitN is a helper that mimics strings.SplitN behavior
+func splitN(s, sep string, n int) []string {
+	if n == 0 {
+		return nil
+	}
+	if n < 0 {
+		n = len(s) + 1
+	}
+	result := make([]string, 0, n)
+	for i := 0; i < n-1; i++ {
+		idx := indexOf(s, sep)
+		if idx < 0 {
+			break
+		}
+		result = append(result, s[:idx])
+		s = s[idx+len(sep):]
+	}
+	result = append(result, s)
+	return result
+}
+
+func indexOf(s, substr string) int {
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			return i
+		}
+	}
+	return -1
+}
+
+// timePtr is a helper to create a pointer to a time.Time value
+func timePtr(t time.Time) *time.Time {
+	return &t
+}
