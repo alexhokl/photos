@@ -1,10 +1,25 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:photo_manager/photo_manager.dart';
 import 'package:photos/services/library_service.dart';
 import 'package:photos/services/upload_service.dart';
 import 'package:photos/widgets/settings_page.dart';
+
+/// Represents a group of photos taken on the same date.
+class PhotoDateGroup {
+  final DateTime date;
+  final List<AssetEntity> photos;
+
+  PhotoDateGroup({required this.date, required this.photos});
+
+  /// Returns the date formatted for display (e.g., "February 15, 2026").
+  String get formattedDate => DateFormat.yMMMMd().format(date);
+
+  /// Returns the day of week (e.g., "Saturday").
+  String get dayOfWeek => DateFormat.EEEE().format(date);
+}
 
 class PhotoGrid extends StatefulWidget {
   final void Function(int selectedCount)? onSelectionChanged;
@@ -20,6 +35,7 @@ enum PhotoGridAction { delete, upload, uploadTo }
 
 class PhotoGridState extends State<PhotoGrid> {
   List<AssetEntity> _photos = [];
+  List<PhotoDateGroup> _photoGroups = [];
   bool _isLoading = true;
   bool _hasPermission = false;
   String? _errorMessage;
@@ -95,6 +111,7 @@ class PhotoGridState extends State<PhotoGrid> {
       if (albums.isEmpty) {
         setState(() {
           _photos = [];
+          _photoGroups = [];
           _isLoading = false;
           _hasMorePhotos = false;
         });
@@ -113,6 +130,7 @@ class PhotoGridState extends State<PhotoGrid> {
 
       setState(() {
         _photos = photos;
+        _photoGroups = _groupPhotosByDate(photos);
         _currentPage = 1;
         _hasMorePhotos = photos.length < totalCount;
         _isLoading = false;
@@ -123,6 +141,58 @@ class PhotoGridState extends State<PhotoGrid> {
         _isLoading = false;
       });
     }
+  }
+
+  /// Groups photos by their creation date (local timezone).
+  /// Returns a list sorted in reverse chronological order.
+  List<PhotoDateGroup> _groupPhotosByDate(List<AssetEntity> photos) {
+    final Map<DateTime, List<AssetEntity>> groups = {};
+
+    for (final photo in photos) {
+      // Use createDateTime which is in local timezone
+      final date = photo.createDateTime;
+      // Normalize to date-only (midnight)
+      final dateOnly = DateTime(date.year, date.month, date.day);
+
+      groups.putIfAbsent(dateOnly, () => []);
+      groups[dateOnly]!.add(photo);
+    }
+
+    // Sort dates in reverse chronological order
+    final sortedDates = groups.keys.toList()..sort((a, b) => b.compareTo(a));
+
+    return sortedDates
+        .map((date) => PhotoDateGroup(date: date, photos: groups[date]!))
+        .toList();
+  }
+
+  /// Merges new photos into existing date groups, maintaining reverse chronological order.
+  void _mergePhotosIntoGroups(List<AssetEntity> newPhotos) {
+    final Map<DateTime, List<AssetEntity>> existingGroups = {};
+
+    // Build map from existing groups
+    for (final group in _photoGroups) {
+      existingGroups[group.date] = List.from(group.photos);
+    }
+
+    // Add new photos to appropriate groups
+    for (final photo in newPhotos) {
+      final date = photo.createDateTime;
+      final dateOnly = DateTime(date.year, date.month, date.day);
+
+      existingGroups.putIfAbsent(dateOnly, () => []);
+      existingGroups[dateOnly]!.add(photo);
+    }
+
+    // Sort dates in reverse chronological order
+    final sortedDates = existingGroups.keys.toList()
+      ..sort((a, b) => b.compareTo(a));
+
+    _photoGroups = sortedDates
+        .map(
+          (date) => PhotoDateGroup(date: date, photos: existingGroups[date]!),
+        )
+        .toList();
   }
 
   Future<void> _loadMorePhotos() async {
@@ -141,6 +211,7 @@ class PhotoGridState extends State<PhotoGrid> {
 
       setState(() {
         _photos.addAll(morePhotos);
+        _mergePhotosIntoGroups(morePhotos);
         _currentPage++;
         _hasMorePhotos = _photos.length < totalCount;
         _isLoadingMore = false;
@@ -425,40 +496,109 @@ class PhotoGridState extends State<PhotoGrid> {
       );
     }
 
-    return GridView.builder(
+    return CustomScrollView(
       controller: _scrollController,
-      padding: const EdgeInsets.all(4),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 3,
-        crossAxisSpacing: 4,
-        mainAxisSpacing: 4,
-      ),
-      itemCount: _photos.length + (_isLoadingMore ? 1 : 0),
-      itemBuilder: (context, index) {
-        // Show loading indicator at the end
-        if (index >= _photos.length) {
-          return const Center(
-            child: Padding(
-              padding: EdgeInsets.all(16.0),
-              child: CircularProgressIndicator(),
+      slivers: [
+        // Build date groups with headers and grids
+        for (final group in _photoGroups) ...[
+          // Date header
+          SliverToBoxAdapter(
+            child: _DateHeader(
+              formattedDate: group.formattedDate,
+              dayOfWeek: group.dayOfWeek,
+              photoCount: group.photos.length,
             ),
-          );
-        }
+          ),
+          // Photo grid for this date
+          SliverPadding(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+            sliver: SliverGrid(
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 3,
+                crossAxisSpacing: 4,
+                mainAxisSpacing: 4,
+              ),
+              delegate: SliverChildBuilderDelegate((context, index) {
+                final photo = group.photos[index];
+                // Calculate global index for onPhotoTap
+                final globalIndex = _photos.indexOf(photo);
+                return PhotoThumbnail(
+                  asset: photo,
+                  isSelected: _selectedPhotoIds.contains(photo.id),
+                  onTap: () {
+                    if (_isSelectionMode) {
+                      _toggleSelection(photo);
+                    } else {
+                      widget.onPhotoTap?.call(photo, globalIndex);
+                    }
+                  },
+                  onLongPress: () => _enterSelectionMode(photo),
+                );
+              }, childCount: group.photos.length),
+            ),
+          ),
+        ],
+        // Loading indicator at the bottom
+        if (_isLoadingMore)
+          const SliverToBoxAdapter(
+            child: Center(
+              child: Padding(
+                padding: EdgeInsets.all(16.0),
+                child: CircularProgressIndicator(),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
 
-        final photo = _photos[index];
-        return PhotoThumbnail(
-          asset: photo,
-          isSelected: _selectedPhotoIds.contains(photo.id),
-          onTap: () {
-            if (_isSelectionMode) {
-              _toggleSelection(photo);
-            } else {
-              widget.onPhotoTap?.call(photo, index);
-            }
-          },
-          onLongPress: () => _enterSelectionMode(photo),
-        );
-      },
+/// Widget to display the date header for a group of photos.
+class _DateHeader extends StatelessWidget {
+  final String formattedDate;
+  final String dayOfWeek;
+  final int photoCount;
+
+  const _DateHeader({
+    required this.formattedDate,
+    required this.dayOfWeek,
+    required this.photoCount,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 16, 12, 8),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  formattedDate,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  dayOfWeek,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Text(
+            '$photoCount photo${photoCount == 1 ? '' : 's'}',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
