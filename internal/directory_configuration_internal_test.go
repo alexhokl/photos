@@ -32,6 +32,16 @@ func TestParseMarkdownFrontmatter(t *testing.T) {
 			wantError: false,
 		},
 		{
+			name:      "valid frontmatter with sort_photos_in_chronological_order true",
+			markdown:  "---\nsort_photos_in_chronological_order: true\n---\n# Content",
+			wantError: false,
+		},
+		{
+			name:      "valid frontmatter with sort_photos_in_chronological_order false",
+			markdown:  "---\nsort_photos_in_chronological_order: false\n---\n# Content",
+			wantError: false,
+		},
+		{
 			name:      "missing opening delimiter",
 			markdown:  "# Hello\n---\n",
 			wantError: true,
@@ -101,6 +111,12 @@ func TestParseMarkdownFrontmatter(t *testing.T) {
 			wantError: true,
 			errorMsg:  "missing closing YAML frontmatter delimiter ---",
 		},
+		{
+			name:      "invalid value for sort_photos_in_chronological_order",
+			markdown:  "---\nsort_photos_in_chronological_order: invalid\n---\n# Content",
+			wantError: true,
+			errorMsg:  "invalid frontmatter",
+		},
 	}
 
 	for _, test := range tests {
@@ -136,9 +152,49 @@ func TestParseMarkdownFrontmatter_ReturnsDirectoryConfiguration(t *testing.T) {
 		t.Fatal("expected non-nil DirectoryConfiguration")
 	}
 
-	// Since DirectoryConfiguration is currently empty, we just verify it's the correct type
-	// When fields are added, additional assertions can be made here
-	_ = *config // Dereference to ensure it's a valid pointer
+	// Verify default value for SortPhotosInChronologicalOrder is false
+	if config.SortPhotosInChronologicalOrder != false {
+		t.Errorf("expected SortPhotosInChronologicalOrder to be false by default, got %v", config.SortPhotosInChronologicalOrder)
+	}
+}
+
+func TestParseMarkdownFrontmatter_SortPhotosInChronologicalOrder(t *testing.T) {
+	tests := []struct {
+		name     string
+		markdown string
+		expected bool
+	}{
+		{
+			name:     "sort_photos_in_chronological_order set to true",
+			markdown: "---\nsort_photos_in_chronological_order: true\n---\n# Content",
+			expected: true,
+		},
+		{
+			name:     "sort_photos_in_chronological_order set to false",
+			markdown: "---\nsort_photos_in_chronological_order: false\n---\n# Content",
+			expected: false,
+		},
+		{
+			name:     "sort_photos_in_chronological_order not specified defaults to false",
+			markdown: "---\n---\n# Content",
+			expected: false,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			config, err := ParseMarkdownFrontmatter(test.markdown)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if config == nil {
+				t.Fatal("expected non-nil DirectoryConfiguration")
+			}
+			if config.SortPhotosInChronologicalOrder != test.expected {
+				t.Errorf("expected SortPhotosInChronologicalOrder to be %v, got %v", test.expected, config.SortPhotosInChronologicalOrder)
+			}
+		})
+	}
 }
 
 func containsString(s, substr string) bool {

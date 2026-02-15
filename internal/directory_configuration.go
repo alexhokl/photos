@@ -10,6 +10,7 @@ import (
 // DirectoryConfiguration represents the frontmatter schema for directory index.md files.
 // It is used to configure directory-specific settings.
 type DirectoryConfiguration struct {
+	SortPhotosInChronologicalOrder bool `yaml:"sort_photos_in_chronological_order,omitempty"`
 }
 
 // ParseMarkdownFrontmatter extracts and validates the YAML frontmatter from markdown content.
@@ -21,13 +22,13 @@ func ParseMarkdownFrontmatter(markdown string) (*DirectoryConfiguration, error) 
 
 	// Find the closing delimiter
 	rest := markdown[3:] // Skip the opening ---
-	endIndex := strings.Index(rest, "\n---")
-	if endIndex == -1 {
+	before, _, ok := strings.Cut(rest, "\n---")
+	if !ok {
 		return nil, fmt.Errorf("missing closing YAML frontmatter delimiter ---")
 	}
 
 	// Extract the YAML content (skip leading newline if present)
-	yamlContent := rest[:endIndex]
+	yamlContent := before
 	yamlContent = strings.TrimPrefix(yamlContent, "\n")
 
 	// Parse the YAML into DirectoryConfiguration

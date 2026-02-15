@@ -523,6 +523,15 @@ func (s *LibraryServer) ListPhotos(ctx context.Context, req *proto.ListPhotosReq
 		pageSize = 1000
 	}
 
+	// Check directory configuration for sort order
+	// Default: newest first (DESC), chronological order: oldest first (ASC)
+	sortChronological := false
+	if prefix != "" {
+		if config := s.getDirectoryConfiguration(ctx, prefix); config != nil {
+			sortChronological = config.SortPhotosInChronologicalOrder
+		}
+	}
+
 	// Build database query
 	query := s.DB.Where("user_id = ?", userID)
 
@@ -542,25 +551,58 @@ func (s *LibraryServer) ListPhotos(ctx context.Context, req *proto.ListPhotosReq
 		if len(tokenParts) != 2 {
 			return nil, status.Errorf(codes.InvalidArgument, "invalid page token format")
 		}
-		tokenTimeTaken := tokenParts[0]
+		tokenTimeTakenStr := tokenParts[0]
 		tokenObjectID := tokenParts[1]
 
-		if tokenTimeTaken == "null" {
-			// For photos without time_taken, paginate by object_id
-			query = query.Where("(time_taken IS NULL AND object_id > ?)", tokenObjectID)
+		if sortChronological {
+			// Chronological order (oldest first): get newer photos
+			if tokenTimeTakenStr == "null" {
+				// For photos without time_taken, paginate by object_id
+				query = query.Where("(time_taken IS NULL AND object_id > ?)", tokenObjectID)
+			} else {
+				// Parse the time string back to time.Time for proper comparison
+				tokenTimeTaken, err := time.Parse(time.RFC3339, tokenTimeTakenStr)
+				if err != nil {
+					return nil, status.Errorf(codes.InvalidArgument, "invalid time format in page token")
+				}
+				// For photos with time_taken, get newer photos or same time with greater object_id
+				query = query.Where(
+					"(time_taken > ?) OR (time_taken = ? AND object_id > ?)",
+					tokenTimeTaken, tokenTimeTaken, tokenObjectID,
+				)
+			}
 		} else {
-			// For photos with time_taken, get older photos or same time with greater object_id
-			query = query.Where(
-				"(time_taken < ?) OR (time_taken IS NULL) OR (time_taken = ? AND object_id > ?)",
-				tokenTimeTaken, tokenTimeTaken, tokenObjectID,
-			)
+			// Default order (newest first): get older photos
+			if tokenTimeTakenStr == "null" {
+				// For photos without time_taken, paginate by object_id
+				query = query.Where("(time_taken IS NULL AND object_id > ?)", tokenObjectID)
+			} else {
+				// Parse the time string back to time.Time for proper comparison
+				tokenTimeTaken, err := time.Parse(time.RFC3339, tokenTimeTakenStr)
+				if err != nil {
+					return nil, status.Errorf(codes.InvalidArgument, "invalid time format in page token")
+				}
+				// For photos with time_taken, get older photos or same time with greater object_id
+				query = query.Where(
+					"(time_taken < ?) OR (time_taken IS NULL) OR (time_taken = ? AND object_id > ?)",
+					tokenTimeTaken, tokenTimeTaken, tokenObjectID,
+				)
+			}
 		}
 	}
 
 	// Fetch one extra record to determine if there are more results
-	// Sort by time_taken DESC (newest first), with NULLs last, then by object_id ASC for stable ordering
+	// Sort order depends on directory configuration
 	var photoObjects []database.PhotoObject
-	if err := query.Order("time_taken DESC NULLS LAST, object_id ASC").Limit(int(pageSize) + 1).Find(&photoObjects).Error; err != nil {
+	var orderClause string
+	if sortChronological {
+		// Chronological order: oldest first, NULLs last
+		orderClause = "time_taken ASC NULLS LAST, object_id ASC"
+	} else {
+		// Default order: newest first, NULLs last
+		orderClause = "time_taken DESC NULLS LAST, object_id ASC"
+	}
+	if err := query.Order(orderClause).Limit(int(pageSize) + 1).Find(&photoObjects).Error; err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to list photos: %v", err)
 	}
 
@@ -1006,6 +1048,41 @@ func getGCSObjectsMap(ctx context.Context, client *storage.Client, bucketName st
 	}
 
 	return objects, nil
+}
+
+// getDirectoryConfiguration reads the index.md file from the specified prefix and parses
+// its frontmatter to get the DirectoryConfiguration. Returns nil if the index.md doesn't
+// exist or cannot be parsed, allowing graceful fallback to default behavior.
+func (s *LibraryServer) getDirectoryConfiguration(ctx context.Context, prefix string) *DirectoryConfiguration {
+	if s.GCSClient == nil || s.BucketName == "" {
+		return nil
+	}
+
+	// Construct the object ID for index.md
+	objectID := strings.TrimSuffix(prefix, "/") + "/index.md"
+
+	// Read the markdown file from GCS
+	bucket := s.GCSClient.Bucket(s.BucketName)
+	obj := bucket.Object(objectID)
+
+	reader, err := obj.NewReader(ctx)
+	if err != nil {
+		// File doesn't exist or can't be read - return nil for default behavior
+		return nil
+	}
+	defer func() { _ = reader.Close() }()
+
+	data, err := io.ReadAll(reader)
+	if err != nil {
+		return nil
+	}
+
+	config, err := ParseMarkdownFrontmatter(string(data))
+	if err != nil {
+		return nil
+	}
+
+	return config
 }
 
 // CreateMarkdown creates an index.md file with YAML frontmatter in a specified prefix (directory).
