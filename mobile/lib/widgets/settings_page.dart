@@ -9,6 +9,7 @@ class BackendConfig {
   final String defaultDirectory;
   final bool deleteAfterUpload;
   final int uploadTimeoutSeconds;
+  final int signedUrlExpirationSeconds;
 
   const BackendConfig({
     required this.host,
@@ -16,6 +17,8 @@ class BackendConfig {
     this.defaultDirectory = '',
     this.deleteAfterUpload = false,
     this.uploadTimeoutSeconds = SettingsPage.defaultUploadTimeoutSeconds,
+    this.signedUrlExpirationSeconds =
+        SettingsPage.defaultSignedUrlExpirationSeconds,
   });
 
   /// Parse a URL string into host and port
@@ -25,6 +28,8 @@ class BackendConfig {
     String defaultDirectory = '',
     bool deleteAfterUpload = false,
     int uploadTimeoutSeconds = SettingsPage.defaultUploadTimeoutSeconds,
+    int signedUrlExpirationSeconds =
+        SettingsPage.defaultSignedUrlExpirationSeconds,
   }) {
     final uri = Uri.parse(url);
     final host = uri.host;
@@ -43,6 +48,7 @@ class BackendConfig {
       defaultDirectory: defaultDirectory,
       deleteAfterUpload: deleteAfterUpload,
       uploadTimeoutSeconds: uploadTimeoutSeconds,
+      signedUrlExpirationSeconds: signedUrlExpirationSeconds,
     );
   }
 
@@ -59,11 +65,15 @@ class BackendConfig {
     final uploadTimeoutSeconds =
         await prefs.getInt(SettingsPage.uploadTimeoutKey) ??
         SettingsPage.defaultUploadTimeoutSeconds;
+    final signedUrlExpirationSeconds =
+        await prefs.getInt(SettingsPage.signedUrlExpirationKey) ??
+        SettingsPage.defaultSignedUrlExpirationSeconds;
     return BackendConfig.fromUrl(
       url,
       defaultDirectory: defaultDir,
       deleteAfterUpload: deleteAfterUpload,
       uploadTimeoutSeconds: uploadTimeoutSeconds,
+      signedUrlExpirationSeconds: signedUrlExpirationSeconds,
     );
   }
 }
@@ -79,6 +89,8 @@ class SettingsPage extends StatefulWidget {
   static const String deleteAfterUploadKey = 'delete_after_upload';
   static const String uploadTimeoutKey = 'upload_timeout_seconds';
   static const int defaultUploadTimeoutSeconds = 30;
+  static const String signedUrlExpirationKey = 'signed_url_expiration_seconds';
+  static const int defaultSignedUrlExpirationSeconds = 300;
 
   @override
   State<SettingsPage> createState() => _SettingsPageState();
@@ -88,6 +100,8 @@ class _SettingsPageState extends State<SettingsPage> {
   final TextEditingController _backendUrlController = TextEditingController();
   final TextEditingController _directoryController = TextEditingController();
   final TextEditingController _uploadTimeoutController =
+      TextEditingController();
+  final TextEditingController _signedUrlExpirationController =
       TextEditingController();
   late final SharedPreferencesAsync _prefs;
   bool _isLoading = true;
@@ -127,12 +141,19 @@ class _SettingsPageState extends State<SettingsPage> {
     final uploadTimeoutSeconds = await _prefs.getInt(
       SettingsPage.uploadTimeoutKey,
     );
+    final signedUrlExpirationSeconds = await _prefs.getInt(
+      SettingsPage.signedUrlExpirationKey,
+    );
     setState(() {
       _backendUrlController.text = savedUrl ?? SettingsPage.defaultBackendUrl;
       _directoryController.text = savedDirectory ?? '';
       _deleteAfterUpload = deleteAfterUpload ?? false;
       _uploadTimeoutController.text =
           (uploadTimeoutSeconds ?? SettingsPage.defaultUploadTimeoutSeconds)
+              .toString();
+      _signedUrlExpirationController.text =
+          (signedUrlExpirationSeconds ??
+                  SettingsPage.defaultSignedUrlExpirationSeconds)
               .toString();
       _isLoading = false;
     });
@@ -158,6 +179,13 @@ class _SettingsPageState extends State<SettingsPage> {
     final seconds = int.tryParse(value);
     if (seconds != null && seconds > 0) {
       await _prefs.setInt(SettingsPage.uploadTimeoutKey, seconds);
+    }
+  }
+
+  Future<void> _saveSignedUrlExpiration(String value) async {
+    final seconds = int.tryParse(value);
+    if (seconds != null && seconds > 0 && seconds <= 604800) {
+      await _prefs.setInt(SettingsPage.signedUrlExpirationKey, seconds);
     }
   }
 
@@ -196,6 +224,7 @@ class _SettingsPageState extends State<SettingsPage> {
     _backendUrlController.dispose();
     _directoryController.dispose();
     _uploadTimeoutController.dispose();
+    _signedUrlExpirationController.dispose();
     super.dispose();
   }
 
@@ -355,6 +384,25 @@ class _SettingsPageState extends State<SettingsPage> {
             ),
             keyboardType: TextInputType.number,
             onChanged: _saveUploadTimeout,
+          ),
+          const SizedBox(height: 24),
+          Text(
+            'Photo Viewing Settings',
+            style: Theme.of(context).textTheme.titleLarge,
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _signedUrlExpirationController,
+            decoration: const InputDecoration(
+              labelText: 'Signed URL expiration (in seconds)',
+              hintText: 'Enter expiration in seconds',
+              border: OutlineInputBorder(),
+              prefixIcon: Icon(Icons.link),
+              helperText:
+                  'How long photo URLs remain valid (max 604800 = 7 days)',
+            ),
+            keyboardType: TextInputType.number,
+            onChanged: _saveSignedUrlExpiration,
           ),
         ],
       ),

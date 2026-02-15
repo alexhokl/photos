@@ -209,7 +209,10 @@ class CloudPhotoGridState extends State<CloudPhotoGrid> {
         if (_signedUrlCache.containsKey(photo.objectId)) continue;
 
         try {
-          final result = await libraryService.generateSignedUrl(photo.objectId);
+          final result = await libraryService.generateSignedUrl(
+            photo.objectId,
+            expirationSeconds: config.signedUrlExpirationSeconds,
+          );
           if (mounted) {
             setState(() {
               _signedUrlCache[photo.objectId] = result.signedUrl;
