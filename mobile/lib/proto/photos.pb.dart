@@ -1749,6 +1749,63 @@ class ListDirectoriesResponse extends $pb.GeneratedMessage {
   $pb.PbList<$core.String> get prefixes => $_getList(0);
 }
 
+/// SyncDatabaseRequest specifies options for database synchronization
+class SyncDatabaseRequest extends $pb.GeneratedMessage {
+  factory SyncDatabaseRequest({
+    $core.bool? updateMetadata,
+  }) {
+    final result = create();
+    if (updateMetadata != null) result.updateMetadata = updateMetadata;
+    return result;
+  }
+
+  SyncDatabaseRequest._();
+
+  factory SyncDatabaseRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory SyncDatabaseRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'SyncDatabaseRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'photos'),
+      createEmptyInstance: create)
+    ..aOB(1, _omitFieldNames ? '' : 'updateMetadata')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SyncDatabaseRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SyncDatabaseRequest copyWith(void Function(SyncDatabaseRequest) updates) =>
+      super.copyWith((message) => updates(message as SyncDatabaseRequest))
+          as SyncDatabaseRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static SyncDatabaseRequest create() => SyncDatabaseRequest._();
+  @$core.override
+  SyncDatabaseRequest createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static SyncDatabaseRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<SyncDatabaseRequest>(create);
+  static SyncDatabaseRequest? _defaultInstance;
+
+  /// If true, downloads each photo file to extract EXIF metadata,
+  /// updates GCS object metadata, and sets time_taken in the database
+  @$pb.TagNumber(1)
+  $core.bool get updateMetadata => $_getBF(0);
+  @$pb.TagNumber(1)
+  set updateMetadata($core.bool value) => $_setBool(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasUpdateMetadata() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearUpdateMetadata() => $_clearField(1);
+}
+
 enum StreamingUploadRequest_Data { metadata, chunk, notSet }
 
 /// StreamingUploadRequest is sent as a stream of chunks for large uploads

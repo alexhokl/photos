@@ -119,6 +119,16 @@
             }
           }
         },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/photosSyncDatabaseRequest"
+            }
+          }
+        ],
         "tags": [
           "LibraryService"
         ]
@@ -709,6 +719,16 @@
         }
       },
       "title": "StreamingDownloadResponse is streamed back in chunks"
+    },
+    "photosSyncDatabaseRequest": {
+      "type": "object",
+      "properties": {
+        "updateMetadata": {
+          "type": "boolean",
+          "title": "If true, downloads each photo file to extract EXIF metadata,\nupdates GCS object metadata, and sets time_taken in the database"
+        }
+      },
+      "title": "SyncDatabaseRequest specifies options for database synchronization"
     },
     "photosUpdatePhotoMetadataResponse": {
       "type": "object",

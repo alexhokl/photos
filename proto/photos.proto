@@ -171,6 +171,13 @@ message ListDirectoriesResponse {
   repeated string prefixes = 1;
 }
 
+// SyncDatabaseRequest specifies options for database synchronization
+message SyncDatabaseRequest {
+  // If true, downloads each photo file to extract EXIF metadata,
+  // updates GCS object metadata, and sets time_taken in the database
+  bool update_metadata = 1;
+}
+
 // StreamingUploadRequest is sent as a stream of chunks for large uploads
 message StreamingUploadRequest {
   oneof data {
@@ -297,9 +304,10 @@ service LibraryService {
   }
 
   // SyncDatabase syncs the photo database with the storage backend
-  rpc SyncDatabase(google.protobuf.Empty) returns (google.protobuf.Empty) {
+  rpc SyncDatabase(SyncDatabaseRequest) returns (google.protobuf.Empty) {
     option (google.api.http) = {
       post: "/v1/photos/sync"
+      body: "*"
     };
   }
 }

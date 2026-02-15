@@ -461,6 +461,19 @@ final $typed_data.Uint8List listDirectoriesResponseDescriptor =
     $convert.base64Decode(
         'ChdMaXN0RGlyZWN0b3JpZXNSZXNwb25zZRIaCghwcmVmaXhlcxgBIAMoCVIIcHJlZml4ZXM=');
 
+@$core.Deprecated('Use syncDatabaseRequestDescriptor instead')
+const SyncDatabaseRequest$json = {
+  '1': 'SyncDatabaseRequest',
+  '2': [
+    {'1': 'update_metadata', '3': 1, '4': 1, '5': 8, '10': 'updateMetadata'},
+  ],
+};
+
+/// Descriptor for `SyncDatabaseRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List syncDatabaseRequestDescriptor = $convert.base64Decode(
+    'ChNTeW5jRGF0YWJhc2VSZXF1ZXN0EicKD3VwZGF0ZV9tZXRhZGF0YRgBIAEoCFIOdXBkYXRlTW'
+    'V0YWRhdGE=');
+
 @$core.Deprecated('Use streamingUploadRequestDescriptor instead')
 const StreamingUploadRequest$json = {
   '1': 'StreamingUploadRequest',

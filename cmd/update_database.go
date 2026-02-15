@@ -7,8 +7,13 @@ import (
 	"github.com/alexhokl/photos/proto"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc"
-	"google.golang.org/protobuf/types/known/emptypb"
 )
+
+type updateDatabaseOptions struct {
+	updateMetadata bool
+}
+
+var updateDatabaseOpts updateDatabaseOptions
 
 var updateDatabaseCmd = &cobra.Command{
 	Use:   "database",
@@ -18,6 +23,7 @@ var updateDatabaseCmd = &cobra.Command{
 }
 
 func init() {
+	updateDatabaseCmd.Flags().BoolVar(&updateDatabaseOpts.updateMetadata, "update-metadata", false, "Download each photo to extract EXIF metadata, update GCS object metadata, and set time_taken in the database")
 	updateCmd.AddCommand(updateDatabaseCmd)
 }
 
@@ -33,7 +39,11 @@ func runUpdateDatabase(cmd *cobra.Command, args []string) error {
 
 	client := proto.NewLibraryServiceClient(conn)
 
-	_, err = client.SyncDatabase(context.Background(), &emptypb.Empty{})
+	req := &proto.SyncDatabaseRequest{
+		UpdateMetadata: updateDatabaseOpts.updateMetadata,
+	}
+
+	_, err = client.SyncDatabase(context.Background(), req)
 	if err != nil {
 		return fmt.Errorf("failed to sync database: %w", err)
 	}

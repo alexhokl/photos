@@ -3,6 +3,7 @@ package internal
 import (
 	"context"
 	"encoding/base64"
+	"io"
 	"log/slog"
 	"strconv"
 	"strings"
@@ -703,11 +704,15 @@ func (s *LibraryServer) DeletePhoto(ctx context.Context, req *proto.DeletePhotoR
 // SyncDatabase syncs the photo database with the storage backend.
 // It adds objects that exist in GCS but not in the database,
 // and removes objects from the database that no longer exist in GCS.
-func (s *LibraryServer) SyncDatabase(ctx context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
+// If update_metadata is true, it downloads each photo file, extracts EXIF metadata,
+// updates GCS object metadata, and sets time_taken in the database.
+func (s *LibraryServer) SyncDatabase(ctx context.Context, req *proto.SyncDatabaseRequest) (*emptypb.Empty, error) {
 	userID, ok := ctx.Value(contextKeyUser{}).(uint)
 	if !ok {
 		return nil, status.Errorf(codes.Unauthenticated, "authentication required")
 	}
+
+	updateMetadata := req.GetUpdateMetadata()
 
 	// Get all objects from GCS
 	gcsObjects, err := getGCSObjectsMap(ctx, s.GCSClient, s.BucketName)
@@ -728,7 +733,7 @@ func (s *LibraryServer) SyncDatabase(ctx context.Context, _ *emptypb.Empty) (*em
 	}
 
 	// Track statistics
-	var added, removed int
+	var added, removed, metadataUpdated int
 
 	// Add objects that exist in GCS but not in DB
 	for objectID, attrs := range gcsObjects {
@@ -808,15 +813,85 @@ func (s *LibraryServer) SyncDatabase(ctx context.Context, _ *emptypb.Empty) (*em
 		}
 	}
 
+	// Update metadata for all objects if requested
+	if updateMetadata {
+		for objectID, attrs := range gcsObjects {
+			updated, err := s.updateObjectMetadata(ctx, objectID, attrs, userID)
+			if err != nil {
+				slog.Warn("failed to update metadata during sync",
+					slog.String("object_id", objectID),
+					slog.String("error", err.Error()),
+				)
+				continue
+			}
+			if updated {
+				metadataUpdated++
+			}
+		}
+	}
+
 	slog.Info("Database sync completed",
 		slog.Int("added", added),
 		slog.Int("removed", removed),
+		slog.Int("metadata_updated", metadataUpdated),
 		slog.Int("total_gcs", len(gcsObjects)),
 		slog.Int("total_db_before", len(dbObjects)),
 		slog.Uint64("user_id", uint64(userID)),
 	)
 
 	return &emptypb.Empty{}, nil
+}
+
+// updateObjectMetadata downloads a photo, extracts EXIF metadata, updates GCS object metadata,
+// and updates the time_taken field in the database.
+// Returns true if metadata was updated, false if skipped (already has metadata).
+func (s *LibraryServer) updateObjectMetadata(ctx context.Context, objectID string, attrs *storage.ObjectAttrs, userID uint) (bool, error) {
+	bucket := s.GCSClient.Bucket(s.BucketName)
+	obj := bucket.Object(objectID)
+
+	// Download the object data
+	reader, err := obj.NewReader(ctx)
+	if err != nil {
+		return false, err
+	}
+	defer func() { _ = reader.Close() }()
+
+	data, err := io.ReadAll(reader)
+	if err != nil {
+		return false, err
+	}
+
+	// Extract EXIF metadata from the photo data
+	photoMetadata := ExtractPhotoMetadata(data, objectID)
+
+	// Update GCS object metadata
+	attrsToUpdate := storage.ObjectAttrsToUpdate{
+		Metadata: photoMetadata.ToGCSMetadata(),
+	}
+
+	if _, err := obj.Update(ctx, attrsToUpdate); err != nil {
+		return false, err
+	}
+
+	// Update time_taken in the database
+	var timeTaken *time.Time
+	if photoMetadata.HasDateTaken {
+		timeTaken = &photoMetadata.DateTaken
+	}
+
+	if err := s.DB.Model(&database.PhotoObject{}).
+		Where("object_id = ? AND user_id = ?", objectID, userID).
+		Update("time_taken", timeTaken).Error; err != nil {
+		return false, err
+	}
+
+	slog.Info("Updated metadata for object",
+		slog.String("object_id", objectID),
+		slog.Bool("has_date_taken", photoMetadata.HasDateTaken),
+		slog.Bool("has_location", photoMetadata.HasLocation),
+	)
+
+	return true, nil
 }
 
 // UpdatePhotoMetadata updates metadata for a photo in both GCS and the database.

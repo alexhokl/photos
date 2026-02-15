@@ -247,7 +247,7 @@ class LibraryServiceClient extends $grpc.Client {
 
   /// SyncDatabase syncs the photo database with the storage backend
   $grpc.ResponseFuture<$1.Empty> syncDatabase(
-    $1.Empty request, {
+    $0.SyncDatabaseRequest request, {
     $grpc.CallOptions? options,
   }) {
     return $createUnaryCall(_$syncDatabase, request, options: options);
@@ -300,10 +300,11 @@ class LibraryServiceClient extends $grpc.Client {
           '/photos.LibraryService/ListDirectories',
           ($0.ListDirectoriesRequest value) => value.writeToBuffer(),
           $0.ListDirectoriesResponse.fromBuffer);
-  static final _$syncDatabase = $grpc.ClientMethod<$1.Empty, $1.Empty>(
-      '/photos.LibraryService/SyncDatabase',
-      ($1.Empty value) => value.writeToBuffer(),
-      $1.Empty.fromBuffer);
+  static final _$syncDatabase =
+      $grpc.ClientMethod<$0.SyncDatabaseRequest, $1.Empty>(
+          '/photos.LibraryService/SyncDatabase',
+          ($0.SyncDatabaseRequest value) => value.writeToBuffer(),
+          $1.Empty.fromBuffer);
 }
 
 @$pb.GrpcServiceName('photos.LibraryService')
@@ -386,12 +387,13 @@ abstract class LibraryServiceBase extends $grpc.Service {
         ($core.List<$core.int> value) =>
             $0.ListDirectoriesRequest.fromBuffer(value),
         ($0.ListDirectoriesResponse value) => value.writeToBuffer()));
-    $addMethod($grpc.ServiceMethod<$1.Empty, $1.Empty>(
+    $addMethod($grpc.ServiceMethod<$0.SyncDatabaseRequest, $1.Empty>(
         'SyncDatabase',
         syncDatabase_Pre,
         false,
         false,
-        ($core.List<$core.int> value) => $1.Empty.fromBuffer(value),
+        ($core.List<$core.int> value) =>
+            $0.SyncDatabaseRequest.fromBuffer(value),
         ($1.Empty value) => value.writeToBuffer()));
   }
 
@@ -470,11 +472,11 @@ abstract class LibraryServiceBase extends $grpc.Service {
   $async.Future<$0.ListDirectoriesResponse> listDirectories(
       $grpc.ServiceCall call, $0.ListDirectoriesRequest request);
 
-  $async.Future<$1.Empty> syncDatabase_Pre(
-      $grpc.ServiceCall $call, $async.Future<$1.Empty> $request) async {
+  $async.Future<$1.Empty> syncDatabase_Pre($grpc.ServiceCall $call,
+      $async.Future<$0.SyncDatabaseRequest> $request) async {
     return syncDatabase($call, await $request);
   }
 
   $async.Future<$1.Empty> syncDatabase(
-      $grpc.ServiceCall call, $1.Empty request);
+      $grpc.ServiceCall call, $0.SyncDatabaseRequest request);
 }

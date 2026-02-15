@@ -1366,6 +1366,53 @@ func (x *ListDirectoriesResponse) GetPrefixes() []string {
 	return nil
 }
 
+// SyncDatabaseRequest specifies options for database synchronization
+type SyncDatabaseRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// If true, downloads each photo file to extract EXIF metadata,
+	// updates GCS object metadata, and sets time_taken in the database
+	UpdateMetadata bool `protobuf:"varint,1,opt,name=update_metadata,json=updateMetadata,proto3" json:"update_metadata,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *SyncDatabaseRequest) Reset() {
+	*x = SyncDatabaseRequest{}
+	mi := &file_proto_photos_proto_msgTypes[23]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SyncDatabaseRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SyncDatabaseRequest) ProtoMessage() {}
+
+func (x *SyncDatabaseRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_photos_proto_msgTypes[23]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SyncDatabaseRequest.ProtoReflect.Descriptor instead.
+func (*SyncDatabaseRequest) Descriptor() ([]byte, []int) {
+	return file_proto_photos_proto_rawDescGZIP(), []int{23}
+}
+
+func (x *SyncDatabaseRequest) GetUpdateMetadata() bool {
+	if x != nil {
+		return x.UpdateMetadata
+	}
+	return false
+}
+
 // StreamingUploadRequest is sent as a stream of chunks for large uploads
 type StreamingUploadRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -1380,7 +1427,7 @@ type StreamingUploadRequest struct {
 
 func (x *StreamingUploadRequest) Reset() {
 	*x = StreamingUploadRequest{}
-	mi := &file_proto_photos_proto_msgTypes[23]
+	mi := &file_proto_photos_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1392,7 +1439,7 @@ func (x *StreamingUploadRequest) String() string {
 func (*StreamingUploadRequest) ProtoMessage() {}
 
 func (x *StreamingUploadRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_photos_proto_msgTypes[23]
+	mi := &file_proto_photos_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1405,7 +1452,7 @@ func (x *StreamingUploadRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StreamingUploadRequest.ProtoReflect.Descriptor instead.
 func (*StreamingUploadRequest) Descriptor() ([]byte, []int) {
-	return file_proto_photos_proto_rawDescGZIP(), []int{23}
+	return file_proto_photos_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *StreamingUploadRequest) GetData() isStreamingUploadRequest_Data {
@@ -1462,7 +1509,7 @@ type PhotoMetadata struct {
 
 func (x *PhotoMetadata) Reset() {
 	*x = PhotoMetadata{}
-	mi := &file_proto_photos_proto_msgTypes[24]
+	mi := &file_proto_photos_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1474,7 +1521,7 @@ func (x *PhotoMetadata) String() string {
 func (*PhotoMetadata) ProtoMessage() {}
 
 func (x *PhotoMetadata) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_photos_proto_msgTypes[24]
+	mi := &file_proto_photos_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1487,7 +1534,7 @@ func (x *PhotoMetadata) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PhotoMetadata.ProtoReflect.Descriptor instead.
 func (*PhotoMetadata) Descriptor() ([]byte, []int) {
-	return file_proto_photos_proto_rawDescGZIP(), []int{24}
+	return file_proto_photos_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *PhotoMetadata) GetFilename() string {
@@ -1516,7 +1563,7 @@ type StreamingDownloadRequest struct {
 
 func (x *StreamingDownloadRequest) Reset() {
 	*x = StreamingDownloadRequest{}
-	mi := &file_proto_photos_proto_msgTypes[25]
+	mi := &file_proto_photos_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1528,7 +1575,7 @@ func (x *StreamingDownloadRequest) String() string {
 func (*StreamingDownloadRequest) ProtoMessage() {}
 
 func (x *StreamingDownloadRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_photos_proto_msgTypes[25]
+	mi := &file_proto_photos_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1541,7 +1588,7 @@ func (x *StreamingDownloadRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StreamingDownloadRequest.ProtoReflect.Descriptor instead.
 func (*StreamingDownloadRequest) Descriptor() ([]byte, []int) {
-	return file_proto_photos_proto_rawDescGZIP(), []int{25}
+	return file_proto_photos_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *StreamingDownloadRequest) GetObjectId() string {
@@ -1572,7 +1619,7 @@ type StreamingDownloadResponse struct {
 
 func (x *StreamingDownloadResponse) Reset() {
 	*x = StreamingDownloadResponse{}
-	mi := &file_proto_photos_proto_msgTypes[26]
+	mi := &file_proto_photos_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1584,7 +1631,7 @@ func (x *StreamingDownloadResponse) String() string {
 func (*StreamingDownloadResponse) ProtoMessage() {}
 
 func (x *StreamingDownloadResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_photos_proto_msgTypes[26]
+	mi := &file_proto_photos_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1597,7 +1644,7 @@ func (x *StreamingDownloadResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StreamingDownloadResponse.ProtoReflect.Descriptor instead.
 func (*StreamingDownloadResponse) Descriptor() ([]byte, []int) {
-	return file_proto_photos_proto_rawDescGZIP(), []int{26}
+	return file_proto_photos_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *StreamingDownloadResponse) GetData() isStreamingDownloadResponse_Data {
@@ -1743,7 +1790,9 @@ const file_proto_photos_proto_rawDesc = "" +
 	"\x06prefix\x18\x01 \x01(\tR\x06prefix\x12\x1c\n" +
 	"\trecursive\x18\x02 \x01(\bR\trecursive\"5\n" +
 	"\x17ListDirectoriesResponse\x12\x1a\n" +
-	"\bprefixes\x18\x01 \x03(\tR\bprefixes\"m\n" +
+	"\bprefixes\x18\x01 \x03(\tR\bprefixes\">\n" +
+	"\x13SyncDatabaseRequest\x12'\n" +
+	"\x0fupdate_metadata\x18\x01 \x01(\bR\x0eupdateMetadata\"m\n" +
 	"\x16StreamingUploadRequest\x123\n" +
 	"\bmetadata\x18\x01 \x01(\v2\x15.photos.PhotoMetadataH\x00R\bmetadata\x12\x16\n" +
 	"\x05chunk\x18\x02 \x01(\fH\x00R\x05chunkB\x06\n" +
@@ -1762,7 +1811,7 @@ const file_proto_photos_proto_rawDesc = "" +
 	"\x06Upload\x12\x15.photos.UploadRequest\x1a\x16.photos.UploadResponse\"\x1c\x82\xd3\xe4\x93\x02\x16:\x01*\"\x11/v1/photos/upload\x12f\n" +
 	"\bDownload\x12\x17.photos.DownloadRequest\x1a\x18.photos.DownloadResponse\"'\x82\xd3\xe4\x93\x02!\x12\x1f/v1/photos/{object_id}/download\x12K\n" +
 	"\x0fStreamingUpload\x12\x1e.photos.StreamingUploadRequest\x1a\x16.photos.UploadResponse(\x01\x12Z\n" +
-	"\x11StreamingDownload\x12 .photos.StreamingDownloadRequest\x1a!.photos.StreamingDownloadResponse0\x012\xe5\b\n" +
+	"\x11StreamingDownload\x12 .photos.StreamingDownloadRequest\x1a!.photos.StreamingDownloadResponse0\x012\xed\b\n" +
 	"\x0eLibraryService\x12f\n" +
 	"\vDeletePhoto\x12\x1a.photos.DeletePhotoRequest\x1a\x1b.photos.DeletePhotoResponse\"\x1e\x82\xd3\xe4\x93\x02\x18*\x16/v1/photos/{object_id}\x12]\n" +
 	"\bGetPhoto\x12\x17.photos.GetPhotoRequest\x1a\x18.photos.GetPhotoResponse\"\x1e\x82\xd3\xe4\x93\x02\x18\x12\x16/v1/photos/{object_id}\x12W\n" +
@@ -1774,8 +1823,8 @@ const file_proto_photos_proto_rawDesc = "" +
 	"\x13UpdatePhotoMetadata\x12\".photos.UpdatePhotoMetadataRequest\x1a#.photos.UpdatePhotoMetadataResponse\"*\x82\xd3\xe4\x93\x02$:\x01*2\x1f/v1/photos/{object_id}/metadata\x12\x86\x01\n" +
 	"\x11GenerateSignedUrl\x12 .photos.GenerateSignedUrlRequest\x1a!.photos.GenerateSignedUrlResponse\",\x82\xd3\xe4\x93\x02&:\x01*\"!/v1/photos/{object_id}/signed-url\x12m\n" +
 	"\vPhotoExists\x12\x1a.photos.PhotoExistsRequest\x1a\x1b.photos.PhotoExistsResponse\"%\x82\xd3\xe4\x93\x02\x1f\x12\x1d/v1/photos/{object_id}/exists\x12k\n" +
-	"\x0fListDirectories\x12\x1e.photos.ListDirectoriesRequest\x1a\x1f.photos.ListDirectoriesResponse\"\x17\x82\xd3\xe4\x93\x02\x11\x12\x0f/v1/directories\x12W\n" +
-	"\fSyncDatabase\x12\x16.google.protobuf.Empty\x1a\x16.google.protobuf.Empty\"\x17\x82\xd3\xe4\x93\x02\x11\"\x0f/v1/photos/syncB\x0eZ\fphotos/protob\x06proto3"
+	"\x0fListDirectories\x12\x1e.photos.ListDirectoriesRequest\x1a\x1f.photos.ListDirectoriesResponse\"\x17\x82\xd3\xe4\x93\x02\x11\x12\x0f/v1/directories\x12_\n" +
+	"\fSyncDatabase\x12\x1b.photos.SyncDatabaseRequest\x1a\x16.google.protobuf.Empty\"\x1a\x82\xd3\xe4\x93\x02\x14:\x01*\"\x0f/v1/photos/syncB\x0eZ\fphotos/protob\x06proto3"
 
 var (
 	file_proto_photos_proto_rawDescOnce sync.Once
@@ -1789,7 +1838,7 @@ func file_proto_photos_proto_rawDescGZIP() []byte {
 	return file_proto_photos_proto_rawDescData
 }
 
-var file_proto_photos_proto_msgTypes = make([]protoimpl.MessageInfo, 28)
+var file_proto_photos_proto_msgTypes = make([]protoimpl.MessageInfo, 29)
 var file_proto_photos_proto_goTypes = []any{
 	(*Photo)(nil),                       // 0: photos.Photo
 	(*UploadRequest)(nil),               // 1: photos.UploadRequest
@@ -1814,12 +1863,13 @@ var file_proto_photos_proto_goTypes = []any{
 	(*PhotoExistsResponse)(nil),         // 20: photos.PhotoExistsResponse
 	(*ListDirectoriesRequest)(nil),      // 21: photos.ListDirectoriesRequest
 	(*ListDirectoriesResponse)(nil),     // 22: photos.ListDirectoriesResponse
-	(*StreamingUploadRequest)(nil),      // 23: photos.StreamingUploadRequest
-	(*PhotoMetadata)(nil),               // 24: photos.PhotoMetadata
-	(*StreamingDownloadRequest)(nil),    // 25: photos.StreamingDownloadRequest
-	(*StreamingDownloadResponse)(nil),   // 26: photos.StreamingDownloadResponse
-	nil,                                 // 27: photos.UpdatePhotoMetadataRequest.CustomMetadataEntry
-	(*emptypb.Empty)(nil),               // 28: google.protobuf.Empty
+	(*SyncDatabaseRequest)(nil),         // 23: photos.SyncDatabaseRequest
+	(*StreamingUploadRequest)(nil),      // 24: photos.StreamingUploadRequest
+	(*PhotoMetadata)(nil),               // 25: photos.PhotoMetadata
+	(*StreamingDownloadRequest)(nil),    // 26: photos.StreamingDownloadRequest
+	(*StreamingDownloadResponse)(nil),   // 27: photos.StreamingDownloadResponse
+	nil,                                 // 28: photos.UpdatePhotoMetadataRequest.CustomMetadataEntry
+	(*emptypb.Empty)(nil),               // 29: google.protobuf.Empty
 }
 var file_proto_photos_proto_depIdxs = []int32{
 	0,  // 0: photos.UploadResponse.photo:type_name -> photos.Photo
@@ -1828,14 +1878,14 @@ var file_proto_photos_proto_depIdxs = []int32{
 	0,  // 3: photos.ListPhotosResponse.photos:type_name -> photos.Photo
 	0,  // 4: photos.CopyPhotoResponse.photo:type_name -> photos.Photo
 	0,  // 5: photos.RenamePhotoResponse.photo:type_name -> photos.Photo
-	27, // 6: photos.UpdatePhotoMetadataRequest.custom_metadata:type_name -> photos.UpdatePhotoMetadataRequest.CustomMetadataEntry
+	28, // 6: photos.UpdatePhotoMetadataRequest.custom_metadata:type_name -> photos.UpdatePhotoMetadataRequest.CustomMetadataEntry
 	0,  // 7: photos.UpdatePhotoMetadataResponse.photo:type_name -> photos.Photo
-	24, // 8: photos.StreamingUploadRequest.metadata:type_name -> photos.PhotoMetadata
+	25, // 8: photos.StreamingUploadRequest.metadata:type_name -> photos.PhotoMetadata
 	0,  // 9: photos.StreamingDownloadResponse.metadata:type_name -> photos.Photo
 	1,  // 10: photos.ByteService.Upload:input_type -> photos.UploadRequest
 	3,  // 11: photos.ByteService.Download:input_type -> photos.DownloadRequest
-	23, // 12: photos.ByteService.StreamingUpload:input_type -> photos.StreamingUploadRequest
-	25, // 13: photos.ByteService.StreamingDownload:input_type -> photos.StreamingDownloadRequest
+	24, // 12: photos.ByteService.StreamingUpload:input_type -> photos.StreamingUploadRequest
+	26, // 13: photos.ByteService.StreamingDownload:input_type -> photos.StreamingDownloadRequest
 	5,  // 14: photos.LibraryService.DeletePhoto:input_type -> photos.DeletePhotoRequest
 	7,  // 15: photos.LibraryService.GetPhoto:input_type -> photos.GetPhotoRequest
 	9,  // 16: photos.LibraryService.ListPhotos:input_type -> photos.ListPhotosRequest
@@ -1845,11 +1895,11 @@ var file_proto_photos_proto_depIdxs = []int32{
 	17, // 20: photos.LibraryService.GenerateSignedUrl:input_type -> photos.GenerateSignedUrlRequest
 	19, // 21: photos.LibraryService.PhotoExists:input_type -> photos.PhotoExistsRequest
 	21, // 22: photos.LibraryService.ListDirectories:input_type -> photos.ListDirectoriesRequest
-	28, // 23: photos.LibraryService.SyncDatabase:input_type -> google.protobuf.Empty
+	23, // 23: photos.LibraryService.SyncDatabase:input_type -> photos.SyncDatabaseRequest
 	2,  // 24: photos.ByteService.Upload:output_type -> photos.UploadResponse
 	4,  // 25: photos.ByteService.Download:output_type -> photos.DownloadResponse
 	2,  // 26: photos.ByteService.StreamingUpload:output_type -> photos.UploadResponse
-	26, // 27: photos.ByteService.StreamingDownload:output_type -> photos.StreamingDownloadResponse
+	27, // 27: photos.ByteService.StreamingDownload:output_type -> photos.StreamingDownloadResponse
 	6,  // 28: photos.LibraryService.DeletePhoto:output_type -> photos.DeletePhotoResponse
 	8,  // 29: photos.LibraryService.GetPhoto:output_type -> photos.GetPhotoResponse
 	10, // 30: photos.LibraryService.ListPhotos:output_type -> photos.ListPhotosResponse
@@ -1859,7 +1909,7 @@ var file_proto_photos_proto_depIdxs = []int32{
 	18, // 34: photos.LibraryService.GenerateSignedUrl:output_type -> photos.GenerateSignedUrlResponse
 	20, // 35: photos.LibraryService.PhotoExists:output_type -> photos.PhotoExistsResponse
 	22, // 36: photos.LibraryService.ListDirectories:output_type -> photos.ListDirectoriesResponse
-	28, // 37: photos.LibraryService.SyncDatabase:output_type -> google.protobuf.Empty
+	29, // 37: photos.LibraryService.SyncDatabase:output_type -> google.protobuf.Empty
 	24, // [24:38] is the sub-list for method output_type
 	10, // [10:24] is the sub-list for method input_type
 	10, // [10:10] is the sub-list for extension type_name
@@ -1872,11 +1922,11 @@ func file_proto_photos_proto_init() {
 	if File_proto_photos_proto != nil {
 		return
 	}
-	file_proto_photos_proto_msgTypes[23].OneofWrappers = []any{
+	file_proto_photos_proto_msgTypes[24].OneofWrappers = []any{
 		(*StreamingUploadRequest_Metadata)(nil),
 		(*StreamingUploadRequest_Chunk)(nil),
 	}
-	file_proto_photos_proto_msgTypes[26].OneofWrappers = []any{
+	file_proto_photos_proto_msgTypes[27].OneofWrappers = []any{
 		(*StreamingDownloadResponse_Metadata)(nil),
 		(*StreamingDownloadResponse_Chunk)(nil),
 	}
@@ -1886,7 +1936,7 @@ func file_proto_photos_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_photos_proto_rawDesc), len(file_proto_photos_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   28,
+			NumMessages:   29,
 			NumExtensions: 0,
 			NumServices:   2,
 		},

@@ -280,7 +280,7 @@ type LibraryServiceClient interface {
 	// ListDirectories lists virtual directories (common prefixes) in a bucket
 	ListDirectories(ctx context.Context, in *ListDirectoriesRequest, opts ...grpc.CallOption) (*ListDirectoriesResponse, error)
 	// SyncDatabase syncs the photo database with the storage backend
-	SyncDatabase(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	SyncDatabase(ctx context.Context, in *SyncDatabaseRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 }
 
 type libraryServiceClient struct {
@@ -381,7 +381,7 @@ func (c *libraryServiceClient) ListDirectories(ctx context.Context, in *ListDire
 	return out, nil
 }
 
-func (c *libraryServiceClient) SyncDatabase(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (c *libraryServiceClient) SyncDatabase(ctx context.Context, in *SyncDatabaseRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(emptypb.Empty)
 	err := c.cc.Invoke(ctx, LibraryService_SyncDatabase_FullMethodName, in, out, cOpts...)
@@ -414,7 +414,7 @@ type LibraryServiceServer interface {
 	// ListDirectories lists virtual directories (common prefixes) in a bucket
 	ListDirectories(context.Context, *ListDirectoriesRequest) (*ListDirectoriesResponse, error)
 	// SyncDatabase syncs the photo database with the storage backend
-	SyncDatabase(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
+	SyncDatabase(context.Context, *SyncDatabaseRequest) (*emptypb.Empty, error)
 	mustEmbedUnimplementedLibraryServiceServer()
 }
 
@@ -452,7 +452,7 @@ func (UnimplementedLibraryServiceServer) PhotoExists(context.Context, *PhotoExis
 func (UnimplementedLibraryServiceServer) ListDirectories(context.Context, *ListDirectoriesRequest) (*ListDirectoriesResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListDirectories not implemented")
 }
-func (UnimplementedLibraryServiceServer) SyncDatabase(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
+func (UnimplementedLibraryServiceServer) SyncDatabase(context.Context, *SyncDatabaseRequest) (*emptypb.Empty, error) {
 	return nil, status.Error(codes.Unimplemented, "method SyncDatabase not implemented")
 }
 func (UnimplementedLibraryServiceServer) mustEmbedUnimplementedLibraryServiceServer() {}
@@ -639,7 +639,7 @@ func _LibraryService_ListDirectories_Handler(srv interface{}, ctx context.Contex
 }
 
 func _LibraryService_SyncDatabase_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(emptypb.Empty)
+	in := new(SyncDatabaseRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -651,7 +651,7 @@ func _LibraryService_SyncDatabase_Handler(srv interface{}, ctx context.Context, 
 		FullMethod: LibraryService_SyncDatabase_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(LibraryServiceServer).SyncDatabase(ctx, req.(*emptypb.Empty))
+		return srv.(LibraryServiceServer).SyncDatabase(ctx, req.(*SyncDatabaseRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
