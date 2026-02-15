@@ -579,6 +579,11 @@ func (s *LibraryServer) ListPhotos(ctx context.Context, req *proto.ListPhotosReq
 			continue
 		}
 
+		// Skip markdown files
+		if strings.HasSuffix(strings.ToLower(obj.ObjectID), ".md") {
+			continue
+		}
+
 		// Stop if we've reached the page size
 		if count >= pageSize {
 			break
