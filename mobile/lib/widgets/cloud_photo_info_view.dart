@@ -206,6 +206,22 @@ class _CloudPhotoInfoViewState extends State<CloudPhotoInfoView> {
             value: photo.dateTaken,
           ),
 
+        // Location section
+        if (photo.hasLocation) const _SectionHeader(title: 'LOCATION'),
+        if (photo.hasLocation)
+          _InfoTile(
+            icon: Icons.location_on,
+            title: 'Location',
+            value: _formatLocation(photo.latitude, photo.longitude),
+          ),
+        if (photo.hasLocation)
+          _TappableInfoTile(
+            icon: Icons.map,
+            title: 'Google Maps',
+            value: _getGoogleMapsUrl(photo.latitude, photo.longitude),
+            onTap: () => _launchGoogleMaps(photo.latitude, photo.longitude),
+          ),
+
         // Camera section
         if (hasCameraInfo) const _SectionHeader(title: 'CAMERA'),
         if (photo.cameraMake.isNotEmpty)
@@ -249,22 +265,6 @@ class _CloudPhotoInfoViewState extends State<CloudPhotoInfoView> {
           ),
         if (photo.iso > 0)
           _InfoTile(icon: Icons.iso, title: 'ISO', value: photo.iso.toString()),
-
-        // Location section
-        if (photo.hasLocation) const _SectionHeader(title: 'LOCATION'),
-        if (photo.hasLocation)
-          _InfoTile(
-            icon: Icons.location_on,
-            title: 'Location',
-            value: _formatLocation(photo.latitude, photo.longitude),
-          ),
-        if (photo.hasLocation)
-          _TappableInfoTile(
-            icon: Icons.map,
-            title: 'Google Maps',
-            value: _getGoogleMapsUrl(photo.latitude, photo.longitude),
-            onTap: () => _launchGoogleMaps(photo.latitude, photo.longitude),
-          ),
 
         // System section
         const _SectionHeader(title: 'SYSTEM'),

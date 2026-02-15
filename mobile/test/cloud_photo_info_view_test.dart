@@ -600,14 +600,15 @@ void main() {
         MaterialApp(home: CloudPhotoInfoView(photo: photo, skipFetch: true)),
       );
 
+      // Sections are in order: FILE INFORMATION, LOCATION, CAMERA, EXPOSURE SETTINGS, SYSTEM
       expect(find.text('FILE INFORMATION'), findsOneWidget);
+      expect(find.text('LOCATION'), findsOneWidget);
       expect(find.text('CAMERA'), findsOneWidget);
 
       // Scroll to see remaining headers
       await tester.scrollUntilVisible(find.text('SYSTEM'), 100);
 
       expect(find.text('EXPOSURE SETTINGS'), findsOneWidget);
-      expect(find.text('LOCATION'), findsOneWidget);
       expect(find.text('SYSTEM'), findsOneWidget);
     });
   });

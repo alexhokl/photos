@@ -158,6 +158,28 @@ class _PhotoInfoViewState extends State<PhotoInfoView> {
           value: _formatDateTime(widget.asset.createDateTime),
         ),
 
+        // Location section
+        if (hasLocation) const _SectionHeader(title: 'LOCATION'),
+        if (!hasLocation)
+          _InfoTile(
+            icon: Icons.location_on,
+            title: 'Location',
+            value: _isLoadingLocation ? 'Loading...' : 'Unknown',
+          ),
+        if (hasLocation)
+          _InfoTile(
+            icon: Icons.location_on,
+            title: 'Location',
+            value: _formatLocation(_latLng),
+          ),
+        if (hasLocation)
+          _TappableInfoTile(
+            icon: Icons.map,
+            title: 'Google Maps',
+            value: _getGoogleMapsUrl(_latLng!),
+            onTap: () => _launchGoogleMaps(_latLng!),
+          ),
+
         // Camera section
         if (_isLoadingExif)
           const _InfoTile(
@@ -209,28 +231,6 @@ class _PhotoInfoViewState extends State<PhotoInfoView> {
           ),
         if (!_isLoadingExif && (exif?.iso ?? 0) > 0)
           _InfoTile(icon: Icons.iso, title: 'ISO', value: exif!.iso.toString()),
-
-        // Location section
-        if (hasLocation) const _SectionHeader(title: 'LOCATION'),
-        if (!hasLocation)
-          _InfoTile(
-            icon: Icons.location_on,
-            title: 'Location',
-            value: _isLoadingLocation ? 'Loading...' : 'Unknown',
-          ),
-        if (hasLocation)
-          _InfoTile(
-            icon: Icons.location_on,
-            title: 'Location',
-            value: _formatLocation(_latLng),
-          ),
-        if (hasLocation)
-          _TappableInfoTile(
-            icon: Icons.map,
-            title: 'Google Maps',
-            value: _getGoogleMapsUrl(_latLng!),
-            onTap: () => _launchGoogleMaps(_latLng!),
-          ),
       ],
     );
   }
