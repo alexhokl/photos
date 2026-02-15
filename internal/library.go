@@ -561,9 +561,13 @@ func (s *LibraryServer) ListPhotos(ctx context.Context, req *proto.ListPhotosReq
 				query = query.Where("(time_taken IS NULL AND object_id > ?)", tokenObjectID)
 			} else {
 				// Parse the time string back to time.Time for proper comparison
-				tokenTimeTaken, err := time.Parse(time.RFC3339, tokenTimeTakenStr)
+				// Try RFC3339Nano first (new format), fall back to RFC3339 (legacy format)
+				tokenTimeTaken, err := time.Parse(time.RFC3339Nano, tokenTimeTakenStr)
 				if err != nil {
-					return nil, status.Errorf(codes.InvalidArgument, "invalid time format in page token")
+					tokenTimeTaken, err = time.Parse(time.RFC3339, tokenTimeTakenStr)
+					if err != nil {
+						return nil, status.Errorf(codes.InvalidArgument, "invalid time format in page token")
+					}
 				}
 				// For photos with time_taken, get newer photos or same time with greater object_id
 				query = query.Where(
@@ -578,9 +582,13 @@ func (s *LibraryServer) ListPhotos(ctx context.Context, req *proto.ListPhotosReq
 				query = query.Where("(time_taken IS NULL AND object_id > ?)", tokenObjectID)
 			} else {
 				// Parse the time string back to time.Time for proper comparison
-				tokenTimeTaken, err := time.Parse(time.RFC3339, tokenTimeTakenStr)
+				// Try RFC3339Nano first (new format), fall back to RFC3339 (legacy format)
+				tokenTimeTaken, err := time.Parse(time.RFC3339Nano, tokenTimeTakenStr)
 				if err != nil {
-					return nil, status.Errorf(codes.InvalidArgument, "invalid time format in page token")
+					tokenTimeTaken, err = time.Parse(time.RFC3339, tokenTimeTakenStr)
+					if err != nil {
+						return nil, status.Errorf(codes.InvalidArgument, "invalid time format in page token")
+					}
 				}
 				// For photos with time_taken, get older photos or same time with greater object_id
 				query = query.Where(
@@ -655,7 +663,8 @@ func (s *LibraryServer) ListPhotos(ctx context.Context, req *proto.ListPhotosReq
 	if count >= pageSize && lastPhoto != nil {
 		var tokenValue string
 		if lastPhoto.TimeTaken != nil {
-			tokenValue = lastPhoto.TimeTaken.Format(time.RFC3339) + "|" + lastPhoto.ObjectID
+			// Use RFC3339Nano to preserve nanosecond precision for accurate pagination
+			tokenValue = lastPhoto.TimeTaken.Format(time.RFC3339Nano) + "|" + lastPhoto.ObjectID
 		} else {
 			tokenValue = "null|" + lastPhoto.ObjectID
 		}
