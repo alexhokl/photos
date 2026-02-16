@@ -1,4 +1,7 @@
 PODS:
+  - cupertino_http (0.0.1):
+    - Flutter
+    - FlutterMacOS
   - FlutterMacOS (1.0.0)
   - photo_manager (3.8.3):
     - Flutter
@@ -13,6 +16,7 @@ PODS:
     - FlutterMacOS
 
 DEPENDENCIES:
+  - cupertino_http (from `Flutter/ephemeral/.symlinks/plugins/cupertino_http/darwin`)
   - FlutterMacOS (from `Flutter/ephemeral`)
   - photo_manager (from `Flutter/ephemeral/.symlinks/plugins/photo_manager/darwin`)
   - shared_preferences_foundation (from `Flutter/ephemeral/.symlinks/plugins/shared_preferences_foundation/darwin`)
@@ -20,6 +24,8 @@ DEPENDENCIES:
   - url_launcher_macos (from `Flutter/ephemeral/.symlinks/plugins/url_launcher_macos/macos`)
 
 EXTERNAL SOURCES:
+  cupertino_http:
+    :path: Flutter/ephemeral/.symlinks/plugins/cupertino_http/darwin
   FlutterMacOS:
     :path: Flutter/ephemeral
   photo_manager:
@@ -32,6 +38,7 @@ EXTERNAL SOURCES:
     :path: Flutter/ephemeral/.symlinks/plugins/url_launcher_macos/macos
 
 SPEC CHECKSUMS:
+  cupertino_http: 947a233f40cfea55167a49f2facc18434ea117ba
   FlutterMacOS: d0db08ddef1a9af05a5ec4b724367152bb0500b1
   photo_manager: 647b6f5c5057632e2d00e2921c6ce3437ded57a9
   shared_preferences_foundation: 5086985c1d43c5ba4d5e69a4e8083a389e2909e6

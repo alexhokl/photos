@@ -4,6 +4,7 @@ import 'package:photo_manager/photo_manager.dart';
 import 'package:photos/proto/photos.pb.dart';
 import 'package:photos/services/download_service.dart';
 import 'package:photos/services/library_service.dart';
+import 'package:photos/services/photo_cache_manager.dart';
 import 'package:photos/widgets/cloud_photo_info_view.dart';
 import 'package:photos/widgets/settings_page.dart';
 
@@ -383,6 +384,7 @@ class _CloudPhotoViewerState extends State<CloudPhotoViewer> {
       onInteractionEnd: (_) => _updateZoomState(index),
       child: CachedNetworkImage(
         imageUrl: signedUrl,
+        cacheManager: PhotoCacheManager.instance,
         fit: BoxFit.contain,
         placeholder: (context, url) =>
             const CircularProgressIndicator(color: Colors.white),

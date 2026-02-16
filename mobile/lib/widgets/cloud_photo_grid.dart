@@ -2,6 +2,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:photos/proto/photos.pb.dart';
 import 'package:photos/services/library_service.dart';
+import 'package:photos/services/photo_cache_manager.dart';
 import 'package:photos/widgets/cloud_photo_viewer.dart';
 import 'package:photos/widgets/settings_page.dart';
 
@@ -886,6 +887,7 @@ class _CloudPhotoThumbnail extends StatelessWidget {
           if (signedUrl != null)
             CachedNetworkImage(
               imageUrl: signedUrl!,
+              cacheManager: PhotoCacheManager.instance,
               fit: BoxFit.cover,
               placeholder: (context, url) => Container(
                 color: Colors.grey[300],

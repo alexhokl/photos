@@ -57,6 +57,11 @@ dependencies:
   # For rendering markdown content
   flutter_markdown: ^0.7.6
 
+  # Platform-native HTTP clients with HTTP/3 support
+  cupertino_http: ^2.4.0
+  cronet_http: ^1.7.0
+  http: ^1.6.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
