@@ -264,6 +264,7 @@ class PhotoGridState extends State<PhotoGrid> {
   void removePhoto(String photoId) {
     setState(() {
       _photos.removeWhere((p) => p.id == photoId);
+      _photoGroups = _groupPhotosByDate(_photos);
       _selectedPhotoIds.remove(photoId);
       if (_selectedPhotoIds.isEmpty) {
         _isSelectionMode = false;
@@ -301,6 +302,7 @@ class PhotoGridState extends State<PhotoGrid> {
     if (result.isNotEmpty) {
       setState(() {
         _photos.removeWhere((p) => _selectedPhotoIds.contains(p.id));
+        _photoGroups = _groupPhotosByDate(_photos);
         _selectedPhotoIds.clear();
         _isSelectionMode = false;
       });
@@ -444,6 +446,7 @@ class PhotoGridState extends State<PhotoGrid> {
             .map((r) => r.asset.id)
             .toSet();
         _photos.removeWhere((p) => deletedIds.contains(p.id));
+        _photoGroups = _groupPhotosByDate(_photos);
       });
     }
   }
