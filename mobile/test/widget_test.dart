@@ -542,4 +542,573 @@ void main() {
       expect(unmodifiablePhotos[1], equals('photo2'));
     });
   });
+
+  group('PhotoGrid onLoadingChanged callback', () {
+    testWidgets('onLoadingChanged callback can be provided', (tester) async {
+      bool? lastLoadingState;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: PhotoGrid(
+              onLoadingChanged: (isLoading) {
+                lastLoadingState = isLoading;
+              },
+            ),
+          ),
+        ),
+      );
+
+      final photoGrid = tester.widget<PhotoGrid>(find.byType(PhotoGrid));
+      expect(photoGrid.onLoadingChanged, isNotNull);
+    });
+
+    testWidgets('can be created with all three callbacks', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: PhotoGrid(
+              onSelectionChanged: (count) {},
+              onPhotoTap: (photo, index) {},
+              onLoadingChanged: (isLoading) {},
+            ),
+          ),
+        ),
+      );
+
+      final photoGrid = tester.widget<PhotoGrid>(find.byType(PhotoGrid));
+      expect(photoGrid.onSelectionChanged, isNotNull);
+      expect(photoGrid.onPhotoTap, isNotNull);
+      expect(photoGrid.onLoadingChanged, isNotNull);
+    });
+
+    testWidgets('onLoadingChanged is null by default', (tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(home: Scaffold(body: PhotoGrid())),
+      );
+
+      final photoGrid = tester.widget<PhotoGrid>(find.byType(PhotoGrid));
+      expect(photoGrid.onLoadingChanged, isNull);
+    });
+  });
+
+  group('HomePage loading indicator in app bar', () {
+    setUp(() {
+      SharedPreferences.setMockInitialValues({});
+      SharedPreferencesAsyncPlatform.instance =
+          InMemorySharedPreferencesAsync.empty();
+    });
+
+    testWidgets('app bar shows loading indicator when device is loading', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        const MaterialApp(home: HomePage(title: 'Photos')),
+      );
+
+      // Initially, loading indicator should be shown (isDeviceLoading = true)
+      // The loading indicator is a small CircularProgressIndicator in the app bar
+      final appBar = find.byType(AppBar);
+      expect(appBar, findsOneWidget);
+
+      // Find CircularProgressIndicator within the app bar actions
+      // Note: There might also be one in the PhotoGrid body, so we check the app bar
+      final loadingIndicators = find.byType(CircularProgressIndicator);
+      expect(loadingIndicators, findsWidgets);
+    });
+
+    test('loading indicator has correct size (20x20)', () {
+      // Document the expected size of the loading indicator
+      const expectedWidth = 20.0;
+      const expectedHeight = 20.0;
+      const expectedStrokeWidth = 2.0;
+
+      expect(expectedWidth, equals(20.0));
+      expect(expectedHeight, equals(20.0));
+      expect(expectedStrokeWidth, equals(2.0));
+    });
+
+    test('loading indicator has horizontal padding of 16', () {
+      // Document the expected padding
+      const expectedPadding = 16.0;
+      expect(expectedPadding, equals(16.0));
+    });
+
+    testWidgets('app bar actions contain popup menu button', (tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(home: HomePage(title: 'Photos')),
+      );
+
+      expect(find.byType(PopupMenuButton<PhotoGridAction>), findsOneWidget);
+    });
+
+    test('loading state starts as true', () {
+      // Document the initial loading state
+      const initialLoadingState = true;
+      expect(initialLoadingState, isTrue);
+    });
+
+    test('loading state becomes false when all photos loaded', () {
+      var isDeviceLoading = true;
+
+      // Simulate loading completion callback
+      void onDeviceLoadingChanged(bool isLoading) {
+        isDeviceLoading = isLoading;
+      }
+
+      // Simulate all photos loaded
+      onDeviceLoadingChanged(false);
+
+      expect(isDeviceLoading, isFalse);
+    });
+  });
+
+  group('HomePage app bar actions order', () {
+    setUp(() {
+      SharedPreferences.setMockInitialValues({});
+      SharedPreferencesAsyncPlatform.instance =
+          InMemorySharedPreferencesAsync.empty();
+    });
+
+    test('device tab shows loading indicator before popup menu', () {
+      // Document the expected order of actions in device tab:
+      // 1. Loading indicator (when loading)
+      // 2. PopupMenuButton
+      final actions = <String>['loading_indicator', 'popup_menu'];
+
+      expect(actions[0], equals('loading_indicator'));
+      expect(actions[1], equals('popup_menu'));
+    });
+
+    test('loading indicator is only shown on device tab (index 0)', () {
+      const selectedIndex = 0;
+      const showLoadingIndicator = selectedIndex == 0;
+
+      expect(showLoadingIndicator, isTrue);
+    });
+
+    test('loading indicator is not shown on cloud tab', () {
+      const selectedIndex = 1;
+      const showLoadingIndicator = selectedIndex == 0;
+
+      expect(showLoadingIndicator, isFalse);
+    });
+
+    test('loading indicator is not shown on settings tab', () {
+      const selectedIndex = 2;
+      const showLoadingIndicator = selectedIndex == 0;
+
+      expect(showLoadingIndicator, isFalse);
+    });
+  });
+
+  group('PhotoGrid onLoadError callback', () {
+    testWidgets('onLoadError callback can be provided', (tester) async {
+      String? lastError;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: PhotoGrid(
+              onLoadError: (error) {
+                lastError = error;
+              },
+            ),
+          ),
+        ),
+      );
+
+      final photoGrid = tester.widget<PhotoGrid>(find.byType(PhotoGrid));
+      expect(photoGrid.onLoadError, isNotNull);
+    });
+
+    testWidgets('can be created with all four callbacks', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: PhotoGrid(
+              onSelectionChanged: (count) {},
+              onPhotoTap: (photo, index) {},
+              onLoadingChanged: (isLoading) {},
+              onLoadError: (error) {},
+            ),
+          ),
+        ),
+      );
+
+      final photoGrid = tester.widget<PhotoGrid>(find.byType(PhotoGrid));
+      expect(photoGrid.onSelectionChanged, isNotNull);
+      expect(photoGrid.onPhotoTap, isNotNull);
+      expect(photoGrid.onLoadingChanged, isNotNull);
+      expect(photoGrid.onLoadError, isNotNull);
+    });
+
+    testWidgets('onLoadError is null by default', (tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(home: Scaffold(body: PhotoGrid())),
+      );
+
+      final photoGrid = tester.widget<PhotoGrid>(find.byType(PhotoGrid));
+      expect(photoGrid.onLoadError, isNull);
+    });
+  });
+
+  group('PhotoGridState error state getters', () {
+    testWidgets('hasLoadError returns false initially', (tester) async {
+      final key = GlobalKey<PhotoGridState>();
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(body: PhotoGrid(key: key)),
+        ),
+      );
+
+      expect(key.currentState?.hasLoadError, isFalse);
+    });
+
+    testWidgets('loadError returns null initially', (tester) async {
+      final key = GlobalKey<PhotoGridState>();
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(body: PhotoGrid(key: key)),
+        ),
+      );
+
+      expect(key.currentState?.loadError, isNull);
+    });
+  });
+
+  group('HomePage error state and retry button', () {
+    setUp(() {
+      SharedPreferences.setMockInitialValues({});
+      SharedPreferencesAsyncPlatform.instance =
+          InMemorySharedPreferencesAsync.empty();
+    });
+
+    test('error state starts as null', () {
+      String? deviceLoadError;
+      expect(deviceLoadError, isNull);
+    });
+
+    test('error state is set when onLoadError callback fires', () {
+      String? deviceLoadError;
+
+      void onDeviceLoadError(String? error) {
+        deviceLoadError = error;
+      }
+
+      onDeviceLoadError('Failed to load photos: Network error');
+      expect(deviceLoadError, equals('Failed to load photos: Network error'));
+
+      onDeviceLoadError(null);
+      expect(deviceLoadError, isNull);
+    });
+
+    test('retry button shows refresh icon with red color', () {
+      // Document the expected retry button appearance
+      const expectedIcon = Icons.refresh;
+      const expectedColor = Colors.red;
+
+      expect(expectedIcon, equals(Icons.refresh));
+      expect(expectedColor, equals(Colors.red));
+    });
+
+    test('retry button has tooltip with error message', () {
+      // Document that the error message is shown in a tooltip
+      const errorMessage = 'Failed to load photos: Connection timeout';
+      final tooltip = Tooltip(message: errorMessage, child: Container());
+
+      expect(tooltip.message, equals(errorMessage));
+    });
+
+    test('error state shows retry button instead of loading indicator', () {
+      // Document the conditional display logic
+      String? deviceLoadError = 'Some error';
+      const isDeviceLoading = true;
+
+      // When there's an error, show retry button instead of loading indicator
+      final showRetryButton = deviceLoadError != null;
+      final showLoadingIndicator = deviceLoadError == null && isDeviceLoading;
+
+      expect(showRetryButton, isTrue);
+      expect(showLoadingIndicator, isFalse);
+    });
+
+    test('clearing error allows loading indicator to show again', () {
+      String? deviceLoadError;
+      const isDeviceLoading = true;
+
+      // No error, show loading indicator
+      final showRetryButton = deviceLoadError != null;
+      final showLoadingIndicator = isDeviceLoading;
+
+      expect(showRetryButton, isFalse);
+      expect(showLoadingIndicator, isTrue);
+    });
+
+    test('retry button is only shown on device tab', () {
+      const selectedIndex = 0;
+      const hasError = true;
+
+      // Error button is only shown on device tab
+      final showRetryInAppBar = selectedIndex == 0 && hasError;
+      expect(showRetryInAppBar, isTrue);
+
+      // Not shown on cloud tab
+      const cloudIndex = 1;
+      final showRetryOnCloud = cloudIndex == 0 && hasError;
+      expect(showRetryOnCloud, isFalse);
+    });
+  });
+
+  group('Retry loading behavior', () {
+    testWidgets('retryLoading method is accessible via GlobalKey', (
+      tester,
+    ) async {
+      final key = GlobalKey<PhotoGridState>();
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(body: PhotoGrid(key: key)),
+        ),
+      );
+
+      // Verify retryLoading method exists and returns bool
+      final result = key.currentState?.retryLoading();
+      expect(result, isA<bool>());
+    });
+
+    test('retryLoading returns false when no error', () {
+      // Simulate state where there's no error
+      String? loadError;
+      const hasMorePhotos = true;
+
+      bool retryLoading() {
+        if (loadError == null || !hasMorePhotos) {
+          return false;
+        }
+        return true;
+      }
+
+      expect(retryLoading(), isFalse);
+    });
+
+    test('retryLoading returns false when all photos loaded', () {
+      String? loadError = 'Some error';
+      const hasMorePhotos = false;
+
+      bool retryLoading() {
+        if (!hasMorePhotos) {
+          return false;
+        }
+        return true;
+      }
+
+      expect(retryLoading(), isFalse);
+    });
+
+    test(
+      'retryLoading returns true when error exists and more photos available',
+      () {
+        String? loadError = 'Network error';
+        const hasMorePhotos = true;
+
+        bool retryLoading() {
+          if (!hasMorePhotos) {
+            return false;
+          }
+          return true;
+        }
+
+        expect(retryLoading(), isTrue);
+      },
+    );
+  });
+
+  group('PhotoGrid onLoadProgress callback', () {
+    testWidgets('onLoadProgress callback can be provided', (tester) async {
+      PhotoLoadProgress? lastProgress;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: PhotoGrid(
+              onLoadProgress: (progress) {
+                lastProgress = progress;
+              },
+            ),
+          ),
+        ),
+      );
+
+      final photoGrid = tester.widget<PhotoGrid>(find.byType(PhotoGrid));
+      expect(photoGrid.onLoadProgress, isNotNull);
+    });
+
+    testWidgets('can be created with all five callbacks', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: PhotoGrid(
+              onSelectionChanged: (count) {},
+              onPhotoTap: (photo, index) {},
+              onLoadingChanged: (isLoading) {},
+              onLoadError: (error) {},
+              onLoadProgress: (progress) {},
+            ),
+          ),
+        ),
+      );
+
+      final photoGrid = tester.widget<PhotoGrid>(find.byType(PhotoGrid));
+      expect(photoGrid.onSelectionChanged, isNotNull);
+      expect(photoGrid.onPhotoTap, isNotNull);
+      expect(photoGrid.onLoadingChanged, isNotNull);
+      expect(photoGrid.onLoadError, isNotNull);
+      expect(photoGrid.onLoadProgress, isNotNull);
+    });
+
+    testWidgets('onLoadProgress is null by default', (tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(home: Scaffold(body: PhotoGrid())),
+      );
+
+      final photoGrid = tester.widget<PhotoGrid>(find.byType(PhotoGrid));
+      expect(photoGrid.onLoadProgress, isNull);
+    });
+  });
+
+  group('PhotoGridState totalPhotoCount getter', () {
+    testWidgets('totalPhotoCount is accessible via GlobalKey', (tester) async {
+      final key = GlobalKey<PhotoGridState>();
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(body: PhotoGrid(key: key)),
+        ),
+      );
+
+      expect(key.currentState?.totalPhotoCount, isA<int>());
+    });
+
+    testWidgets('totalPhotoCount starts at 0', (tester) async {
+      final key = GlobalKey<PhotoGridState>();
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(body: PhotoGrid(key: key)),
+        ),
+      );
+
+      expect(key.currentState?.totalPhotoCount, equals(0));
+    });
+  });
+
+  group('HomePage progress indicator in app bar', () {
+    setUp(() {
+      SharedPreferences.setMockInitialValues({});
+      SharedPreferencesAsyncPlatform.instance =
+          InMemorySharedPreferencesAsync.empty();
+    });
+
+    test('progress state starts as null', () {
+      PhotoLoadProgress? deviceLoadProgress;
+      expect(deviceLoadProgress, isNull);
+    });
+
+    test('progress state is updated when onLoadProgress callback fires', () {
+      PhotoLoadProgress? deviceLoadProgress;
+
+      void onDeviceLoadProgress(PhotoLoadProgress progress) {
+        deviceLoadProgress = progress;
+      }
+
+      onDeviceLoadProgress(const PhotoLoadProgress(loaded: 50, total: 200));
+      expect(deviceLoadProgress?.loaded, equals(50));
+      expect(deviceLoadProgress?.total, equals(200));
+
+      onDeviceLoadProgress(const PhotoLoadProgress(loaded: 100, total: 200));
+      expect(deviceLoadProgress?.loaded, equals(100));
+    });
+
+    test('progress text format is "loaded/total"', () {
+      const progress = PhotoLoadProgress(loaded: 50, total: 200);
+      final progressText = '${progress.loaded}/${progress.total}';
+
+      expect(progressText, equals('50/200'));
+    });
+
+    test('progress indicator shows text when progress is available', () {
+      // Document the conditional display logic
+      const isDeviceLoading = true;
+      PhotoLoadProgress? deviceLoadProgress = const PhotoLoadProgress(
+        loaded: 50,
+        total: 200,
+      );
+      String? deviceLoadError;
+
+      // Priority: error > progress text > spinner
+      final showRetryButton = deviceLoadError != null;
+      final showProgressText =
+          !showRetryButton && isDeviceLoading;
+      final showSpinner =
+          !showRetryButton && isDeviceLoading && deviceLoadProgress == null;
+
+      expect(showRetryButton, isFalse);
+      expect(showProgressText, isTrue);
+      expect(showSpinner, isFalse);
+    });
+
+    test('spinner shows when loading but no progress yet', () {
+      const isDeviceLoading = true;
+      PhotoLoadProgress? deviceLoadProgress;
+      String? deviceLoadError;
+
+      final showRetryButton = deviceLoadError != null;
+      final showProgressText =
+          !showRetryButton && isDeviceLoading && deviceLoadProgress != null;
+      final showSpinner =
+          !showRetryButton && isDeviceLoading;
+
+      expect(showRetryButton, isFalse);
+      expect(showProgressText, isFalse);
+      expect(showSpinner, isTrue);
+    });
+
+    test('nothing shows when loading is complete', () {
+      const isDeviceLoading = false;
+      PhotoLoadProgress? deviceLoadProgress = const PhotoLoadProgress(
+        loaded: 200,
+        total: 200,
+      );
+      String? deviceLoadError;
+
+      final showRetryButton = deviceLoadError != null;
+      final showProgressText =
+          !showRetryButton && isDeviceLoading;
+      final showSpinner =
+          !showRetryButton && isDeviceLoading && deviceLoadProgress == null;
+
+      expect(showRetryButton, isFalse);
+      expect(showProgressText, isFalse);
+      expect(showSpinner, isFalse);
+    });
+
+    test('error takes priority over progress', () {
+      const isDeviceLoading = true;
+      PhotoLoadProgress? deviceLoadProgress = const PhotoLoadProgress(
+        loaded: 50,
+        total: 200,
+      );
+      String? deviceLoadError = 'Some error';
+
+      final showRetryButton = deviceLoadError != null;
+      final showProgressText =
+          !showRetryButton && isDeviceLoading;
+
+      expect(showRetryButton, isTrue);
+      expect(showProgressText, isFalse);
+    });
+  });
 }

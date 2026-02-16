@@ -21,11 +21,35 @@ class PhotoDateGroup {
   String get dayOfWeek => DateFormat.EEEE().format(date);
 }
 
+/// Represents the progress of loading photos.
+class PhotoLoadProgress {
+  final int loaded;
+  final int total;
+
+  const PhotoLoadProgress({required this.loaded, required this.total});
+
+  /// Returns true if all photos have been loaded.
+  bool get isComplete => loaded >= total;
+
+  /// Returns the progress as a value between 0.0 and 1.0.
+  double get progress => total > 0 ? loaded / total : 0.0;
+}
+
 class PhotoGrid extends StatefulWidget {
   final void Function(int selectedCount)? onSelectionChanged;
   final void Function(AssetEntity photo, int index)? onPhotoTap;
+  final void Function(bool isLoading)? onLoadingChanged;
+  final void Function(String? error)? onLoadError;
+  final void Function(PhotoLoadProgress progress)? onLoadProgress;
 
-  const PhotoGrid({super.key, this.onSelectionChanged, this.onPhotoTap});
+  const PhotoGrid({
+    super.key,
+    this.onSelectionChanged,
+    this.onPhotoTap,
+    this.onLoadingChanged,
+    this.onLoadError,
+    this.onLoadProgress,
+  });
 
   @override
   State<PhotoGrid> createState() => PhotoGridState();
@@ -46,11 +70,26 @@ class PhotoGridState extends State<PhotoGrid> {
   static const int _pageSize = 50;
   int _currentPage = 0;
   bool _hasMorePhotos = true;
-  bool _isLoadingMore = false;
+  bool _isLoadingAll = false;
   AssetPathEntity? _primaryAlbum;
   final ScrollController _scrollController = ScrollController();
 
+  // Error handling state
+  String? _loadError;
+
+  // Progress tracking
+  int _totalPhotoCount = 0;
+
   bool get isSelectionMode => _isSelectionMode;
+
+  /// Returns true if there was an error loading photos.
+  bool get hasLoadError => _loadError != null;
+
+  /// Returns the current load error message, if any.
+  String? get loadError => _loadError;
+
+  /// Returns the total number of photos to be loaded.
+  int get totalPhotoCount => _totalPhotoCount;
 
   /// Returns an unmodifiable view of the current photos list.
   List<AssetEntity> get photos => List.unmodifiable(_photos);
@@ -58,22 +97,13 @@ class PhotoGridState extends State<PhotoGrid> {
   @override
   void initState() {
     super.initState();
-    _scrollController.addListener(_onScroll);
     _requestPermissionAndLoadPhotos();
   }
 
   @override
   void dispose() {
-    _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
     super.dispose();
-  }
-
-  void _onScroll() {
-    if (_scrollController.position.pixels >=
-        _scrollController.position.maxScrollExtent - 200) {
-      _loadMorePhotos();
-    }
   }
 
   Future<void> _requestPermissionAndLoadPhotos() async {
@@ -114,7 +144,12 @@ class PhotoGridState extends State<PhotoGrid> {
           _photoGroups = [];
           _isLoading = false;
           _hasMorePhotos = false;
+          _totalPhotoCount = 0;
         });
+        widget.onLoadingChanged?.call(false);
+        widget.onLoadProgress?.call(
+          const PhotoLoadProgress(loaded: 0, total: 0),
+        );
         return;
       }
 
@@ -134,12 +169,27 @@ class PhotoGridState extends State<PhotoGrid> {
         _currentPage = 1;
         _hasMorePhotos = photos.length < totalCount;
         _isLoading = false;
+        _isLoadingAll = _hasMorePhotos;
+        _totalPhotoCount = totalCount;
       });
+
+      // Notify parent about loading state and progress
+      widget.onLoadingChanged?.call(_hasMorePhotos);
+      widget.onLoadProgress?.call(
+        PhotoLoadProgress(loaded: photos.length, total: totalCount),
+      );
+
+      // Continue loading all remaining photos
+      if (_hasMorePhotos) {
+        _loadAllRemainingPhotos();
+      }
     } catch (e) {
       setState(() {
         _errorMessage = 'Failed to load photos: $e';
         _isLoading = false;
+        _isLoadingAll = false;
       });
+      widget.onLoadingChanged?.call(false);
     }
   }
 
@@ -195,32 +245,76 @@ class PhotoGridState extends State<PhotoGrid> {
         .toList();
   }
 
-  Future<void> _loadMorePhotos() async {
-    if (_isLoadingMore || !_hasMorePhotos || _primaryAlbum == null) return;
+  /// Continuously loads all remaining photos in batches until complete.
+  Future<void> _loadAllRemainingPhotos() async {
+    if (!_hasMorePhotos || _primaryAlbum == null) return;
+
+    // Clear any previous error when starting/retrying
+    if (_loadError != null) {
+      setState(() {
+        _loadError = null;
+      });
+      widget.onLoadError?.call(null);
+    }
+
+    while (_hasMorePhotos && _primaryAlbum != null) {
+      try {
+        final start = _currentPage * _pageSize;
+        final totalCount = await _primaryAlbum!.assetCountAsync;
+
+        final List<AssetEntity> morePhotos = await _primaryAlbum!
+            .getAssetListRange(start: start, end: start + _pageSize);
+
+        if (!mounted) return;
+
+        setState(() {
+          _photos.addAll(morePhotos);
+          _mergePhotosIntoGroups(morePhotos);
+          _currentPage++;
+          _hasMorePhotos = _photos.length < totalCount;
+          _totalPhotoCount = totalCount;
+        });
+
+        // Report progress after each batch
+        widget.onLoadProgress?.call(
+          PhotoLoadProgress(loaded: _photos.length, total: totalCount),
+        );
+      } catch (e) {
+        // Track error and stop loading
+        if (mounted) {
+          setState(() {
+            _loadError = 'Failed to load photos: $e';
+            _isLoadingAll = false;
+          });
+          widget.onLoadError?.call(_loadError);
+          widget.onLoadingChanged?.call(false);
+        }
+        return;
+      }
+    }
+
+    // All photos loaded successfully, notify parent
+    if (mounted) {
+      setState(() {
+        _isLoadingAll = false;
+      });
+      widget.onLoadingChanged?.call(false);
+    }
+  }
+
+  /// Retries loading photos after an error.
+  /// Returns true if retry was started, false if there's nothing to retry.
+  bool retryLoading() {
+    if (_loadError == null || !_hasMorePhotos) {
+      return false;
+    }
 
     setState(() {
-      _isLoadingMore = true;
+      _isLoadingAll = true;
     });
-
-    try {
-      final start = _currentPage * _pageSize;
-      final totalCount = await _primaryAlbum!.assetCountAsync;
-
-      final List<AssetEntity> morePhotos = await _primaryAlbum!
-          .getAssetListRange(start: start, end: start + _pageSize);
-
-      setState(() {
-        _photos.addAll(morePhotos);
-        _mergePhotosIntoGroups(morePhotos);
-        _currentPage++;
-        _hasMorePhotos = _photos.length < totalCount;
-        _isLoadingMore = false;
-      });
-    } catch (e) {
-      setState(() {
-        _isLoadingMore = false;
-      });
-    }
+    widget.onLoadingChanged?.call(true);
+    _loadAllRemainingPhotos();
+    return true;
   }
 
   Future<void> _openSettings() async {
@@ -541,16 +635,6 @@ class PhotoGridState extends State<PhotoGrid> {
             ),
           ),
         ],
-        // Loading indicator at the bottom
-        if (_isLoadingMore)
-          const SliverToBoxAdapter(
-            child: Center(
-              child: Padding(
-                padding: EdgeInsets.all(16.0),
-                child: CircularProgressIndicator(),
-              ),
-            ),
-          ),
       ],
     );
   }

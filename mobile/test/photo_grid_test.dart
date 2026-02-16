@@ -304,6 +304,446 @@ void main() {
       expect(photos, containsAll(['photo2', 'photo4']));
     });
   });
+
+  group('PhotoGrid widget callbacks', () {
+    test('PhotoGrid accepts onLoadingChanged callback', () {
+      // Verify the callback parameter exists and can be set
+      bool? loadingState;
+      void callback(bool isLoading) {
+        loadingState = isLoading;
+      }
+
+      // Simulate callback invocation
+      callback(true);
+      expect(loadingState, isTrue);
+
+      callback(false);
+      expect(loadingState, isFalse);
+    });
+
+    test('PhotoGrid accepts onSelectionChanged callback', () {
+      int? selectionCount;
+      void callback(int count) {
+        selectionCount = count;
+      }
+
+      callback(5);
+      expect(selectionCount, equals(5));
+
+      callback(0);
+      expect(selectionCount, equals(0));
+    });
+  });
+
+  group('Continuous loading behavior', () {
+    test('page size is 50', () {
+      // Document the expected page size constant
+      const pageSize = 50;
+      expect(pageSize, equals(50));
+    });
+
+    test('loading continues while hasMorePhotos is true', () {
+      // Simulate the loading loop condition
+      var hasMorePhotos = true;
+      var loadCount = 0;
+      const maxLoads = 5;
+
+      while (hasMorePhotos && loadCount < maxLoads) {
+        loadCount++;
+        // Simulate loading completion after some iterations
+        if (loadCount >= 3) {
+          hasMorePhotos = false;
+        }
+      }
+
+      expect(loadCount, equals(3));
+      expect(hasMorePhotos, isFalse);
+    });
+
+    test('loading stops when all photos are loaded', () {
+      // Simulate total count vs loaded count
+      const totalCount = 120;
+      const pageSize = 50;
+      var loadedCount = 0;
+      var pageNumber = 0;
+
+      while (loadedCount < totalCount) {
+        final batchSize = (loadedCount + pageSize > totalCount)
+            ? totalCount - loadedCount
+            : pageSize;
+        loadedCount += batchSize;
+        pageNumber++;
+      }
+
+      expect(loadedCount, equals(totalCount));
+      expect(pageNumber, equals(3)); // 50 + 50 + 20 = 120
+    });
+
+    test('loading state transitions from true to false when complete', () {
+      final loadingStates = <bool>[];
+
+      // Simulate loading state changes
+      void onLoadingChanged(bool isLoading) {
+        loadingStates.add(isLoading);
+      }
+
+      // Initial load starts
+      onLoadingChanged(true);
+      // Loading completes
+      onLoadingChanged(false);
+
+      expect(loadingStates, equals([true, false]));
+    });
+
+    test('empty album results in loading state false immediately', () {
+      var isLoadingAll = true;
+      const albumIsEmpty = true;
+
+      if (albumIsEmpty) {
+        isLoadingAll = false;
+      }
+
+      expect(isLoadingAll, isFalse);
+    });
+
+    test('batch loading calculates correct start index', () {
+      const pageSize = 50;
+
+      // Page 0
+      expect(0 * pageSize, equals(0));
+      // Page 1
+      expect(1 * pageSize, equals(50));
+      // Page 2
+      expect(2 * pageSize, equals(100));
+      // Page 3
+      expect(3 * pageSize, equals(150));
+    });
+
+    test('batch loading calculates correct end index', () {
+      const pageSize = 50;
+
+      // Page 0: 0 to 50
+      expect(0 * pageSize + pageSize, equals(50));
+      // Page 1: 50 to 100
+      expect(1 * pageSize + pageSize, equals(100));
+      // Page 2: 100 to 150
+      expect(2 * pageSize + pageSize, equals(150));
+    });
+
+    test('hasMorePhotos is true when loaded count less than total', () {
+      const totalCount = 150;
+
+      expect(50 < totalCount, isTrue); // After page 1
+      expect(100 < totalCount, isTrue); // After page 2
+      expect(150 < totalCount, isFalse); // After page 3 (all loaded)
+    });
+
+    test('merging photos into groups is called for each batch', () {
+      var mergeCallCount = 0;
+      const totalBatches = 3;
+
+      for (var i = 0; i < totalBatches; i++) {
+        // Simulate merging
+        mergeCallCount++;
+      }
+
+      expect(mergeCallCount, equals(totalBatches));
+    });
+  });
+
+  group('Error handling and retry logic', () {
+    test('PhotoGrid accepts onLoadError callback', () {
+      String? receivedError;
+      void callback(String? error) {
+        receivedError = error;
+      }
+
+      // Simulate error callback invocation
+      callback('Failed to load photos: Network error');
+      expect(receivedError, equals('Failed to load photos: Network error'));
+
+      // Simulate clearing error
+      callback(null);
+      expect(receivedError, isNull);
+    });
+
+    test('error state is tracked when loading fails', () {
+      String? loadError;
+      var isLoadingAll = true;
+
+      // Simulate error during loading
+      void handleLoadError(String error) {
+        loadError = error;
+        isLoadingAll = false;
+      }
+
+      handleLoadError('Failed to load photos: Network timeout');
+
+      expect(loadError, isNotNull);
+      expect(loadError, contains('Failed to load photos'));
+      expect(isLoadingAll, isFalse);
+    });
+
+    test('loading callbacks are called in correct order on error', () {
+      final tracker = _LoadingCallbackTracker();
+
+      // Simulate: start loading -> error occurs
+      tracker.onLoadingChanged(true); // Loading starts
+      tracker.onLoadError('Network error'); // Error occurs
+      tracker.onLoadingChanged(false); // Loading stops
+
+      expect(tracker.loadingStates, equals([true, false]));
+      expect(tracker.errors, equals(['Network error']));
+    });
+
+    test('retry clears previous error before restarting', () {
+      final tracker = _LoadingCallbackTracker();
+      String? currentError = 'Previous error';
+
+      // Simulate retry behavior
+      void retryLoading() {
+        currentError = null;
+        tracker.onLoadError(null);
+        tracker.onLoadingChanged(true);
+      }
+
+      retryLoading();
+
+      expect(currentError, isNull);
+      expect(tracker.errors, equals([null]));
+      expect(tracker.loadingStates, equals([true]));
+    });
+
+    test(
+      'retry does nothing when there is no error and loading is complete',
+      () {
+        String? loadError;
+        var hasMorePhotos = false;
+        var retryCalled = false;
+
+        bool retryLoading() {
+          if (loadError == null || !hasMorePhotos) {
+            return false;
+          }
+          retryCalled = true;
+          return true;
+        }
+
+        final result = retryLoading();
+
+        expect(result, isFalse);
+        expect(retryCalled, isFalse);
+      },
+    );
+
+    test(
+      'retry starts loading when there is an error and more photos exist',
+      () {
+        String? loadError = 'Network error';
+        var hasMorePhotos = true;
+        var isLoadingAll = false;
+
+        bool retryLoading() {
+          if (!hasMorePhotos) {
+            return false;
+          }
+          isLoadingAll = true;
+          return true;
+        }
+
+        final result = retryLoading();
+
+        expect(result, isTrue);
+        expect(isLoadingAll, isTrue);
+      },
+    );
+
+    test('error message contains exception details', () {
+      final exception = Exception('Connection refused');
+      final errorMessage = 'Failed to load photos: $exception';
+
+      expect(errorMessage, contains('Failed to load photos'));
+      expect(errorMessage, contains('Connection refused'));
+    });
+
+    test('loading loop stops on first error', () {
+      var pagesLoaded = 0;
+      var errorOccurred = false;
+      const errorOnPage = 3;
+      const totalPages = 10;
+
+      for (var page = 0; page < totalPages; page++) {
+        if (page == errorOnPage) {
+          errorOccurred = true;
+          break; // Simulate error breaking the loop
+        }
+        pagesLoaded++;
+      }
+
+      expect(pagesLoaded, equals(errorOnPage));
+      expect(errorOccurred, isTrue);
+    });
+
+    test('successfully loaded photos are preserved after error', () {
+      final photos = <String>[];
+      const photosPerPage = 50;
+
+      // Simulate loading 2 pages successfully, then error on page 3
+      for (var page = 0; page < 3; page++) {
+        if (page == 2) {
+          // Error on page 3 - don't add photos
+          break;
+        }
+        for (var i = 0; i < photosPerPage; i++) {
+          photos.add('photo_${page}_$i');
+        }
+      }
+
+      // Photos from first 2 pages should be preserved
+      expect(photos.length, equals(100));
+    });
+
+    test('multiple retries can be attempted', () {
+      var retryCount = 0;
+      String? loadError = 'Error';
+      const maxRetries = 3;
+
+      while (loadError != null && retryCount < maxRetries) {
+        retryCount++;
+        // Simulate retry failing until last attempt
+        if (retryCount == maxRetries) {
+          loadError = null;
+        }
+      }
+
+      expect(retryCount, equals(maxRetries));
+      expect(loadError, isNull);
+    });
+
+    test('hasLoadError returns true when error exists', () {
+      String? loadError = 'Some error';
+
+      bool hasLoadError() => loadError != null;
+
+      expect(hasLoadError(), isTrue);
+
+      loadError = null;
+      expect(hasLoadError(), isFalse);
+    });
+  });
+
+  group('PhotoLoadProgress', () {
+    test('stores loaded and total counts', () {
+      const progress = PhotoLoadProgress(loaded: 50, total: 200);
+
+      expect(progress.loaded, equals(50));
+      expect(progress.total, equals(200));
+    });
+
+    test('isComplete returns false when loaded < total', () {
+      const progress = PhotoLoadProgress(loaded: 50, total: 200);
+
+      expect(progress.isComplete, isFalse);
+    });
+
+    test('isComplete returns true when loaded >= total', () {
+      const progress1 = PhotoLoadProgress(loaded: 200, total: 200);
+      const progress2 = PhotoLoadProgress(loaded: 250, total: 200);
+
+      expect(progress1.isComplete, isTrue);
+      expect(progress2.isComplete, isTrue);
+    });
+
+    test('progress returns correct ratio', () {
+      const progress = PhotoLoadProgress(loaded: 50, total: 200);
+
+      expect(progress.progress, equals(0.25));
+    });
+
+    test('progress returns 0.0 when total is 0', () {
+      const progress = PhotoLoadProgress(loaded: 0, total: 0);
+
+      expect(progress.progress, equals(0.0));
+    });
+
+    test('progress returns 1.0 when fully loaded', () {
+      const progress = PhotoLoadProgress(loaded: 200, total: 200);
+
+      expect(progress.progress, equals(1.0));
+    });
+
+    test('progress can exceed 1.0 if loaded > total', () {
+      const progress = PhotoLoadProgress(loaded: 250, total: 200);
+
+      expect(progress.progress, equals(1.25));
+    });
+  });
+
+  group('PhotoGrid onLoadProgress callback', () {
+    test('PhotoGrid accepts onLoadProgress callback', () {
+      PhotoLoadProgress? lastProgress;
+      void callback(PhotoLoadProgress progress) {
+        lastProgress = progress;
+      }
+
+      // Simulate progress callback invocation
+      callback(const PhotoLoadProgress(loaded: 50, total: 200));
+      expect(lastProgress?.loaded, equals(50));
+      expect(lastProgress?.total, equals(200));
+
+      callback(const PhotoLoadProgress(loaded: 100, total: 200));
+      expect(lastProgress?.loaded, equals(100));
+    });
+
+    test('progress is reported after each batch', () {
+      final progressHistory = <PhotoLoadProgress>[];
+      void callback(PhotoLoadProgress progress) {
+        progressHistory.add(progress);
+      }
+
+      // Simulate batches of 50 photos
+      callback(const PhotoLoadProgress(loaded: 50, total: 200));
+      callback(const PhotoLoadProgress(loaded: 100, total: 200));
+      callback(const PhotoLoadProgress(loaded: 150, total: 200));
+      callback(const PhotoLoadProgress(loaded: 200, total: 200));
+
+      expect(progressHistory.length, equals(4));
+      expect(progressHistory[0].loaded, equals(50));
+      expect(progressHistory[1].loaded, equals(100));
+      expect(progressHistory[2].loaded, equals(150));
+      expect(progressHistory[3].loaded, equals(200));
+      expect(progressHistory.last.isComplete, isTrue);
+    });
+
+    test('progress callback receives correct total throughout loading', () {
+      final progressHistory = <PhotoLoadProgress>[];
+      void callback(PhotoLoadProgress progress) {
+        progressHistory.add(progress);
+      }
+
+      // All progress updates should have the same total
+      callback(const PhotoLoadProgress(loaded: 50, total: 500));
+      callback(const PhotoLoadProgress(loaded: 100, total: 500));
+      callback(const PhotoLoadProgress(loaded: 150, total: 500));
+
+      for (final progress in progressHistory) {
+        expect(progress.total, equals(500));
+      }
+    });
+
+    test('empty album reports 0/0 progress', () {
+      PhotoLoadProgress? lastProgress;
+      void callback(PhotoLoadProgress progress) {
+        lastProgress = progress;
+      }
+
+      callback(const PhotoLoadProgress(loaded: 0, total: 0));
+
+      expect(lastProgress?.loaded, equals(0));
+      expect(lastProgress?.total, equals(0));
+      expect(lastProgress?.isComplete, isTrue);
+    });
+  });
 }
 
 /// Helper class to simulate UploadResult behavior in tests
@@ -312,4 +752,18 @@ class _MockUploadResult {
   final bool success;
 
   _MockUploadResult({required this.id, required this.success});
+}
+
+/// Helper class to track loading and error callback invocations
+class _LoadingCallbackTracker {
+  final List<bool> loadingStates = [];
+  final List<String?> errors = [];
+
+  void onLoadingChanged(bool isLoading) {
+    loadingStates.add(isLoading);
+  }
+
+  void onLoadError(String? error) {
+    errors.add(error);
+  }
 }

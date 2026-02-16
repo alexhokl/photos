@@ -38,6 +38,9 @@ class _HomePageState extends State<HomePage> {
   int _selectedIndex = 0;
   int _deviceSelectedCount = 0;
   int _cloudSelectedCount = 0;
+  bool _isDeviceLoading = true;
+  String? _deviceLoadError;
+  PhotoLoadProgress? _deviceLoadProgress;
   final GlobalKey<PhotoGridState> _photoGridKey = GlobalKey<PhotoGridState>();
   final GlobalKey<CloudPhotoGridState> _cloudPhotoGridKey =
       GlobalKey<CloudPhotoGridState>();
@@ -52,6 +55,28 @@ class _HomePageState extends State<HomePage> {
     setState(() {
       _cloudSelectedCount = count;
     });
+  }
+
+  void _onDeviceLoadingChanged(bool isLoading) {
+    setState(() {
+      _isDeviceLoading = isLoading;
+    });
+  }
+
+  void _onDeviceLoadError(String? error) {
+    setState(() {
+      _deviceLoadError = error;
+    });
+  }
+
+  void _onDeviceLoadProgress(PhotoLoadProgress progress) {
+    setState(() {
+      _deviceLoadProgress = progress;
+    });
+  }
+
+  void _onRetryDeviceLoading() {
+    _photoGridKey.currentState?.retryLoading();
   }
 
   void _onDeviceMenuAction(PhotoGridAction action) {
@@ -119,6 +144,33 @@ class _HomePageState extends State<HomePage> {
   List<Widget> _buildAppBarActions() {
     if (_selectedIndex == 0) {
       return [
+        if (_deviceLoadError != null)
+          Tooltip(
+            message: _deviceLoadError!,
+            child: IconButton(
+              icon: const Icon(Icons.refresh, color: Colors.red),
+              onPressed: _onRetryDeviceLoading,
+            ),
+          )
+        else if (_isDeviceLoading && _deviceLoadProgress != null)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12.0),
+            child: Center(
+              child: Text(
+                '${_deviceLoadProgress!.loaded}/${_deviceLoadProgress!.total}',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ),
+          )
+        else if (_isDeviceLoading)
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16.0),
+            child: SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+          ),
         PopupMenuButton<PhotoGridAction>(
           enabled: _deviceSelectedCount > 0,
           icon: Icon(
@@ -215,6 +267,9 @@ class _HomePageState extends State<HomePage> {
             key: _photoGridKey,
             onSelectionChanged: _onDeviceSelectionChanged,
             onPhotoTap: _onPhotoTap,
+            onLoadingChanged: _onDeviceLoadingChanged,
+            onLoadError: _onDeviceLoadError,
+            onLoadProgress: _onDeviceLoadProgress,
           ),
           CloudPhotoGrid(
             key: _cloudPhotoGridKey,
