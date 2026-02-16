@@ -57,14 +57,59 @@ class PhotoGrid extends StatefulWidget {
 
 enum PhotoGridAction { delete, upload, uploadTo }
 
+/// Notifier for photo selection state that allows individual thumbnails
+/// to listen only to their own selection status changes.
+class PhotoSelectionNotifier extends ChangeNotifier {
+  final Set<String> _selectedIds = {};
+  bool _isSelectionMode = false;
+
+  bool get isSelectionMode => _isSelectionMode;
+  int get selectedCount => _selectedIds.length;
+  Set<String> get selectedIds => Set.unmodifiable(_selectedIds);
+
+  bool isSelected(String photoId) => _selectedIds.contains(photoId);
+
+  void toggleSelection(String photoId) {
+    if (_selectedIds.contains(photoId)) {
+      _selectedIds.remove(photoId);
+      if (_selectedIds.isEmpty) {
+        _isSelectionMode = false;
+      }
+    } else {
+      _selectedIds.add(photoId);
+    }
+    notifyListeners();
+  }
+
+  void enterSelectionMode(String photoId) {
+    if (_isSelectionMode) return;
+    _isSelectionMode = true;
+    _selectedIds.add(photoId);
+    notifyListeners();
+  }
+
+  void clearSelection() {
+    _selectedIds.clear();
+    _isSelectionMode = false;
+    notifyListeners();
+  }
+
+  void removePhotoId(String photoId) {
+    _selectedIds.remove(photoId);
+    if (_selectedIds.isEmpty) {
+      _isSelectionMode = false;
+    }
+    notifyListeners();
+  }
+}
+
 class PhotoGridState extends State<PhotoGrid> {
   List<AssetEntity> _photos = [];
   List<PhotoDateGroup> _photoGroups = [];
   bool _isLoading = true;
   bool _hasPermission = false;
   String? _errorMessage;
-  final Set<String> _selectedPhotoIds = {};
-  bool _isSelectionMode = false;
+  final PhotoSelectionNotifier _selectionNotifier = PhotoSelectionNotifier();
 
   // Pagination state
   static const int _pageSize = 50;
@@ -80,7 +125,7 @@ class PhotoGridState extends State<PhotoGrid> {
   // Progress tracking
   int _totalPhotoCount = 0;
 
-  bool get isSelectionMode => _isSelectionMode;
+  bool get isSelectionMode => _selectionNotifier.isSelectionMode;
 
   /// Returns true if there was an error loading photos.
   bool get hasLoadError => _loadError != null;
@@ -103,6 +148,7 @@ class PhotoGridState extends State<PhotoGrid> {
   @override
   void dispose() {
     _scrollController.dispose();
+    _selectionNotifier.dispose();
     super.dispose();
   }
 
@@ -322,49 +368,29 @@ class PhotoGridState extends State<PhotoGrid> {
   }
 
   void _toggleSelection(AssetEntity photo) {
-    setState(() {
-      if (_selectedPhotoIds.contains(photo.id)) {
-        _selectedPhotoIds.remove(photo.id);
-        // Exit selection mode if no photos are selected
-        if (_selectedPhotoIds.isEmpty) {
-          _isSelectionMode = false;
-        }
-      } else {
-        _selectedPhotoIds.add(photo.id);
-      }
-    });
-    widget.onSelectionChanged?.call(_selectedPhotoIds.length);
+    _selectionNotifier.toggleSelection(photo.id);
+    widget.onSelectionChanged?.call(_selectionNotifier.selectedCount);
   }
 
   void _enterSelectionMode(AssetEntity photo) {
-    if (_isSelectionMode) return;
-    setState(() {
-      _isSelectionMode = true;
-      _selectedPhotoIds.add(photo.id);
-    });
-    widget.onSelectionChanged?.call(_selectedPhotoIds.length);
+    _selectionNotifier.enterSelectionMode(photo.id);
+    widget.onSelectionChanged?.call(_selectionNotifier.selectedCount);
   }
 
   void _clearSelection() {
-    setState(() {
-      _selectedPhotoIds.clear();
-      _isSelectionMode = false;
-    });
+    _selectionNotifier.clearSelection();
     widget.onSelectionChanged?.call(0);
   }
 
-  int get selectedCount => _selectedPhotoIds.length;
+  int get selectedCount => _selectionNotifier.selectedCount;
 
   void removePhoto(String photoId) {
     setState(() {
       _photos.removeWhere((p) => p.id == photoId);
       _photoGroups = _groupPhotosByDate(_photos);
-      _selectedPhotoIds.remove(photoId);
-      if (_selectedPhotoIds.isEmpty) {
-        _isSelectionMode = false;
-      }
     });
-    widget.onSelectionChanged?.call(_selectedPhotoIds.length);
+    _selectionNotifier.removePhotoId(photoId);
+    widget.onSelectionChanged?.call(_selectionNotifier.selectedCount);
   }
 
   Future<void> performAction(PhotoGridAction action) async {
@@ -382,7 +408,7 @@ class PhotoGridState extends State<PhotoGrid> {
   }
 
   List<AssetEntity> get _selectedPhotos {
-    return _photos.where((p) => _selectedPhotoIds.contains(p.id)).toList();
+    return _photos.where((p) => _selectionNotifier.isSelected(p.id)).toList();
   }
 
   Future<void> _deleteSelectedPhotos() async {
@@ -394,12 +420,12 @@ class PhotoGridState extends State<PhotoGrid> {
     );
 
     if (result.isNotEmpty) {
+      final selectedIds = _selectionNotifier.selectedIds;
       setState(() {
-        _photos.removeWhere((p) => _selectedPhotoIds.contains(p.id));
+        _photos.removeWhere((p) => selectedIds.contains(p.id));
         _photoGroups = _groupPhotosByDate(_photos);
-        _selectedPhotoIds.clear();
-        _isSelectionMode = false;
       });
+      _selectionNotifier.clearSelection();
       widget.onSelectionChanged?.call(0);
     }
   }
@@ -619,11 +645,12 @@ class PhotoGridState extends State<PhotoGrid> {
                 final photo = group.photos[index];
                 // Calculate global index for onPhotoTap
                 final globalIndex = _photos.indexOf(photo);
-                return PhotoThumbnail(
+                return _SelectablePhotoThumbnail(
+                  key: ValueKey(photo.id),
                   asset: photo,
-                  isSelected: _selectedPhotoIds.contains(photo.id),
+                  selectionNotifier: _selectionNotifier,
                   onTap: () {
-                    if (_isSelectionMode) {
+                    if (_selectionNotifier.isSelectionMode) {
                       _toggleSelection(photo);
                     } else {
                       widget.onPhotoTap?.call(photo, globalIndex);
@@ -636,6 +663,117 @@ class PhotoGridState extends State<PhotoGrid> {
           ),
         ],
       ],
+    );
+  }
+}
+
+/// A photo thumbnail that efficiently listens to selection changes.
+/// Only the selection overlay rebuilds when selection state changes,
+/// not the entire thumbnail or the parent grid.
+class _SelectablePhotoThumbnail extends StatelessWidget {
+  final AssetEntity asset;
+  final PhotoSelectionNotifier selectionNotifier;
+  final VoidCallback? onTap;
+  final VoidCallback? onLongPress;
+
+  const _SelectablePhotoThumbnail({
+    super.key,
+    required this.asset,
+    required this.selectionNotifier,
+    this.onTap,
+    this.onLongPress,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      onLongPress: onLongPress,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          // The thumbnail image - does not rebuild on selection change
+          _ThumbnailImage(asset: asset),
+          // The selection overlay - only this rebuilds on selection change
+          ListenableBuilder(
+            listenable: selectionNotifier,
+            builder: (context, child) {
+              final isSelected = selectionNotifier.isSelected(asset.id);
+              if (!isSelected) return const SizedBox.shrink();
+              return Container(
+                color: Colors.blue.withValues(alpha: 0.3),
+                child: const Align(
+                  alignment: Alignment.topRight,
+                  child: Padding(
+                    padding: EdgeInsets.all(4.0),
+                    child: Icon(
+                      Icons.check_circle,
+                      color: Colors.blue,
+                      size: 24,
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Stateful widget that caches the thumbnail data to avoid reloading
+/// when parent rebuilds.
+class _ThumbnailImage extends StatefulWidget {
+  final AssetEntity asset;
+
+  const _ThumbnailImage({required this.asset});
+
+  @override
+  State<_ThumbnailImage> createState() => _ThumbnailImageState();
+}
+
+class _ThumbnailImageState extends State<_ThumbnailImage> {
+  Future<Uint8List?>? _thumbnailFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _thumbnailFuture = widget.asset.thumbnailDataWithSize(
+      const ThumbnailSize(200, 200),
+    );
+  }
+
+  @override
+  void didUpdateWidget(_ThumbnailImage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.asset.id != widget.asset.id) {
+      _thumbnailFuture = widget.asset.thumbnailDataWithSize(
+        const ThumbnailSize(200, 200),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<Uint8List?>(
+      future: _thumbnailFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.done &&
+            snapshot.data != null) {
+          return Image.memory(snapshot.data!, fit: BoxFit.cover);
+        }
+        return Container(
+          color: Colors.grey[300],
+          child: const Center(
+            child: SizedBox(
+              width: 24,
+              height: 24,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+          ),
+        );
+      },
     );
   }
 }

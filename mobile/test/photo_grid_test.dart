@@ -744,6 +744,9 @@ void main() {
       expect(lastProgress?.isComplete, isTrue);
     });
   });
+
+  // PhotoSelectionNotifier tests
+  _photoSelectionNotifierTests();
 }
 
 /// Helper class to simulate UploadResult behavior in tests
@@ -766,4 +769,344 @@ class _LoadingCallbackTracker {
   void onLoadError(String? error) {
     errors.add(error);
   }
+}
+
+/// Helper class to track notifier listener calls
+class _NotifierListenerTracker {
+  int callCount = 0;
+
+  void listener() {
+    callCount++;
+  }
+}
+
+void _photoSelectionNotifierTests() {
+  group('PhotoSelectionNotifier', () {
+    late PhotoSelectionNotifier notifier;
+
+    setUp(() {
+      notifier = PhotoSelectionNotifier();
+    });
+
+    tearDown(() {
+      notifier.dispose();
+    });
+
+    group('initial state', () {
+      test('isSelectionMode is false initially', () {
+        expect(notifier.isSelectionMode, isFalse);
+      });
+
+      test('selectedCount is 0 initially', () {
+        expect(notifier.selectedCount, equals(0));
+      });
+
+      test('selectedIds is empty initially', () {
+        expect(notifier.selectedIds, isEmpty);
+      });
+
+      test('isSelected returns false for any photo initially', () {
+        expect(notifier.isSelected('photo1'), isFalse);
+        expect(notifier.isSelected('photo2'), isFalse);
+        expect(notifier.isSelected('any-id'), isFalse);
+      });
+    });
+
+    group('enterSelectionMode', () {
+      test('sets isSelectionMode to true', () {
+        notifier.enterSelectionMode('photo1');
+
+        expect(notifier.isSelectionMode, isTrue);
+      });
+
+      test('adds photo to selected set', () {
+        notifier.enterSelectionMode('photo1');
+
+        expect(notifier.isSelected('photo1'), isTrue);
+        expect(notifier.selectedCount, equals(1));
+      });
+
+      test('does nothing if already in selection mode', () {
+        notifier.enterSelectionMode('photo1');
+        notifier.enterSelectionMode('photo2');
+
+        expect(notifier.selectedCount, equals(1));
+        expect(notifier.isSelected('photo1'), isTrue);
+        expect(notifier.isSelected('photo2'), isFalse);
+      });
+
+      test('notifies listeners', () {
+        final tracker = _NotifierListenerTracker();
+        notifier.addListener(tracker.listener);
+
+        notifier.enterSelectionMode('photo1');
+
+        expect(tracker.callCount, equals(1));
+      });
+
+      test('does not notify listeners if already in selection mode', () {
+        notifier.enterSelectionMode('photo1');
+
+        final tracker = _NotifierListenerTracker();
+        notifier.addListener(tracker.listener);
+
+        notifier.enterSelectionMode('photo2');
+
+        expect(tracker.callCount, equals(0));
+      });
+    });
+
+    group('toggleSelection', () {
+      test('adds photo when not selected', () {
+        notifier.toggleSelection('photo1');
+
+        expect(notifier.isSelected('photo1'), isTrue);
+        expect(notifier.selectedCount, equals(1));
+      });
+
+      test('removes photo when already selected', () {
+        notifier.toggleSelection('photo1');
+        notifier.toggleSelection('photo1');
+
+        expect(notifier.isSelected('photo1'), isFalse);
+        expect(notifier.selectedCount, equals(0));
+      });
+
+      test('can select multiple photos', () {
+        notifier.toggleSelection('photo1');
+        notifier.toggleSelection('photo2');
+        notifier.toggleSelection('photo3');
+
+        expect(notifier.selectedCount, equals(3));
+        expect(notifier.isSelected('photo1'), isTrue);
+        expect(notifier.isSelected('photo2'), isTrue);
+        expect(notifier.isSelected('photo3'), isTrue);
+      });
+
+      test('exits selection mode when last photo is deselected', () {
+        notifier.enterSelectionMode('photo1');
+        expect(notifier.isSelectionMode, isTrue);
+
+        notifier.toggleSelection('photo1');
+
+        expect(notifier.isSelectionMode, isFalse);
+        expect(notifier.selectedCount, equals(0));
+      });
+
+      test('stays in selection mode when some photos remain selected', () {
+        notifier.enterSelectionMode('photo1');
+        notifier.toggleSelection('photo2');
+        expect(notifier.selectedCount, equals(2));
+
+        notifier.toggleSelection('photo1');
+
+        expect(notifier.isSelectionMode, isTrue);
+        expect(notifier.selectedCount, equals(1));
+        expect(notifier.isSelected('photo2'), isTrue);
+      });
+
+      test('notifies listeners when adding', () {
+        final tracker = _NotifierListenerTracker();
+        notifier.addListener(tracker.listener);
+
+        notifier.toggleSelection('photo1');
+
+        expect(tracker.callCount, equals(1));
+      });
+
+      test('notifies listeners when removing', () {
+        notifier.toggleSelection('photo1');
+
+        final tracker = _NotifierListenerTracker();
+        notifier.addListener(tracker.listener);
+
+        notifier.toggleSelection('photo1');
+
+        expect(tracker.callCount, equals(1));
+      });
+    });
+
+    group('clearSelection', () {
+      test('removes all selected photos', () {
+        notifier.enterSelectionMode('photo1');
+        notifier.toggleSelection('photo2');
+        notifier.toggleSelection('photo3');
+        expect(notifier.selectedCount, equals(3));
+
+        notifier.clearSelection();
+
+        expect(notifier.selectedCount, equals(0));
+        expect(notifier.isSelected('photo1'), isFalse);
+        expect(notifier.isSelected('photo2'), isFalse);
+        expect(notifier.isSelected('photo3'), isFalse);
+      });
+
+      test('sets isSelectionMode to false', () {
+        notifier.enterSelectionMode('photo1');
+        expect(notifier.isSelectionMode, isTrue);
+
+        notifier.clearSelection();
+
+        expect(notifier.isSelectionMode, isFalse);
+      });
+
+      test('notifies listeners', () {
+        notifier.enterSelectionMode('photo1');
+
+        final tracker = _NotifierListenerTracker();
+        notifier.addListener(tracker.listener);
+
+        notifier.clearSelection();
+
+        expect(tracker.callCount, equals(1));
+      });
+
+      test('works when already empty', () {
+        final tracker = _NotifierListenerTracker();
+        notifier.addListener(tracker.listener);
+
+        notifier.clearSelection();
+
+        expect(notifier.selectedCount, equals(0));
+        expect(notifier.isSelectionMode, isFalse);
+        expect(tracker.callCount, equals(1));
+      });
+    });
+
+    group('removePhotoId', () {
+      test('removes specific photo from selection', () {
+        notifier.enterSelectionMode('photo1');
+        notifier.toggleSelection('photo2');
+        notifier.toggleSelection('photo3');
+
+        notifier.removePhotoId('photo2');
+
+        expect(notifier.selectedCount, equals(2));
+        expect(notifier.isSelected('photo1'), isTrue);
+        expect(notifier.isSelected('photo2'), isFalse);
+        expect(notifier.isSelected('photo3'), isTrue);
+      });
+
+      test('exits selection mode when last photo is removed', () {
+        notifier.enterSelectionMode('photo1');
+
+        notifier.removePhotoId('photo1');
+
+        expect(notifier.isSelectionMode, isFalse);
+        expect(notifier.selectedCount, equals(0));
+      });
+
+      test('stays in selection mode when some photos remain', () {
+        notifier.enterSelectionMode('photo1');
+        notifier.toggleSelection('photo2');
+
+        notifier.removePhotoId('photo1');
+
+        expect(notifier.isSelectionMode, isTrue);
+        expect(notifier.selectedCount, equals(1));
+      });
+
+      test('notifies listeners', () {
+        notifier.enterSelectionMode('photo1');
+
+        final tracker = _NotifierListenerTracker();
+        notifier.addListener(tracker.listener);
+
+        notifier.removePhotoId('photo1');
+
+        expect(tracker.callCount, equals(1));
+      });
+
+      test('notifies listeners even when photo not in selection', () {
+        final tracker = _NotifierListenerTracker();
+        notifier.addListener(tracker.listener);
+
+        notifier.removePhotoId('nonexistent');
+
+        expect(tracker.callCount, equals(1));
+      });
+    });
+
+    group('selectedIds', () {
+      test('returns unmodifiable set', () {
+        notifier.enterSelectionMode('photo1');
+        notifier.toggleSelection('photo2');
+
+        final ids = notifier.selectedIds;
+
+        expect(ids, contains('photo1'));
+        expect(ids, contains('photo2'));
+        expect(
+          () => (ids as Set<String>).add('photo3'),
+          throwsUnsupportedError,
+        );
+      });
+
+      test('reflects current selection state', () {
+        expect(notifier.selectedIds, isEmpty);
+
+        notifier.enterSelectionMode('photo1');
+        expect(notifier.selectedIds, equals({'photo1'}));
+
+        notifier.toggleSelection('photo2');
+        expect(notifier.selectedIds, equals({'photo1', 'photo2'}));
+
+        notifier.toggleSelection('photo1');
+        expect(notifier.selectedIds, equals({'photo2'}));
+      });
+    });
+
+    group('isSelected', () {
+      test('returns true for selected photos', () {
+        notifier.enterSelectionMode('photo1');
+        notifier.toggleSelection('photo2');
+
+        expect(notifier.isSelected('photo1'), isTrue);
+        expect(notifier.isSelected('photo2'), isTrue);
+      });
+
+      test('returns false for unselected photos', () {
+        notifier.enterSelectionMode('photo1');
+
+        expect(notifier.isSelected('photo2'), isFalse);
+        expect(notifier.isSelected('photo3'), isFalse);
+      });
+
+      test('returns false after photo is deselected', () {
+        notifier.enterSelectionMode('photo1');
+        expect(notifier.isSelected('photo1'), isTrue);
+
+        notifier.toggleSelection('photo1');
+        expect(notifier.isSelected('photo1'), isFalse);
+      });
+    });
+
+    group('listener notification counts', () {
+      test('each operation notifies exactly once', () {
+        final tracker = _NotifierListenerTracker();
+        notifier.addListener(tracker.listener);
+
+        notifier.enterSelectionMode('photo1'); // 1
+        notifier.toggleSelection('photo2'); // 2
+        notifier.toggleSelection('photo2'); // 3
+        notifier.removePhotoId('photo1'); // 4
+        notifier.clearSelection(); // 5
+
+        expect(tracker.callCount, equals(5));
+      });
+
+      test('removed listener is not notified', () {
+        final tracker = _NotifierListenerTracker();
+        notifier.addListener(tracker.listener);
+
+        notifier.enterSelectionMode('photo1');
+        expect(tracker.callCount, equals(1));
+
+        notifier.removeListener(tracker.listener);
+
+        notifier.toggleSelection('photo2');
+        expect(tracker.callCount, equals(1)); // Still 1, no new notification
+      });
+    });
+  });
 }
