@@ -94,8 +94,10 @@ class _HomePageState extends State<HomePage> {
     final deletedPhotoId = await Navigator.push<String>(
       context,
       MaterialPageRoute(
-        builder: (context) =>
-            PhotoViewer(assets: gridState.photos, initialIndex: index),
+        builder: (context) => PhotoViewer(
+          assets: gridState.displayOrderPhotos,
+          initialIndex: index,
+        ),
       ),
     );
     if (deletedPhotoId != null) {

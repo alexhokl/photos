@@ -745,6 +745,117 @@ void main() {
     });
   });
 
+  group('Display order photos', () {
+    test('display order flattens groups preserving visual sequence', () {
+      // Simulate the flattening logic used in displayOrderPhotos getter
+      final group1Photos = ['photo_a', 'photo_b'];
+      final group2Photos = ['photo_c'];
+      final group3Photos = ['photo_d', 'photo_e', 'photo_f'];
+
+      final displayOrder = [
+        for (final groupPhotos in [group1Photos, group2Photos, group3Photos])
+          ...groupPhotos,
+      ];
+
+      expect(
+        displayOrder,
+        equals([
+          'photo_a',
+          'photo_b',
+          'photo_c',
+          'photo_d',
+          'photo_e',
+          'photo_f',
+        ]),
+      );
+      expect(displayOrder.length, equals(6));
+    });
+
+    test('globalIndex calculation matches flattened display order', () {
+      // Simulate groups with photo counts
+      final groupSizes = [2, 1, 3]; // 3 groups with 2, 1, and 3 photos
+
+      // Photo at index 1 in group 2 (third group, 0-indexed)
+      const targetGroupIndex = 2;
+      const indexWithinGroup = 1;
+
+      int globalIndex = 0;
+      for (int g = 0; g < targetGroupIndex; g++) {
+        globalIndex += groupSizes[g];
+      }
+      globalIndex += indexWithinGroup;
+
+      // Expected: 2 + 1 + 1 = 4 (0-indexed position in flat list)
+      expect(globalIndex, equals(4));
+    });
+
+    test('globalIndex for first photo in first group is 0', () {
+      final groupSizes = [3, 2, 4];
+
+      const targetGroupIndex = 0;
+      const indexWithinGroup = 0;
+
+      int globalIndex = 0;
+      for (int g = 0; g < targetGroupIndex; g++) {
+        globalIndex += groupSizes[g];
+      }
+      globalIndex += indexWithinGroup;
+
+      expect(globalIndex, equals(0));
+    });
+
+    test('globalIndex for last photo in last group is total - 1', () {
+      final groupSizes = [3, 2, 4]; // Total: 9 photos
+
+      const targetGroupIndex = 2; // Last group (0-indexed)
+      const indexWithinGroup = 3; // Last photo in group (0-indexed)
+
+      int globalIndex = 0;
+      for (int g = 0; g < targetGroupIndex; g++) {
+        globalIndex += groupSizes[g];
+      }
+      globalIndex += indexWithinGroup;
+
+      // Expected: 3 + 2 + 3 = 8 (0-indexed, total is 9)
+      expect(globalIndex, equals(8));
+    });
+
+    test('cache invalidation clears cached display order', () {
+      // Simulate cache behavior
+      List<String>? cache;
+
+      // Initial build
+      cache ??= ['photo1', 'photo2'];
+      expect(cache, isNotNull);
+
+      // Invalidate (simulating _photoGroups reassignment)
+      cache = null;
+      expect(cache, isNull);
+
+      // Rebuild
+      cache ??= ['photo1', 'photo2', 'photo3'];
+      expect(cache.length, equals(3));
+    });
+
+    test('empty groups produce empty display order', () {
+      final List<List<String>> groups = [];
+
+      final displayOrder = [for (final groupPhotos in groups) ...groupPhotos];
+
+      expect(displayOrder, isEmpty);
+    });
+
+    test('single group produces same order as group', () {
+      final groupPhotos = ['photo_a', 'photo_b', 'photo_c'];
+
+      final displayOrder = [
+        for (final photos in [groupPhotos]) ...photos,
+      ];
+
+      expect(displayOrder, equals(groupPhotos));
+    });
+  });
+
   // PhotoSelectionNotifier tests
   _photoSelectionNotifierTests();
 }

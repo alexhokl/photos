@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:photo_manager/photo_manager.dart';
 import 'package:photos/main.dart';
 import 'package:photos/widgets/photo_grid.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -376,7 +377,9 @@ void main() {
       expect(key.currentState?.selectedCount, equals(0));
     });
 
-    testWidgets('PhotoGridState exposes photos getter', (tester) async {
+    testWidgets('PhotoGridState exposes displayOrderPhotos getter', (
+      tester,
+    ) async {
       final key = GlobalKey<PhotoGridState>();
 
       await tester.pumpWidget(
@@ -385,8 +388,8 @@ void main() {
         ),
       );
 
-      // Photos getter should return a list (initially empty before loading)
-      expect(key.currentState?.photos, isA<List>());
+      // displayOrderPhotos getter should return a list (initially empty before loading)
+      expect(key.currentState?.displayOrderPhotos, isA<List<AssetEntity>>());
     });
   });
 
@@ -1050,8 +1053,7 @@ void main() {
 
       // Priority: error > progress text > spinner
       final showRetryButton = deviceLoadError != null;
-      final showProgressText =
-          !showRetryButton && isDeviceLoading;
+      final showProgressText = !showRetryButton && isDeviceLoading;
       final showSpinner =
           !showRetryButton && isDeviceLoading && deviceLoadProgress == null;
 
@@ -1068,8 +1070,7 @@ void main() {
       final showRetryButton = deviceLoadError != null;
       final showProgressText =
           !showRetryButton && isDeviceLoading && deviceLoadProgress != null;
-      final showSpinner =
-          !showRetryButton && isDeviceLoading;
+      final showSpinner = !showRetryButton && isDeviceLoading;
 
       expect(showRetryButton, isFalse);
       expect(showProgressText, isFalse);
@@ -1085,8 +1086,7 @@ void main() {
       String? deviceLoadError;
 
       final showRetryButton = deviceLoadError != null;
-      final showProgressText =
-          !showRetryButton && isDeviceLoading;
+      final showProgressText = !showRetryButton && isDeviceLoading;
       final showSpinner =
           !showRetryButton && isDeviceLoading && deviceLoadProgress == null;
 
@@ -1104,11 +1104,107 @@ void main() {
       String? deviceLoadError = 'Some error';
 
       final showRetryButton = deviceLoadError != null;
-      final showProgressText =
-          !showRetryButton && isDeviceLoading;
+      final showProgressText = !showRetryButton && isDeviceLoading;
 
       expect(showRetryButton, isTrue);
       expect(showProgressText, isFalse);
     });
   });
+
+  group('Photo display order integration', () {
+    testWidgets('displayOrderPhotos returns empty list initially', (
+      tester,
+    ) async {
+      final key = GlobalKey<PhotoGridState>();
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(body: PhotoGrid(key: key)),
+        ),
+      );
+
+      expect(key.currentState?.displayOrderPhotos, isEmpty);
+    });
+
+    testWidgets('onPhotoTap callback can receive index parameter', (
+      tester,
+    ) async {
+      int? receivedIndex;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: PhotoGrid(
+              onPhotoTap: (photo, index) {
+                receivedIndex = index;
+              },
+            ),
+          ),
+        ),
+      );
+
+      // Callback is wired but not invoked without photos
+      expect(receivedIndex, isNull);
+    });
+
+    testWidgets('invalidateDisplayOrderCache is accessible via GlobalKey', (
+      tester,
+    ) async {
+      final key = GlobalKey<PhotoGridState>();
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(body: PhotoGrid(key: key)),
+        ),
+      );
+
+      // Should not throw when called
+      expect(
+        () => key.currentState?.invalidateDisplayOrderCache(),
+        returnsNormally,
+      );
+    });
+
+    testWidgets('displayOrderPhotos rebuilds after cache invalidation', (
+      tester,
+    ) async {
+      final key = GlobalKey<PhotoGridState>();
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(body: PhotoGrid(key: key)),
+        ),
+      );
+
+      final photosBefore = key.currentState?.displayOrderPhotos;
+      key.currentState?.invalidateDisplayOrderCache();
+      final photosAfter = key.currentState?.displayOrderPhotos;
+
+      // Both should be empty lists (no photos loaded), but should not throw
+      expect(photosBefore, isEmpty);
+      expect(photosAfter, isEmpty);
+    });
+
+    testWidgets('displayOrderPhotos returns unmodifiable list', (tester) async {
+      final key = GlobalKey<PhotoGridState>();
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(body: PhotoGrid(key: key)),
+        ),
+      );
+
+      final photos = key.currentState?.displayOrderPhotos;
+      expect(photos, isA<List<AssetEntity>>());
+
+      // Attempting to modify should throw (unmodifiable list)
+      expect(() => photos?.add(MockAssetEntity()), throwsUnsupportedError);
+    });
+  });
+}
+
+/// Mock AssetEntity for testing unmodifiable list behavior
+class MockAssetEntity implements AssetEntity {
+  @override
+  dynamic noSuchMethod(Invocation invocation) => null;
 }

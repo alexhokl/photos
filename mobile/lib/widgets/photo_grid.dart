@@ -136,8 +136,23 @@ class PhotoGridState extends State<PhotoGrid> {
   /// Returns the total number of photos to be loaded.
   int get totalPhotoCount => _totalPhotoCount;
 
-  /// Returns an unmodifiable view of the current photos list.
-  List<AssetEntity> get photos => List.unmodifiable(_photos);
+  /// Cached list of photos in display order.
+  List<AssetEntity>? _displayOrderPhotosCache;
+
+  /// Returns photos in display order (flattened from date groups).
+  /// This matches the visual order in the grid UI.
+  List<AssetEntity> get displayOrderPhotos {
+    _displayOrderPhotosCache ??= [
+      for (final group in _photoGroups) ...group.photos,
+    ];
+    return List.unmodifiable(_displayOrderPhotosCache!);
+  }
+
+  /// Invalidates the cached display order photos list.
+  /// Call this method when testing or when external changes require a refresh.
+  void invalidateDisplayOrderCache() {
+    _displayOrderPhotosCache = null;
+  }
 
   @override
   void initState() {
@@ -188,6 +203,7 @@ class PhotoGridState extends State<PhotoGrid> {
         setState(() {
           _photos = [];
           _photoGroups = [];
+          _displayOrderPhotosCache = null;
           _isLoading = false;
           _hasMorePhotos = false;
           _totalPhotoCount = 0;
@@ -212,6 +228,7 @@ class PhotoGridState extends State<PhotoGrid> {
       setState(() {
         _photos = photos;
         _photoGroups = _groupPhotosByDate(photos);
+        _displayOrderPhotosCache = null;
         _currentPage = 1;
         _hasMorePhotos = photos.length < totalCount;
         _isLoading = false;
@@ -289,6 +306,7 @@ class PhotoGridState extends State<PhotoGrid> {
           (date) => PhotoDateGroup(date: date, photos: existingGroups[date]!),
         )
         .toList();
+    _displayOrderPhotosCache = null;
   }
 
   /// Continuously loads all remaining photos in batches until complete.
@@ -388,6 +406,7 @@ class PhotoGridState extends State<PhotoGrid> {
     setState(() {
       _photos.removeWhere((p) => p.id == photoId);
       _photoGroups = _groupPhotosByDate(_photos);
+      _displayOrderPhotosCache = null;
     });
     _selectionNotifier.removePhotoId(photoId);
     widget.onSelectionChanged?.call(_selectionNotifier.selectedCount);
@@ -424,6 +443,7 @@ class PhotoGridState extends State<PhotoGrid> {
       setState(() {
         _photos.removeWhere((p) => selectedIds.contains(p.id));
         _photoGroups = _groupPhotosByDate(_photos);
+        _displayOrderPhotosCache = null;
       });
       _selectionNotifier.clearSelection();
       widget.onSelectionChanged?.call(0);
@@ -567,6 +587,7 @@ class PhotoGridState extends State<PhotoGrid> {
             .toSet();
         _photos.removeWhere((p) => deletedIds.contains(p.id));
         _photoGroups = _groupPhotosByDate(_photos);
+        _displayOrderPhotosCache = null;
       });
     }
   }
@@ -643,8 +664,15 @@ class PhotoGridState extends State<PhotoGrid> {
               ),
               delegate: SliverChildBuilderDelegate((context, index) {
                 final photo = group.photos[index];
-                // Calculate global index for onPhotoTap
-                final globalIndex = _photos.indexOf(photo);
+                // Calculate global index in display order
+                int globalIndex = 0;
+                for (final g in _photoGroups) {
+                  if (identical(g, group)) {
+                    globalIndex += index;
+                    break;
+                  }
+                  globalIndex += g.photos.length;
+                }
                 return _SelectablePhotoThumbnail(
                   key: ValueKey(photo.id),
                   asset: photo,
