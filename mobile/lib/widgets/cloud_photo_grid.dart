@@ -438,6 +438,35 @@ class CloudPhotoGridState extends State<CloudPhotoGrid> {
     widget.onSelectionChanged?.call(_selectedObjectIds.length);
   }
 
+  /// Updates a photo's objectId after rename, preserving its position in the list.
+  void _updatePhotoObjectId(String oldObjectId, String newObjectId) {
+    setState(() {
+      final index = _photos.indexWhere((p) => p.objectId == oldObjectId);
+      if (index != -1) {
+        // Create a new Photo with the updated objectId
+        final oldPhoto = _photos[index];
+        final newPhoto = Photo()
+          ..mergeFromMessage(oldPhoto)
+          ..objectId = newObjectId;
+        // Extract new filename from objectId
+        final newFilename = newObjectId.split('/').last;
+        newPhoto.filename = newFilename;
+        _photos[index] = newPhoto;
+
+        // Update selection if the photo was selected
+        if (_selectedObjectIds.remove(oldObjectId)) {
+          _selectedObjectIds.add(newObjectId);
+        }
+
+        // Update signed URL cache - keep same URL, just update the key
+        final signedUrl = _signedUrlCache.remove(oldObjectId);
+        if (signedUrl != null) {
+          _signedUrlCache[newObjectId] = signedUrl;
+        }
+      }
+    });
+  }
+
   Future<void> performAction(CloudPhotoGridAction action) async {
     switch (action) {
       case CloudPhotoGridAction.delete:
@@ -633,7 +662,7 @@ class CloudPhotoGridState extends State<CloudPhotoGrid> {
     final signedUrl = _signedUrlCache[photo.objectId];
     if (signedUrl == null) return;
 
-    final deleted = await Navigator.push<bool>(
+    final result = await Navigator.push<CloudPhotoViewerResult>(
       context,
       MaterialPageRoute(
         builder: (context) => CloudPhotoViewer(
@@ -644,8 +673,13 @@ class CloudPhotoGridState extends State<CloudPhotoGrid> {
       ),
     );
 
-    if (deleted == true) {
+    if (result == null) return;
+
+    if (result.removed) {
       removePhoto(photo.objectId);
+    } else if (result.oldObjectId != null && result.newObjectId != null) {
+      // Photo was renamed - update it in place
+      _updatePhotoObjectId(result.oldObjectId!, result.newObjectId!);
     }
   }
 

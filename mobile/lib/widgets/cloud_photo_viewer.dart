@@ -10,6 +10,29 @@ import 'package:photos/widgets/settings_page.dart';
 
 enum CloudPhotoViewerAction { info, delete, download, copy, move, rename }
 
+/// Result returned from CloudPhotoViewer when navigating back.
+/// Used to indicate what action was taken on the photo.
+class CloudPhotoViewerResult {
+  /// True if the photo was deleted or moved to another directory.
+  final bool removed;
+
+  /// If the photo was renamed, contains the old and new object IDs.
+  final String? oldObjectId;
+  final String? newObjectId;
+
+  const CloudPhotoViewerResult.removed()
+    : removed = true,
+      oldObjectId = null,
+      newObjectId = null;
+
+  const CloudPhotoViewerResult.renamed({
+    required String oldId,
+    required String newId,
+  }) : removed = false,
+       oldObjectId = oldId,
+       newObjectId = newId;
+}
+
 class CloudPhotoViewer extends StatefulWidget {
   final List<Photo> photos;
   final Map<String, String> signedUrls;
@@ -110,7 +133,7 @@ class _CloudPhotoViewerState extends State<CloudPhotoViewer> {
       await libraryService.deletePhoto(_currentPhoto.objectId);
 
       if (mounted) {
-        Navigator.pop(context, true);
+        Navigator.pop(context, const CloudPhotoViewerResult.removed());
       }
     } on LibraryException catch (e) {
       if (mounted) {
@@ -242,7 +265,7 @@ class _CloudPhotoViewerState extends State<CloudPhotoViewer> {
       );
 
       if (move) {
-        Navigator.pop(context, true);
+        Navigator.pop(context, const CloudPhotoViewerResult.removed());
       }
     } on LibraryException catch (e) {
       if (!mounted) return;
@@ -322,7 +345,10 @@ class _CloudPhotoViewerState extends State<CloudPhotoViewer> {
             duration: const Duration(seconds: 2),
           ),
         );
-        Navigator.pop(context, true);
+        Navigator.pop(
+          context,
+          CloudPhotoViewerResult.renamed(oldId: objectId, newId: newObjectId),
+        );
       }
     } on LibraryException catch (e) {
       if (mounted) {
