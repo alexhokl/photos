@@ -257,7 +257,8 @@ class PhotoGridState extends State<PhotoGrid> {
   }
 
   /// Groups photos by their creation date (local timezone).
-  /// Returns a list sorted in reverse chronological order.
+  /// Returns a list sorted in reverse chronological order, with photos within
+  /// each group also sorted in reverse chronological order.
   List<PhotoDateGroup> _groupPhotosByDate(List<AssetEntity> photos) {
     final Map<DateTime, List<AssetEntity>> groups = {};
 
@@ -271,6 +272,11 @@ class PhotoGridState extends State<PhotoGrid> {
       groups[dateOnly]!.add(photo);
     }
 
+    // Sort photos within each group in reverse chronological order
+    for (final photoList in groups.values) {
+      photoList.sort((a, b) => b.createDateTime.compareTo(a.createDateTime));
+    }
+
     // Sort dates in reverse chronological order
     final sortedDates = groups.keys.toList()..sort((a, b) => b.compareTo(a));
 
@@ -280,6 +286,7 @@ class PhotoGridState extends State<PhotoGrid> {
   }
 
   /// Merges new photos into existing date groups, maintaining reverse chronological order.
+  /// Photos within each group are also sorted in reverse chronological order.
   void _mergePhotosIntoGroups(List<AssetEntity> newPhotos) {
     final Map<DateTime, List<AssetEntity>> existingGroups = {};
 
@@ -295,6 +302,11 @@ class PhotoGridState extends State<PhotoGrid> {
 
       existingGroups.putIfAbsent(dateOnly, () => []);
       existingGroups[dateOnly]!.add(photo);
+    }
+
+    // Sort photos within each group in reverse chronological order
+    for (final photoList in existingGroups.values) {
+      photoList.sort((a, b) => b.createDateTime.compareTo(a.createDateTime));
     }
 
     // Sort dates in reverse chronological order
