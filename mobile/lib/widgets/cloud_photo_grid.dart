@@ -552,6 +552,7 @@ class CloudPhotoGridState extends State<CloudPhotoGrid> {
     // Show directory picker dialog
     final targetDirectory = await _showDirectoryPickerDialog(
       title: move ? 'Move to Directory' : 'Copy to Directory',
+      actionLabel: move ? 'Move' : 'Copy',
     );
     if (targetDirectory == null) return;
 
@@ -607,54 +608,16 @@ class CloudPhotoGridState extends State<CloudPhotoGrid> {
     }
   }
 
-  Future<String?> _showDirectoryPickerDialog({required String title}) async {
-    List<String> directories = [];
-    String? error;
-
-    try {
-      final config = await BackendConfig.load();
-      final libraryService = LibraryService(
-        host: config.host,
-        port: config.port,
-      );
-      directories = await libraryService.listDirectories(recursive: true);
-      await libraryService.dispose();
-    } catch (e) {
-      error = 'Failed to load directories: $e';
-    }
-
+  Future<String?> _showDirectoryPickerDialog({
+    required String title,
+    required String actionLabel,
+  }) async {
     if (!mounted) return null;
 
     return showDialog<String>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(title),
-        content: SizedBox(
-          width: double.maxFinite,
-          height: 300,
-          child: error != null
-              ? Center(child: Text(error))
-              : directories.isEmpty
-              ? const Center(child: Text('No directories found'))
-              : ListView.builder(
-                  itemCount: directories.length,
-                  itemBuilder: (context, index) {
-                    final dir = directories[index];
-                    return ListTile(
-                      leading: const Icon(Icons.folder_outlined),
-                      title: Text(dir),
-                      onTap: () => Navigator.pop(context, dir),
-                    );
-                  },
-                ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-        ],
-      ),
+      builder: (context) =>
+          _DirectoryPickerDialog(title: title, actionLabel: actionLabel),
     );
   }
 
@@ -964,6 +927,193 @@ class _CloudPhotoThumbnail extends StatelessWidget {
             ),
         ],
       ),
+    );
+  }
+}
+
+/// Dialog for selecting a directory with free text input and autocomplete.
+class _DirectoryPickerDialog extends StatefulWidget {
+  final String title;
+  final String actionLabel;
+
+  const _DirectoryPickerDialog({
+    required this.title,
+    required this.actionLabel,
+  });
+
+  @override
+  State<_DirectoryPickerDialog> createState() => _DirectoryPickerDialogState();
+}
+
+class _DirectoryPickerDialogState extends State<_DirectoryPickerDialog> {
+  final TextEditingController _directoryController = TextEditingController();
+  List<String> _directorySuggestions = [];
+  bool _isLoadingDirectories = false;
+  String? _errorText;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadDirectorySuggestions();
+  }
+
+  @override
+  void dispose() {
+    _directoryController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadDirectorySuggestions() async {
+    setState(() {
+      _isLoadingDirectories = true;
+    });
+
+    try {
+      final config = await BackendConfig.load();
+      final libraryService = LibraryService(
+        host: config.host,
+        port: config.port,
+      );
+
+      final directories = await libraryService.listDirectories(recursive: true);
+      await libraryService.dispose();
+
+      if (mounted) {
+        setState(() {
+          _directorySuggestions = directories
+              .map((d) => d.endsWith('/') ? d : '$d/')
+              .toList();
+          _isLoadingDirectories = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoadingDirectories = false;
+        });
+      }
+    }
+  }
+
+  void _onSubmit() {
+    final directory = _directoryController.text.trim();
+    if (directory.isEmpty) {
+      setState(() {
+        _errorText = 'Directory cannot be empty';
+      });
+      return;
+    }
+    Navigator.pop(context, directory);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(widget.title),
+      content: SizedBox(
+        width: double.maxFinite,
+        child: Autocomplete<String>(
+          optionsBuilder: (TextEditingValue textEditingValue) {
+            if (_directorySuggestions.isEmpty) {
+              return const Iterable<String>.empty();
+            }
+            final input = textEditingValue.text.toLowerCase();
+            if (input.isEmpty) {
+              return _directorySuggestions;
+            }
+            return _directorySuggestions.where(
+              (directory) => directory.toLowerCase().contains(input),
+            );
+          },
+          onSelected: (String selection) {
+            _directoryController.text = selection;
+            setState(() {
+              _errorText = null;
+            });
+          },
+          fieldViewBuilder:
+              (
+                BuildContext context,
+                TextEditingController fieldController,
+                FocusNode focusNode,
+                VoidCallback onFieldSubmitted,
+              ) {
+                // Keep controllers in sync
+                fieldController.addListener(() {
+                  _directoryController.text = fieldController.text;
+                });
+                return TextField(
+                  controller: fieldController,
+                  focusNode: focusNode,
+                  autofocus: true,
+                  decoration: InputDecoration(
+                    labelText: 'Directory',
+                    hintText: 'e.g., photos/2026/vacation',
+                    prefixIcon: const Icon(Icons.folder),
+                    suffixIcon: _isLoadingDirectories
+                        ? const Padding(
+                            padding: EdgeInsets.all(12.0),
+                            child: SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                          )
+                        : IconButton(
+                            icon: const Icon(Icons.refresh),
+                            onPressed: _loadDirectorySuggestions,
+                            tooltip: 'Refresh directories',
+                          ),
+                    errorText: _errorText,
+                  ),
+                  onChanged: (_) {
+                    if (_errorText != null) {
+                      setState(() {
+                        _errorText = null;
+                      });
+                    }
+                  },
+                  onSubmitted: (_) => _onSubmit(),
+                );
+              },
+          optionsViewBuilder:
+              (
+                BuildContext context,
+                AutocompleteOnSelected<String> onSelected,
+                Iterable<String> options,
+              ) {
+                return Align(
+                  alignment: Alignment.topLeft,
+                  child: Material(
+                    elevation: 4.0,
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxHeight: 200),
+                      child: ListView.builder(
+                        padding: EdgeInsets.zero,
+                        shrinkWrap: true,
+                        itemCount: options.length,
+                        itemBuilder: (BuildContext context, int index) {
+                          final option = options.elementAt(index);
+                          return ListTile(
+                            leading: const Icon(Icons.folder_outlined),
+                            title: Text(option),
+                            onTap: () => onSelected(option),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                );
+              },
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        TextButton(onPressed: _onSubmit, child: Text(widget.actionLabel)),
+      ],
     );
   }
 }
