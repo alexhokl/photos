@@ -116,11 +116,15 @@ tasks:
 
   mac:
     desc: Build MacOS
-    cmd: cd mobile && flutter build macos
+    cmds:
+      - task: git-info
+      - cd mobile && flutter build macos
 
   apk:
     desc: Build APK
-    cmd: cd mobile && flutter build apk
+    cmds:
+      - task: git-info
+      - cd mobile && flutter build apk
 
   run-flutter-release:
     desc: Run on MacOS
@@ -134,6 +138,18 @@ tasks:
   lint-flutter-fix:
     desc: Lint Fix
     cmd: dart fix --apply
+
+  git-info:
+    desc: Generate git_info.dart with current git commit hash
+    cmds:
+      - |
+        HASH=$(git rev-parse --short HEAD)
+        cat > mobile/lib/git_info.dart << EOF
+        /// Generated file containing git commit information.
+        /// Run \`task git-info\` to regenerate this file.
+
+        const String gitCommitHash = '$HASH';
+        EOF
 
   copy-apk-to-desktop:
     desc: Copy APK to Desktop

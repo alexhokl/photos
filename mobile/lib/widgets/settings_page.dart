@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:photos/git_info.dart';
 import 'package:photos/services/library_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -403,6 +405,31 @@ class _SettingsPageState extends State<SettingsPage> {
             ),
             keyboardType: TextInputType.number,
             onChanged: _saveSignedUrlExpiration,
+          ),
+          const SizedBox(height: 24),
+          Text('About', style: Theme.of(context).textTheme.titleLarge),
+          const SizedBox(height: 16),
+          TextField(
+            controller: TextEditingController(text: gitCommitHash),
+            readOnly: true,
+            decoration: InputDecoration(
+              labelText: 'Git Commit',
+              border: const OutlineInputBorder(),
+              prefixIcon: const Icon(Icons.commit),
+              suffixIcon: IconButton(
+                icon: const Icon(Icons.copy),
+                onPressed: () {
+                  Clipboard.setData(ClipboardData(text: gitCommitHash));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Git commit hash copied to clipboard'),
+                      duration: Duration(seconds: 2),
+                    ),
+                  );
+                },
+                tooltip: 'Copy to clipboard',
+              ),
+            ),
           ),
         ],
       ),
