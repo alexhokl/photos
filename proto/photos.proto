@@ -43,6 +43,12 @@ message Photo {
   double exposure_time = 22;
   // Lens model (e.g., "EF 50mm f/1.4 USM")
   string lens_model = 23;
+  // Video duration in seconds (0 for images)
+  double duration_seconds = 24;
+  // Whether this is a video (derived from content_type)
+  bool is_video = 25;
+  // Object ID of the thumbnail image (for videos)
+  string thumbnail_object_id = 26;
 }
 
 // UploadRequest contains the photo data to upload
@@ -265,6 +271,24 @@ message DeleteMarkdownResponse {
   bool success = 1;
 }
 
+// GenerateVideoThumbnailRequest specifies parameters for generating a video thumbnail
+message GenerateVideoThumbnailRequest {
+  // The object ID of the video
+  string object_id = 1;
+  // Time offset in milliseconds to capture the frame (default: 0)
+  int64 time_offset_ms = 2;
+}
+
+// GenerateVideoThumbnailResponse returns the generated thumbnail information
+message GenerateVideoThumbnailResponse {
+  // The object ID of the generated thumbnail
+  string thumbnail_object_id = 1;
+  // A signed URL to access the thumbnail
+  string signed_url = 2;
+  // When the signed URL expires (RFC3339 format)
+  string expires_at = 3;
+}
+
 // ByteService provides photo upload, retrieval, and deletion operations
 service ByteService {
   // Upload uploads a new photo
@@ -392,6 +416,14 @@ service LibraryService {
   rpc DeleteMarkdown(DeleteMarkdownRequest) returns (DeleteMarkdownResponse) {
     option (google.api.http) = {
       delete: "/v1/directories/{prefix}/markdown"
+    };
+  }
+
+  // GenerateVideoThumbnail generates a thumbnail image for a video
+  rpc GenerateVideoThumbnail(GenerateVideoThumbnailRequest) returns (GenerateVideoThumbnailResponse) {
+    option (google.api.http) = {
+      post: "/v1/photos/{object_id}/thumbnail"
+      body: "*"
     };
   }
 }

@@ -48,6 +48,15 @@ const Photo$json = {
     {'1': 'aperture', '3': 21, '4': 1, '5': 1, '10': 'aperture'},
     {'1': 'exposure_time', '3': 22, '4': 1, '5': 1, '10': 'exposureTime'},
     {'1': 'lens_model', '3': 23, '4': 1, '5': 9, '10': 'lensModel'},
+    {'1': 'duration_seconds', '3': 24, '4': 1, '5': 1, '10': 'durationSeconds'},
+    {'1': 'is_video', '3': 25, '4': 1, '5': 8, '10': 'isVideo'},
+    {
+      '1': 'thumbnail_object_id',
+      '3': 26,
+      '4': 1,
+      '5': 9,
+      '10': 'thumbnailObjectId'
+    },
   ],
 };
 
@@ -66,7 +75,9 @@ final $typed_data.Uint8List photoDescriptor = $convert.base64Decode(
     'bW9kZWwYEiABKAlSC2NhbWVyYU1vZGVsEiEKDGZvY2FsX2xlbmd0aBgTIAEoAVILZm9jYWxMZW'
     '5ndGgSEAoDaXNvGBQgASgFUgNpc28SGgoIYXBlcnR1cmUYFSABKAFSCGFwZXJ0dXJlEiMKDWV4'
     'cG9zdXJlX3RpbWUYFiABKAFSDGV4cG9zdXJlVGltZRIdCgpsZW5zX21vZGVsGBcgASgJUglsZW'
-    '5zTW9kZWw=');
+    '5zTW9kZWwSKQoQZHVyYXRpb25fc2Vjb25kcxgYIAEoAVIPZHVyYXRpb25TZWNvbmRzEhkKCGlz'
+    'X3ZpZGVvGBkgASgIUgdpc1ZpZGVvEi4KE3RodW1ibmFpbF9vYmplY3RfaWQYGiABKAlSEXRodW'
+    '1ibmFpbE9iamVjdElk');
 
 @$core.Deprecated('Use uploadRequestDescriptor instead')
 const UploadRequest$json = {
@@ -660,3 +671,41 @@ const DeleteMarkdownResponse$json = {
 final $typed_data.Uint8List deleteMarkdownResponseDescriptor =
     $convert.base64Decode(
         'ChZEZWxldGVNYXJrZG93blJlc3BvbnNlEhgKB3N1Y2Nlc3MYASABKAhSB3N1Y2Nlc3M=');
+
+@$core.Deprecated('Use generateVideoThumbnailRequestDescriptor instead')
+const GenerateVideoThumbnailRequest$json = {
+  '1': 'GenerateVideoThumbnailRequest',
+  '2': [
+    {'1': 'object_id', '3': 1, '4': 1, '5': 9, '10': 'objectId'},
+    {'1': 'time_offset_ms', '3': 2, '4': 1, '5': 3, '10': 'timeOffsetMs'},
+  ],
+};
+
+/// Descriptor for `GenerateVideoThumbnailRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List generateVideoThumbnailRequestDescriptor =
+    $convert.base64Decode(
+        'Ch1HZW5lcmF0ZVZpZGVvVGh1bWJuYWlsUmVxdWVzdBIbCglvYmplY3RfaWQYASABKAlSCG9iam'
+        'VjdElkEiQKDnRpbWVfb2Zmc2V0X21zGAIgASgDUgx0aW1lT2Zmc2V0TXM=');
+
+@$core.Deprecated('Use generateVideoThumbnailResponseDescriptor instead')
+const GenerateVideoThumbnailResponse$json = {
+  '1': 'GenerateVideoThumbnailResponse',
+  '2': [
+    {
+      '1': 'thumbnail_object_id',
+      '3': 1,
+      '4': 1,
+      '5': 9,
+      '10': 'thumbnailObjectId'
+    },
+    {'1': 'signed_url', '3': 2, '4': 1, '5': 9, '10': 'signedUrl'},
+    {'1': 'expires_at', '3': 3, '4': 1, '5': 9, '10': 'expiresAt'},
+  ],
+};
+
+/// Descriptor for `GenerateVideoThumbnailResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List generateVideoThumbnailResponseDescriptor =
+    $convert.base64Decode(
+        'Ch5HZW5lcmF0ZVZpZGVvVGh1bWJuYWlsUmVzcG9uc2USLgoTdGh1bWJuYWlsX29iamVjdF9pZB'
+        'gBIAEoCVIRdGh1bWJuYWlsT2JqZWN0SWQSHQoKc2lnbmVkX3VybBgCIAEoCVIJc2lnbmVkVXJs'
+        'Eh0KCmV4cGlyZXNfYXQYAyABKAlSCWV4cGlyZXNBdA==');

@@ -191,7 +191,7 @@ class PhotoGridState extends State<PhotoGrid> {
     try {
       // Get all photo albums
       final List<AssetPathEntity> albums = await PhotoManager.getAssetPathList(
-        type: RequestType.image,
+        type: RequestType.common,
         filterOption: FilterOptionGroup(
           orders: [
             const OrderOption(type: OrderOptionType.createDate, asc: false),
@@ -776,6 +776,8 @@ class _ThumbnailImage extends StatefulWidget {
 class _ThumbnailImageState extends State<_ThumbnailImage> {
   Future<Uint8List?>? _thumbnailFuture;
 
+  bool get _isVideo => widget.asset.type == AssetType.video;
+
   @override
   void initState() {
     super.initState();
@@ -801,7 +803,27 @@ class _ThumbnailImageState extends State<_ThumbnailImage> {
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.done &&
             snapshot.data != null) {
-          return Image.memory(snapshot.data!, fit: BoxFit.cover);
+          return Stack(
+            fit: StackFit.expand,
+            children: [
+              Image.memory(snapshot.data!, fit: BoxFit.cover),
+              if (_isVideo)
+                Center(
+                  child: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.6),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.play_arrow,
+                      color: Colors.white,
+                      size: 24,
+                    ),
+                  ),
+                ),
+            ],
+          );
         }
         return Container(
           color: Colors.grey[300],
@@ -882,6 +904,8 @@ class PhotoThumbnail extends StatelessWidget {
     this.onLongPress,
   });
 
+  bool get _isVideo => asset.type == AssetType.video;
+
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
@@ -895,7 +919,27 @@ class PhotoThumbnail extends StatelessWidget {
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.done &&
                   snapshot.data != null) {
-                return Image.memory(snapshot.data!, fit: BoxFit.cover);
+                return Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    Image.memory(snapshot.data!, fit: BoxFit.cover),
+                    if (_isVideo)
+                      Center(
+                        child: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.6),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.play_arrow,
+                            color: Colors.white,
+                            size: 24,
+                          ),
+                        ),
+                      ),
+                  ],
+                );
               }
               return Container(
                 color: Colors.grey[300],

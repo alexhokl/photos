@@ -51,6 +51,9 @@ dependencies:
   cached_network_image: ^3.4.1
   url_launcher: ^6.3.0
 
+  # For accessing temporary directories
+  path_provider: ^2.1.0
+
   # For EXIF metadata extraction from local photos
   exif: ^3.3.0
 
@@ -61,6 +64,9 @@ dependencies:
   cupertino_http: ^2.4.0
   cronet_http: ^1.7.0
   http: ^1.6.0
+
+  # Video playback
+  video_player: ^2.9.2
 
 dev_dependencies:
   flutter_test:

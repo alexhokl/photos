@@ -1,11 +1,15 @@
+import 'dart:io';
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:photo_manager/photo_manager.dart';
 import 'package:photos/proto/photos.pb.dart';
 import 'package:photos/services/download_service.dart';
 import 'package:photos/services/library_service.dart';
 import 'package:photos/services/photo_cache_manager.dart';
 import 'package:photos/widgets/cloud_photo_info_view.dart';
+import 'package:photos/widgets/cloud_video_player.dart';
 import 'package:photos/widgets/settings_page.dart';
 
 enum CloudPhotoViewerAction { info, delete, download, copy, move, rename }
@@ -53,9 +57,15 @@ class _CloudPhotoViewerState extends State<CloudPhotoViewer> {
   late PageController _pageController;
   late int _currentIndex;
   final Map<int, TransformationController> _transformationControllers = {};
+  final Map<int, CloudVideoPlayerController> _videoControllers = {};
   bool _isZoomed = false;
 
   Photo get _currentPhoto => widget.photos[_currentIndex];
+
+  /// Returns true if the photo has a video content type
+  bool _isVideo(Photo photo) {
+    return photo.contentType.startsWith('video/');
+  }
 
   @override
   void initState() {
@@ -70,7 +80,17 @@ class _CloudPhotoViewerState extends State<CloudPhotoViewer> {
     for (final controller in _transformationControllers.values) {
       controller.dispose();
     }
+    for (final controller in _videoControllers.values) {
+      controller.dispose();
+    }
     super.dispose();
+  }
+
+  CloudVideoPlayerController _getVideoController(int index) {
+    if (!_videoControllers.containsKey(index)) {
+      _videoControllers[index] = CloudVideoPlayerController();
+    }
+    return _videoControllers[index]!;
   }
 
   TransformationController _getTransformationController(int index) {
@@ -92,6 +112,12 @@ class _CloudPhotoViewerState extends State<CloudPhotoViewer> {
   }
 
   void _resetZoomOnPageChange(int newIndex) {
+    // Pause any playing video on the previous page
+    final prevVideoController = _videoControllers[_currentIndex];
+    if (prevVideoController != null) {
+      prevVideoController.pause();
+    }
+
     // Reset zoom state for the previous page
     final prevController = _transformationControllers[_currentIndex];
     if (prevController != null) {
@@ -363,6 +389,16 @@ class _CloudPhotoViewerState extends State<CloudPhotoViewer> {
       );
     }
 
+    // Render video player for video content types
+    if (_isVideo(photo)) {
+      return CloudVideoPlayer(
+        url: signedUrl,
+        controller: _getVideoController(index),
+        autoPlay: index == _currentIndex,
+      );
+    }
+
+    // Render image viewer for images
     return InteractiveViewer(
       transformationController: _getTransformationController(index),
       minScale: 0.5,
@@ -487,6 +523,8 @@ class _DownloadProgressDialogState extends State<DownloadProgressDialog> {
     _startDownload();
   }
 
+  bool get _isVideo => widget.photo.contentType.startsWith('video/');
+
   Future<void> _startDownload() async {
     DownloadService? downloadService;
     try {
@@ -505,9 +543,19 @@ class _DownloadProgressDialogState extends State<DownloadProgressDialog> {
         },
       );
 
-      // Save to device gallery
+      // Save to device gallery - use saveVideo for videos, saveImage for images
       final filename = widget.photo.objectId.split('/').last;
-      await PhotoManager.editor.saveImage(result.data, filename: filename);
+      if (_isVideo) {
+        // Write to temp file first, then save video
+        final tempDir = await getTemporaryDirectory();
+        final tempFile = File('${tempDir.path}/$filename');
+        await tempFile.writeAsBytes(result.data);
+        await PhotoManager.editor.saveVideo(tempFile, title: filename);
+        // Clean up temp file
+        await tempFile.delete();
+      } else {
+        await PhotoManager.editor.saveImage(result.data, filename: filename);
+      }
 
       widget.onComplete(true, null);
     } catch (e) {

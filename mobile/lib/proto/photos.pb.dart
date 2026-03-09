@@ -43,6 +43,9 @@ class Photo extends $pb.GeneratedMessage {
     $core.double? aperture,
     $core.double? exposureTime,
     $core.String? lensModel,
+    $core.double? durationSeconds,
+    $core.bool? isVideo,
+    $core.String? thumbnailObjectId,
   }) {
     final result = create();
     if (objectId != null) result.objectId = objectId;
@@ -68,6 +71,9 @@ class Photo extends $pb.GeneratedMessage {
     if (aperture != null) result.aperture = aperture;
     if (exposureTime != null) result.exposureTime = exposureTime;
     if (lensModel != null) result.lensModel = lensModel;
+    if (durationSeconds != null) result.durationSeconds = durationSeconds;
+    if (isVideo != null) result.isVideo = isVideo;
+    if (thumbnailObjectId != null) result.thumbnailObjectId = thumbnailObjectId;
     return result;
   }
 
@@ -107,6 +113,9 @@ class Photo extends $pb.GeneratedMessage {
     ..aD(21, _omitFieldNames ? '' : 'aperture')
     ..aD(22, _omitFieldNames ? '' : 'exposureTime')
     ..aOS(23, _omitFieldNames ? '' : 'lensModel')
+    ..aD(24, _omitFieldNames ? '' : 'durationSeconds')
+    ..aOB(25, _omitFieldNames ? '' : 'isVideo')
+    ..aOS(26, _omitFieldNames ? '' : 'thumbnailObjectId')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -344,6 +353,36 @@ class Photo extends $pb.GeneratedMessage {
   $core.bool hasLensModel() => $_has(22);
   @$pb.TagNumber(23)
   void clearLensModel() => $_clearField(23);
+
+  /// Video duration in seconds (0 for images)
+  @$pb.TagNumber(24)
+  $core.double get durationSeconds => $_getN(23);
+  @$pb.TagNumber(24)
+  set durationSeconds($core.double value) => $_setDouble(23, value);
+  @$pb.TagNumber(24)
+  $core.bool hasDurationSeconds() => $_has(23);
+  @$pb.TagNumber(24)
+  void clearDurationSeconds() => $_clearField(24);
+
+  /// Whether this is a video (derived from content_type)
+  @$pb.TagNumber(25)
+  $core.bool get isVideo => $_getBF(24);
+  @$pb.TagNumber(25)
+  set isVideo($core.bool value) => $_setBool(24, value);
+  @$pb.TagNumber(25)
+  $core.bool hasIsVideo() => $_has(24);
+  @$pb.TagNumber(25)
+  void clearIsVideo() => $_clearField(25);
+
+  /// Object ID of the thumbnail image (for videos)
+  @$pb.TagNumber(26)
+  $core.String get thumbnailObjectId => $_getSZ(25);
+  @$pb.TagNumber(26)
+  set thumbnailObjectId($core.String value) => $_setString(25, value);
+  @$pb.TagNumber(26)
+  $core.bool hasThumbnailObjectId() => $_has(25);
+  @$pb.TagNumber(26)
+  void clearThumbnailObjectId() => $_clearField(26);
 }
 
 /// UploadRequest contains the photo data to upload
@@ -2614,6 +2653,163 @@ class DeleteMarkdownResponse extends $pb.GeneratedMessage {
   $core.bool hasSuccess() => $_has(0);
   @$pb.TagNumber(1)
   void clearSuccess() => $_clearField(1);
+}
+
+/// GenerateVideoThumbnailRequest specifies parameters for generating a video thumbnail
+class GenerateVideoThumbnailRequest extends $pb.GeneratedMessage {
+  factory GenerateVideoThumbnailRequest({
+    $core.String? objectId,
+    $fixnum.Int64? timeOffsetMs,
+  }) {
+    final result = create();
+    if (objectId != null) result.objectId = objectId;
+    if (timeOffsetMs != null) result.timeOffsetMs = timeOffsetMs;
+    return result;
+  }
+
+  GenerateVideoThumbnailRequest._();
+
+  factory GenerateVideoThumbnailRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory GenerateVideoThumbnailRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'GenerateVideoThumbnailRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'photos'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'objectId')
+    ..aInt64(2, _omitFieldNames ? '' : 'timeOffsetMs')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  GenerateVideoThumbnailRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  GenerateVideoThumbnailRequest copyWith(
+          void Function(GenerateVideoThumbnailRequest) updates) =>
+      super.copyWith(
+              (message) => updates(message as GenerateVideoThumbnailRequest))
+          as GenerateVideoThumbnailRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static GenerateVideoThumbnailRequest create() =>
+      GenerateVideoThumbnailRequest._();
+  @$core.override
+  GenerateVideoThumbnailRequest createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static GenerateVideoThumbnailRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<GenerateVideoThumbnailRequest>(create);
+  static GenerateVideoThumbnailRequest? _defaultInstance;
+
+  /// The object ID of the video
+  @$pb.TagNumber(1)
+  $core.String get objectId => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set objectId($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasObjectId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearObjectId() => $_clearField(1);
+
+  /// Time offset in milliseconds to capture the frame (default: 0)
+  @$pb.TagNumber(2)
+  $fixnum.Int64 get timeOffsetMs => $_getI64(1);
+  @$pb.TagNumber(2)
+  set timeOffsetMs($fixnum.Int64 value) => $_setInt64(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasTimeOffsetMs() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearTimeOffsetMs() => $_clearField(2);
+}
+
+/// GenerateVideoThumbnailResponse returns the generated thumbnail information
+class GenerateVideoThumbnailResponse extends $pb.GeneratedMessage {
+  factory GenerateVideoThumbnailResponse({
+    $core.String? thumbnailObjectId,
+    $core.String? signedUrl,
+    $core.String? expiresAt,
+  }) {
+    final result = create();
+    if (thumbnailObjectId != null) result.thumbnailObjectId = thumbnailObjectId;
+    if (signedUrl != null) result.signedUrl = signedUrl;
+    if (expiresAt != null) result.expiresAt = expiresAt;
+    return result;
+  }
+
+  GenerateVideoThumbnailResponse._();
+
+  factory GenerateVideoThumbnailResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory GenerateVideoThumbnailResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'GenerateVideoThumbnailResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'photos'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'thumbnailObjectId')
+    ..aOS(2, _omitFieldNames ? '' : 'signedUrl')
+    ..aOS(3, _omitFieldNames ? '' : 'expiresAt')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  GenerateVideoThumbnailResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  GenerateVideoThumbnailResponse copyWith(
+          void Function(GenerateVideoThumbnailResponse) updates) =>
+      super.copyWith(
+              (message) => updates(message as GenerateVideoThumbnailResponse))
+          as GenerateVideoThumbnailResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static GenerateVideoThumbnailResponse create() =>
+      GenerateVideoThumbnailResponse._();
+  @$core.override
+  GenerateVideoThumbnailResponse createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static GenerateVideoThumbnailResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<GenerateVideoThumbnailResponse>(create);
+  static GenerateVideoThumbnailResponse? _defaultInstance;
+
+  /// The object ID of the generated thumbnail
+  @$pb.TagNumber(1)
+  $core.String get thumbnailObjectId => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set thumbnailObjectId($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasThumbnailObjectId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearThumbnailObjectId() => $_clearField(1);
+
+  /// A signed URL to access the thumbnail
+  @$pb.TagNumber(2)
+  $core.String get signedUrl => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set signedUrl($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasSignedUrl() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearSignedUrl() => $_clearField(2);
+
+  /// When the signed URL expires (RFC3339 format)
+  @$pb.TagNumber(3)
+  $core.String get expiresAt => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set expiresAt($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasExpiresAt() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearExpiresAt() => $_clearField(3);
 }
 
 const $core.bool _omitFieldNames =

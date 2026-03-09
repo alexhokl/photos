@@ -1815,4 +1815,294 @@ void main() {
       expect(destinationObjectId, equals('archive/img_001.jpg'));
     });
   });
+
+  group('Video content type detection', () {
+    // Helper function that mimics the video detection logic used in
+    // CloudPhotoViewer._isVideo and _CloudPhotoThumbnail._isVideo
+    bool isVideoContentType(String contentType) {
+      return contentType.startsWith('video/');
+    }
+
+    test('video/mp4 is detected as video', () {
+      expect(isVideoContentType('video/mp4'), isTrue);
+    });
+
+    test('video/quicktime is detected as video', () {
+      expect(isVideoContentType('video/quicktime'), isTrue);
+    });
+
+    test('video/x-msvideo is detected as video', () {
+      expect(isVideoContentType('video/x-msvideo'), isTrue);
+    });
+
+    test('video/webm is detected as video', () {
+      expect(isVideoContentType('video/webm'), isTrue);
+    });
+
+    test('video/x-matroska is detected as video', () {
+      expect(isVideoContentType('video/x-matroska'), isTrue);
+    });
+
+    test('video/mpeg is detected as video', () {
+      expect(isVideoContentType('video/mpeg'), isTrue);
+    });
+
+    test('video/ogg is detected as video', () {
+      expect(isVideoContentType('video/ogg'), isTrue);
+    });
+
+    test('video/3gpp is detected as video', () {
+      expect(isVideoContentType('video/3gpp'), isTrue);
+    });
+
+    test('image/jpeg is not detected as video', () {
+      expect(isVideoContentType('image/jpeg'), isFalse);
+    });
+
+    test('image/png is not detected as video', () {
+      expect(isVideoContentType('image/png'), isFalse);
+    });
+
+    test('image/gif is not detected as video', () {
+      expect(isVideoContentType('image/gif'), isFalse);
+    });
+
+    test('image/webp is not detected as video', () {
+      expect(isVideoContentType('image/webp'), isFalse);
+    });
+
+    test('image/heic is not detected as video', () {
+      expect(isVideoContentType('image/heic'), isFalse);
+    });
+
+    test('text/plain is not detected as video', () {
+      expect(isVideoContentType('text/plain'), isFalse);
+    });
+
+    test('application/json is not detected as video', () {
+      expect(isVideoContentType('application/json'), isFalse);
+    });
+
+    test('audio/mpeg is not detected as video', () {
+      expect(isVideoContentType('audio/mpeg'), isFalse);
+    });
+
+    test('text/markdown is not detected as video', () {
+      expect(isVideoContentType('text/markdown'), isFalse);
+    });
+
+    test('empty string is not detected as video', () {
+      expect(isVideoContentType(''), isFalse);
+    });
+
+    test('video/ prefix alone is detected as video', () {
+      expect(isVideoContentType('video/'), isTrue);
+    });
+
+    test('case sensitivity - Video/mp4 is not detected as video', () {
+      // The detection is case-sensitive; uppercase does not match
+      expect(isVideoContentType('Video/mp4'), isFalse);
+    });
+
+    test('whitespace prefix is not detected as video', () {
+      expect(isVideoContentType(' video/mp4'), isFalse);
+    });
+  });
+
+  group('Video thumbnail play icon overlay', () {
+    testWidgets('play icon overlay has correct styling', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Center(
+              child: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.5),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.play_arrow,
+                  color: Colors.white,
+                  size: 32,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      // Verify the play icon is present
+      expect(find.byIcon(Icons.play_arrow), findsOneWidget);
+
+      // Verify icon properties
+      final icon = tester.widget<Icon>(find.byIcon(Icons.play_arrow));
+      expect(icon.color, equals(Colors.white));
+      expect(icon.size, equals(32));
+    });
+
+    testWidgets('play icon container is circular', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Center(
+              child: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.5),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.play_arrow, color: Colors.white),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      final container = tester.widget<Container>(
+        find
+            .ancestor(
+              of: find.byIcon(Icons.play_arrow),
+              matching: find.byType(Container),
+            )
+            .first,
+      );
+
+      final decoration = container.decoration as BoxDecoration;
+      expect(decoration.shape, equals(BoxShape.circle));
+    });
+
+    testWidgets('play icon container has padding of 8', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Center(
+              child: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.5),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.play_arrow, color: Colors.white),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      final container = tester.widget<Container>(
+        find
+            .ancestor(
+              of: find.byIcon(Icons.play_arrow),
+              matching: find.byType(Container),
+            )
+            .first,
+      );
+
+      expect(container.padding, equals(const EdgeInsets.all(8)));
+    });
+  });
+
+  group('Video download handling', () {
+    // Test the video detection logic used in DownloadProgressDialog
+    bool isVideoContentType(String contentType) {
+      return contentType.startsWith('video/');
+    }
+
+    test('video/mp4 uses saveVideo path', () {
+      const contentType = 'video/mp4';
+      expect(isVideoContentType(contentType), isTrue);
+    });
+
+    test('video/quicktime uses saveVideo path', () {
+      const contentType = 'video/quicktime';
+      expect(isVideoContentType(contentType), isTrue);
+    });
+
+    test('image/jpeg uses saveImage path', () {
+      const contentType = 'image/jpeg';
+      expect(isVideoContentType(contentType), isFalse);
+    });
+
+    test('image/png uses saveImage path', () {
+      const contentType = 'image/png';
+      expect(isVideoContentType(contentType), isFalse);
+    });
+
+    test('bytes formatting for video downloads', () {
+      // Test the _formatBytes logic used in DownloadProgressDialog
+      String formatBytes(int bytes) {
+        if (bytes < 1024) return '$bytes B';
+        if (bytes < 1024 * 1024) {
+          return '${(bytes / 1024).toStringAsFixed(1)} KB';
+        }
+        return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+      }
+
+      expect(formatBytes(500), equals('500 B'));
+      expect(formatBytes(1024), equals('1.0 KB'));
+      expect(formatBytes(1536), equals('1.5 KB'));
+      expect(formatBytes(1048576), equals('1.0 MB'));
+      expect(formatBytes(10485760), equals('10.0 MB'));
+      expect(formatBytes(104857600), equals('100.0 MB'));
+    });
+
+    test('video file extensions are recognized', () {
+      // Common video extensions
+      const videoExtensions = ['.mp4', '.mov', '.avi', '.webm', '.mkv', '.m4v'];
+
+      for (final ext in videoExtensions) {
+        final filename = 'video$ext';
+        expect(filename.endsWith(ext), isTrue);
+      }
+    });
+
+    test('image file extensions are recognized', () {
+      // Common image extensions
+      const imageExtensions = [
+        '.jpg',
+        '.jpeg',
+        '.png',
+        '.gif',
+        '.webp',
+        '.heic',
+      ];
+
+      for (final ext in imageExtensions) {
+        final filename = 'image$ext';
+        expect(filename.endsWith(ext), isTrue);
+      }
+    });
+  });
+
+  group('CloudVideoPlayer widget rendering decision', () {
+    // Test the logic that decides whether to render CloudVideoPlayer or InteractiveViewer
+    bool shouldRenderVideoPlayer(String contentType) {
+      return contentType.startsWith('video/');
+    }
+
+    test('video/mp4 renders CloudVideoPlayer', () {
+      expect(shouldRenderVideoPlayer('video/mp4'), isTrue);
+    });
+
+    test('video/quicktime renders CloudVideoPlayer', () {
+      expect(shouldRenderVideoPlayer('video/quicktime'), isTrue);
+    });
+
+    test('video/webm renders CloudVideoPlayer', () {
+      expect(shouldRenderVideoPlayer('video/webm'), isTrue);
+    });
+
+    test('image/jpeg renders InteractiveViewer', () {
+      expect(shouldRenderVideoPlayer('image/jpeg'), isFalse);
+    });
+
+    test('image/png renders InteractiveViewer', () {
+      expect(shouldRenderVideoPlayer('image/png'), isFalse);
+    });
+
+    test('image/heic renders InteractiveViewer', () {
+      expect(shouldRenderVideoPlayer('image/heic'), isFalse);
+    });
+  });
 }

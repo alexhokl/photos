@@ -285,6 +285,16 @@ class LibraryServiceClient extends $grpc.Client {
     return $createUnaryCall(_$deleteMarkdown, request, options: options);
   }
 
+  /// GenerateVideoThumbnail generates a thumbnail image for a video
+  $grpc.ResponseFuture<$0.GenerateVideoThumbnailResponse>
+      generateVideoThumbnail(
+    $0.GenerateVideoThumbnailRequest request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createUnaryCall(_$generateVideoThumbnail, request,
+        options: options);
+  }
+
   // method descriptors
 
   static final _$deletePhoto =
@@ -357,6 +367,11 @@ class LibraryServiceClient extends $grpc.Client {
           '/photos.LibraryService/DeleteMarkdown',
           ($0.DeleteMarkdownRequest value) => value.writeToBuffer(),
           $0.DeleteMarkdownResponse.fromBuffer);
+  static final _$generateVideoThumbnail = $grpc.ClientMethod<
+          $0.GenerateVideoThumbnailRequest, $0.GenerateVideoThumbnailResponse>(
+      '/photos.LibraryService/GenerateVideoThumbnail',
+      ($0.GenerateVideoThumbnailRequest value) => value.writeToBuffer(),
+      $0.GenerateVideoThumbnailResponse.fromBuffer);
 }
 
 @$pb.GrpcServiceName('photos.LibraryService')
@@ -483,6 +498,15 @@ abstract class LibraryServiceBase extends $grpc.Service {
         ($core.List<$core.int> value) =>
             $0.DeleteMarkdownRequest.fromBuffer(value),
         ($0.DeleteMarkdownResponse value) => value.writeToBuffer()));
+    $addMethod($grpc.ServiceMethod<$0.GenerateVideoThumbnailRequest,
+            $0.GenerateVideoThumbnailResponse>(
+        'GenerateVideoThumbnail',
+        generateVideoThumbnail_Pre,
+        false,
+        false,
+        ($core.List<$core.int> value) =>
+            $0.GenerateVideoThumbnailRequest.fromBuffer(value),
+        ($0.GenerateVideoThumbnailResponse value) => value.writeToBuffer()));
   }
 
   $async.Future<$0.DeletePhotoResponse> deletePhoto_Pre($grpc.ServiceCall $call,
@@ -602,4 +626,13 @@ abstract class LibraryServiceBase extends $grpc.Service {
 
   $async.Future<$0.DeleteMarkdownResponse> deleteMarkdown(
       $grpc.ServiceCall call, $0.DeleteMarkdownRequest request);
+
+  $async.Future<$0.GenerateVideoThumbnailResponse> generateVideoThumbnail_Pre(
+      $grpc.ServiceCall $call,
+      $async.Future<$0.GenerateVideoThumbnailRequest> $request) async {
+    return generateVideoThumbnail($call, await $request);
+  }
+
+  $async.Future<$0.GenerateVideoThumbnailResponse> generateVideoThumbnail(
+      $grpc.ServiceCall call, $0.GenerateVideoThumbnailRequest request);
 }

@@ -909,6 +909,8 @@ class _CloudPhotoThumbnail extends StatelessWidget {
     this.onLongPress,
   });
 
+  bool get _isVideo => photo.contentType.startsWith('video/');
+
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
@@ -947,6 +949,22 @@ class _CloudPhotoThumbnail extends StatelessWidget {
                   width: 24,
                   height: 24,
                   child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              ),
+            ),
+          // Play icon overlay for videos
+          if (_isVideo)
+            Center(
+              child: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.5),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.play_arrow,
+                  color: Colors.white,
+                  size: 32,
                 ),
               ),
             ),

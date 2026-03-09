@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:photo_manager/photo_manager.dart';
 import 'package:photos/services/library_service.dart';
 import 'package:photos/services/upload_service.dart';
+import 'package:photos/widgets/device_video_player.dart';
 import 'package:photos/widgets/photo_info_view.dart';
 import 'package:photos/widgets/settings_page.dart';
 
@@ -29,9 +30,12 @@ class _PhotoViewerState extends State<PhotoViewer> {
   final Map<int, Uint8List?> _imageCache = {};
   final Map<int, bool> _loadingStates = {};
   final Map<int, TransformationController> _transformationControllers = {};
+  final Map<int, DeviceVideoPlayerController> _videoControllers = {};
   bool _isZoomed = false;
 
   AssetEntity get _currentAsset => widget.assets[_currentIndex];
+
+  bool _isVideo(int index) => widget.assets[index].type == AssetType.video;
 
   @override
   void initState() {
@@ -47,13 +51,19 @@ class _PhotoViewerState extends State<PhotoViewer> {
     for (final controller in _transformationControllers.values) {
       controller.dispose();
     }
+    for (final controller in _videoControllers.values) {
+      controller.dispose();
+    }
     super.dispose();
   }
 
   void _preloadImages(int centerIndex) {
-    // Load current and adjacent images
+    // Load current and adjacent images (skip videos - they load on demand)
     for (int i = centerIndex - 1; i <= centerIndex + 1; i++) {
-      if (i >= 0 && i < widget.assets.length && !_imageCache.containsKey(i)) {
+      if (i >= 0 &&
+          i < widget.assets.length &&
+          !_imageCache.containsKey(i) &&
+          !_isVideo(i)) {
         _loadImage(i);
       }
     }
@@ -73,6 +83,17 @@ class _PhotoViewerState extends State<PhotoViewer> {
       _loadingStates.remove(key);
       _transformationControllers[key]?.dispose();
       _transformationControllers.remove(key);
+    }
+    // Also clean up distant video controllers
+    final videoKeysToRemove = <int>[];
+    for (final key in _videoControllers.keys) {
+      if ((key - currentIndex).abs() > 2) {
+        videoKeysToRemove.add(key);
+      }
+    }
+    for (final key in videoKeysToRemove) {
+      _videoControllers[key]?.dispose();
+      _videoControllers.remove(key);
     }
   }
 
@@ -98,6 +119,13 @@ class _PhotoViewerState extends State<PhotoViewer> {
     return _transformationControllers[index]!;
   }
 
+  DeviceVideoPlayerController _getVideoController(int index) {
+    if (!_videoControllers.containsKey(index)) {
+      _videoControllers[index] = DeviceVideoPlayerController();
+    }
+    return _videoControllers[index]!;
+  }
+
   void _updateZoomState(int index) {
     final controller = _transformationControllers[index];
     if (controller != null) {
@@ -110,6 +138,10 @@ class _PhotoViewerState extends State<PhotoViewer> {
   }
 
   void _resetZoomOnPageChange(int newIndex) {
+    // Pause video on the previous page if it was a video
+    if (_isVideo(_currentIndex)) {
+      _videoControllers[_currentIndex]?.pause();
+    }
     // Reset zoom state for the previous page
     final prevController = _transformationControllers[_currentIndex];
     if (prevController != null) {
@@ -133,6 +165,7 @@ class _PhotoViewerState extends State<PhotoViewer> {
   Future<void> _renamePhoto() async {
     final renamedId = _currentAsset.id;
     final currentTitle = _currentAsset.title ?? '';
+    final isVideo = _currentAsset.type == AssetType.video;
     // Extract base name without extension
     final lastDot = currentTitle.lastIndexOf('.');
     final baseName = lastDot != -1
@@ -145,7 +178,7 @@ class _PhotoViewerState extends State<PhotoViewer> {
     final newName = await showDialog<String>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Rename Photo'),
+        title: Text(isVideo ? 'Rename Video' : 'Rename Photo'),
         content: TextField(
           controller: controller,
           autofocus: true,
@@ -175,22 +208,41 @@ class _PhotoViewerState extends State<PhotoViewer> {
     final newFileName = '$newName$extension';
 
     try {
-      // Get the original image bytes
-      final imageBytes = await _currentAsset.originBytes;
-      if (imageBytes == null) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Could not access photo data'),
-              backgroundColor: Colors.red,
-            ),
-          );
+      if (isVideo) {
+        // For videos, get the file and save with new name
+        final file = await _currentAsset.file;
+        if (file == null) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Could not access video file'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+          return;
         }
-        return;
-      }
 
-      // Save as new file with the new name using MediaStore API
-      await PhotoManager.editor.saveImage(imageBytes, filename: newFileName);
+        // Save video with new name
+        await PhotoManager.editor.saveVideo(file, title: newFileName);
+      } else {
+        // For images, get the bytes and save with new name
+        final imageBytes = await _currentAsset.originBytes;
+        if (imageBytes == null) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Could not access photo data'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+          return;
+        }
+
+        // Save as new file with the new name using MediaStore API
+        await PhotoManager.editor.saveImage(imageBytes, filename: newFileName);
+      }
 
       // Delete the original file
       await PhotoManager.editor.deleteWithIds([renamedId]);
@@ -392,6 +444,14 @@ class _PhotoViewerState extends State<PhotoViewer> {
   }
 
   Widget _buildPhotoPage(int index) {
+    // Check if this is a video
+    if (_isVideo(index)) {
+      return DeviceVideoPlayer(
+        asset: widget.assets[index],
+        controller: _getVideoController(index),
+      );
+    }
+
     final imageData = _imageCache[index];
     final isLoading = _loadingStates[index] ?? true;
 
@@ -418,13 +478,14 @@ class _PhotoViewerState extends State<PhotoViewer> {
 
   @override
   Widget build(BuildContext context) {
+    final isCurrentVideo = _isVideo(_currentIndex);
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
         backgroundColor: Colors.black,
         foregroundColor: Colors.white,
         title: Text(
-          _currentAsset.title ?? 'Photo',
+          _currentAsset.title ?? (isCurrentVideo ? 'Video' : 'Photo'),
           style: const TextStyle(color: Colors.white),
         ),
         actions: [

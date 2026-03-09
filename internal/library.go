@@ -115,30 +115,47 @@ func (s *LibraryServer) GetPhoto(ctx context.Context, req *proto.GetPhotoRequest
 	// Parse stored metadata from GCS object attributes
 	photoMetadata := ParseGCSMetadata(attrs.Metadata)
 
+	// Parse video metadata if applicable
+	isVideo := IsVideoContentType(photoObject.ContentType)
+	var durationSeconds float64
+	if isVideo {
+		videoMetadata := ParseVideoGCSMetadata(attrs.Metadata)
+		durationSeconds = videoMetadata.DurationSeconds
+	}
+
+	// Get thumbnail object ID if available
+	var thumbnailObjectID string
+	if photoObject.ThumbnailObjectID != nil {
+		thumbnailObjectID = *photoObject.ThumbnailObjectID
+	}
+
 	photo := &proto.Photo{
-		ObjectId:         photoObject.ObjectID,
-		Filename:         photoObject.ObjectID,
-		ContentType:      photoObject.ContentType,
-		SizeBytes:        attrs.Size,
-		Md5Hash:          photoObject.MD5Hash,
-		CreatedAt:        photoObject.CreatedAt.Format(time.RFC3339),
-		UpdatedAt:        photoObject.UpdatedAt.Format(time.RFC3339),
-		Latitude:         photoMetadata.Latitude,
-		Longitude:        photoMetadata.Longitude,
-		HasLocation:      photoMetadata.HasLocation,
-		DateTaken:        photoMetadata.FormatDateTaken(),
-		HasDateTaken:     photoMetadata.HasDateTaken,
-		Width:            int32(photoMetadata.Width),
-		Height:           int32(photoMetadata.Height),
-		HasDimensions:    photoMetadata.HasDimensions,
-		OriginalFilename: photoMetadata.OriginalFilename,
-		CameraMake:       photoMetadata.CameraMake,
-		CameraModel:      photoMetadata.CameraModel,
-		FocalLength:      photoMetadata.FocalLength,
-		Iso:              int32(photoMetadata.ISO),
-		Aperture:         photoMetadata.Aperture,
-		ExposureTime:     photoMetadata.ExposureTime,
-		LensModel:        photoMetadata.LensModel,
+		ObjectId:          photoObject.ObjectID,
+		Filename:          photoObject.ObjectID,
+		ContentType:       photoObject.ContentType,
+		SizeBytes:         attrs.Size,
+		Md5Hash:           photoObject.MD5Hash,
+		CreatedAt:         photoObject.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:         photoObject.UpdatedAt.Format(time.RFC3339),
+		Latitude:          photoMetadata.Latitude,
+		Longitude:         photoMetadata.Longitude,
+		HasLocation:       photoMetadata.HasLocation,
+		DateTaken:         photoMetadata.FormatDateTaken(),
+		HasDateTaken:      photoMetadata.HasDateTaken,
+		Width:             int32(photoMetadata.Width),
+		Height:            int32(photoMetadata.Height),
+		HasDimensions:     photoMetadata.HasDimensions,
+		OriginalFilename:  photoMetadata.OriginalFilename,
+		CameraMake:        photoMetadata.CameraMake,
+		CameraModel:       photoMetadata.CameraModel,
+		FocalLength:       photoMetadata.FocalLength,
+		Iso:               int32(photoMetadata.ISO),
+		Aperture:          photoMetadata.Aperture,
+		ExposureTime:      photoMetadata.ExposureTime,
+		LensModel:         photoMetadata.LensModel,
+		DurationSeconds:   durationSeconds,
+		IsVideo:           isVideo,
+		ThumbnailObjectId: thumbnailObjectID,
 	}
 
 	slog.Info("Retrieved photo metadata",
@@ -280,6 +297,7 @@ func (s *LibraryServer) CopyPhoto(ctx context.Context, req *proto.CopyPhotoReque
 		Md5Hash:     md5HashBase64,
 		CreatedAt:   attrs.Created.Format(time.RFC3339),
 		UpdatedAt:   attrs.Updated.Format(time.RFC3339),
+		IsVideo:     IsVideoContentType(attrs.ContentType),
 	}
 
 	return &proto.CopyPhotoResponse{
@@ -424,6 +442,7 @@ func (s *LibraryServer) RenamePhoto(ctx context.Context, req *proto.RenamePhotoR
 		Md5Hash:     md5HashBase64,
 		CreatedAt:   attrs.Created.Format(time.RFC3339),
 		UpdatedAt:   attrs.Updated.Format(time.RFC3339),
+		IsVideo:     IsVideoContentType(attrs.ContentType),
 	}
 
 	return &proto.RenamePhotoResponse{
@@ -633,13 +652,31 @@ func (s *LibraryServer) ListPhotos(ctx context.Context, req *proto.ListPhotosReq
 
 		lastPhoto = obj
 
+		// Determine if this is a video
+		isVideo := IsVideoContentType(obj.ContentType)
+
+		// Get thumbnail object ID if available
+		var thumbnailObjectID string
+		if obj.ThumbnailObjectID != nil {
+			thumbnailObjectID = *obj.ThumbnailObjectID
+		}
+
+		// Get duration if available
+		var durationSeconds float64
+		if obj.DurationSeconds != nil {
+			durationSeconds = *obj.DurationSeconds
+		}
+
 		photo := &proto.Photo{
-			ObjectId:    obj.ObjectID,
-			Filename:    obj.ObjectID,
-			ContentType: obj.ContentType,
-			Md5Hash:     obj.MD5Hash,
-			CreatedAt:   obj.CreatedAt.Format(time.RFC3339),
-			UpdatedAt:   obj.UpdatedAt.Format(time.RFC3339),
+			ObjectId:          obj.ObjectID,
+			Filename:          obj.ObjectID,
+			ContentType:       obj.ContentType,
+			Md5Hash:           obj.MD5Hash,
+			CreatedAt:         obj.CreatedAt.Format(time.RFC3339),
+			UpdatedAt:         obj.UpdatedAt.Format(time.RFC3339),
+			IsVideo:           isVideo,
+			ThumbnailObjectId: thumbnailObjectID,
+			DurationSeconds:   durationSeconds,
 		}
 		if obj.TimeTaken != nil {
 			photo.DateTaken = obj.TimeTaken.Format(time.RFC3339)
@@ -1014,6 +1051,7 @@ func (s *LibraryServer) UpdatePhotoMetadata(ctx context.Context, req *proto.Upda
 		Md5Hash:     photoObject.MD5Hash,
 		CreatedAt:   photoObject.CreatedAt.Format(time.RFC3339),
 		UpdatedAt:   photoObject.UpdatedAt.Format(time.RFC3339),
+		IsVideo:     IsVideoContentType(photoObject.ContentType),
 	}
 
 	slog.Info("Updated photo metadata",
@@ -1311,4 +1349,142 @@ func (s *LibraryServer) DeleteMarkdown(ctx context.Context, req *proto.DeleteMar
 	return &proto.DeleteMarkdownResponse{
 		Success: true,
 	}, nil
+}
+
+// GenerateVideoThumbnail generates a thumbnail image for a video and stores it in GCS.
+func (s *LibraryServer) GenerateVideoThumbnail(ctx context.Context, req *proto.GenerateVideoThumbnailRequest) (*proto.GenerateVideoThumbnailResponse, error) {
+	userID, ok := ctx.Value(contextKeyUser{}).(uint)
+	if !ok {
+		return nil, status.Errorf(codes.Unauthenticated, "authentication required")
+	}
+
+	objectID := req.GetObjectId()
+	if objectID == "" {
+		return nil, status.Errorf(codes.InvalidArgument, "object_id is required")
+	}
+
+	// Query the photo from the database to verify ownership and check content type
+	var photoObject database.PhotoObject
+	if err := s.DB.Where("object_id = ? AND user_id = ?", objectID, userID).First(&photoObject).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, status.Errorf(codes.NotFound, "photo not found: %s", objectID)
+		}
+		return nil, status.Errorf(codes.Internal, "failed to query photo: %v", err)
+	}
+
+	// Verify this is a video
+	if !IsVideoContentType(photoObject.ContentType) {
+		return nil, status.Errorf(codes.InvalidArgument, "object is not a video: %s", photoObject.ContentType)
+	}
+
+	// Check if thumbnail already exists
+	if photoObject.ThumbnailObjectID != nil && *photoObject.ThumbnailObjectID != "" {
+		// Generate signed URL for existing thumbnail
+		bucket := s.GCSClient.Bucket(s.BucketName)
+		thumbObj := bucket.Object(*photoObject.ThumbnailObjectID)
+
+		// Verify thumbnail exists in storage
+		_, err := thumbObj.Attrs(ctx)
+		if err == nil {
+			// Thumbnail exists, generate signed URL
+			expiresAt := time.Now().Add(time.Hour)
+			signedURL, err := bucket.SignedURL(*photoObject.ThumbnailObjectID, &storage.SignedURLOptions{
+				Method:  "GET",
+				Expires: expiresAt,
+			})
+			if err != nil {
+				return nil, status.Errorf(codes.Internal, "failed to generate signed URL for existing thumbnail: %v", err)
+			}
+
+			slog.Info("Returned existing video thumbnail",
+				slog.String("object_id", objectID),
+				slog.String("thumbnail_object_id", *photoObject.ThumbnailObjectID),
+				slog.Uint64("user_id", uint64(userID)),
+			)
+
+			return &proto.GenerateVideoThumbnailResponse{
+				ThumbnailObjectId: *photoObject.ThumbnailObjectID,
+				SignedUrl:         signedURL,
+				ExpiresAt:         expiresAt.Format(time.RFC3339),
+			}, nil
+		}
+		// Thumbnail record exists but file doesn't - regenerate it
+	}
+
+	// Download video from GCS
+	bucket := s.GCSClient.Bucket(s.BucketName)
+	obj := bucket.Object(objectID)
+
+	reader, err := obj.NewReader(ctx)
+	if err != nil {
+		if err == storage.ErrObjectNotExist {
+			return nil, status.Errorf(codes.NotFound, "video not found in storage: %s", objectID)
+		}
+		return nil, status.Errorf(codes.Internal, "failed to open video: %v", err)
+	}
+	defer func() { _ = reader.Close() }()
+
+	videoData, err := io.ReadAll(reader)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to read video: %v", err)
+	}
+
+	// Generate thumbnail using ffmpeg
+	timeOffsetMs := req.GetTimeOffsetMs()
+	thumbnailData, err := GenerateVideoThumbnail(videoData, timeOffsetMs)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to generate thumbnail: %v", err)
+	}
+
+	// Generate thumbnail object ID (same path as video but with _thumb.jpg suffix)
+	thumbnailObjectID := strings.TrimSuffix(objectID, "."+getFileExtension(objectID)) + "_thumb.jpg"
+
+	// Upload thumbnail to GCS
+	thumbWriter := bucket.Object(thumbnailObjectID).NewWriter(ctx)
+	thumbWriter.ContentType = "image/jpeg"
+
+	if _, err := thumbWriter.Write(thumbnailData); err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to write thumbnail to GCS: %v", err)
+	}
+
+	if err := thumbWriter.Close(); err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to close thumbnail writer: %v", err)
+	}
+
+	// Update the database with thumbnail object ID
+	if err := s.DB.Model(&photoObject).Update("thumbnail_object_id", thumbnailObjectID).Error; err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to update photo with thumbnail: %v", err)
+	}
+
+	// Generate signed URL for the new thumbnail
+	expiresAt := time.Now().Add(time.Hour)
+	signedURL, err := bucket.SignedURL(thumbnailObjectID, &storage.SignedURLOptions{
+		Method:  "GET",
+		Expires: expiresAt,
+	})
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to generate signed URL: %v", err)
+	}
+
+	slog.Info("Generated video thumbnail",
+		slog.String("object_id", objectID),
+		slog.String("thumbnail_object_id", thumbnailObjectID),
+		slog.Int64("time_offset_ms", timeOffsetMs),
+		slog.Uint64("user_id", uint64(userID)),
+	)
+
+	return &proto.GenerateVideoThumbnailResponse{
+		ThumbnailObjectId: thumbnailObjectID,
+		SignedUrl:         signedURL,
+		ExpiresAt:         expiresAt.Format(time.RFC3339),
+	}, nil
+}
+
+// getFileExtension returns the file extension without the dot
+func getFileExtension(filename string) string {
+	lastDot := strings.LastIndex(filename, ".")
+	if lastDot == -1 {
+		return ""
+	}
+	return filename[lastDot+1:]
 }

@@ -512,6 +512,46 @@
         ]
       }
     },
+    "/v1/photos/{objectId}/thumbnail": {
+      "post": {
+        "summary": "GenerateVideoThumbnail generates a thumbnail image for a video",
+        "operationId": "LibraryService_GenerateVideoThumbnail",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/photosGenerateVideoThumbnailResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "objectId",
+            "description": "The object ID of the video",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/LibraryServiceGenerateVideoThumbnailBody"
+            }
+          }
+        ],
+        "tags": [
+          "LibraryService"
+        ]
+      }
+    },
     "/v1/photos/{sourceObjectId}/copy": {
       "post": {
         "summary": "CopyPhoto copies a photo to a new location",
@@ -624,6 +664,17 @@
       },
       "title": "GenerateSignedUrlRequest specifies parameters for signed URL generation"
     },
+    "LibraryServiceGenerateVideoThumbnailBody": {
+      "type": "object",
+      "properties": {
+        "timeOffsetMs": {
+          "type": "string",
+          "format": "int64",
+          "title": "Time offset in milliseconds to capture the frame (default: 0)"
+        }
+      },
+      "title": "GenerateVideoThumbnailRequest specifies parameters for generating a video thumbnail"
+    },
     "LibraryServiceRenamePhotoBody": {
       "type": "object",
       "properties": {
@@ -720,6 +771,24 @@
         }
       },
       "title": "GenerateSignedUrlResponse returns the signed URL and expiration time"
+    },
+    "photosGenerateVideoThumbnailResponse": {
+      "type": "object",
+      "properties": {
+        "thumbnailObjectId": {
+          "type": "string",
+          "title": "The object ID of the generated thumbnail"
+        },
+        "signedUrl": {
+          "type": "string",
+          "title": "A signed URL to access the thumbnail"
+        },
+        "expiresAt": {
+          "type": "string",
+          "title": "When the signed URL expires (RFC3339 format)"
+        }
+      },
+      "title": "GenerateVideoThumbnailResponse returns the generated thumbnail information"
     },
     "photosGetMarkdownResponse": {
       "type": "object",
@@ -863,6 +932,19 @@
         "lensModel": {
           "type": "string",
           "title": "Lens model (e.g., \"EF 50mm f/1.4 USM\")"
+        },
+        "durationSeconds": {
+          "type": "number",
+          "format": "double",
+          "title": "Video duration in seconds (0 for images)"
+        },
+        "isVideo": {
+          "type": "boolean",
+          "title": "Whether this is a video (derived from content_type)"
+        },
+        "thumbnailObjectId": {
+          "type": "string",
+          "title": "Object ID of the thumbnail image (for videos)"
         }
       },
       "title": "Photo represents a stored photo with metadata"
