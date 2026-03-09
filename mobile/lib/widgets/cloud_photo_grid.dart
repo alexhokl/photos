@@ -473,7 +473,7 @@ class CloudPhotoGridState extends State<CloudPhotoGrid> {
         await _deleteSelectedPhotos();
         break;
       case CloudPhotoGridAction.download:
-        // Download is handled per-photo in the viewer
+        await _downloadSelectedPhotos();
         break;
       case CloudPhotoGridAction.copy:
         await _copyOrMoveSelectedPhotos(move: false);
@@ -542,6 +542,42 @@ class CloudPhotoGridState extends State<CloudPhotoGrid> {
       );
     } finally {
       await libraryService?.dispose();
+    }
+  }
+
+  Future<void> _downloadSelectedPhotos() async {
+    final selected = _selectedPhotos;
+    if (selected.isEmpty) return;
+
+    for (final photo in selected) {
+      if (!mounted) return;
+      await showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (dialogContext) => DownloadProgressDialog(
+          photo: photo,
+          onComplete: (success, error) {
+            Navigator.pop(dialogContext);
+            if (!mounted) return;
+            if (success) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Saved to device: ${photo.filename}'),
+                  duration: const Duration(seconds: 2),
+                ),
+              );
+            } else {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Download failed: ${error ?? "Unknown error"}'),
+                  backgroundColor: Colors.red,
+                  duration: const Duration(seconds: 3),
+                ),
+              );
+            }
+          },
+        ),
+      );
     }
   }
 

@@ -224,10 +224,10 @@ class _HomePageState extends State<HomePage> {
           onSelected: _onCloudMenuAction,
           itemBuilder: (context) => [
             const PopupMenuItem(
-              value: CloudPhotoGridAction.delete,
+              value: CloudPhotoGridAction.download,
               child: ListTile(
-                leading: Icon(Icons.delete),
-                title: Text('Delete'),
+                leading: Icon(Icons.download),
+                title: Text('Download to Device'),
                 contentPadding: EdgeInsets.zero,
               ),
             ),
@@ -244,6 +244,14 @@ class _HomePageState extends State<HomePage> {
               child: ListTile(
                 leading: Icon(Icons.drive_file_move),
                 title: Text('Move to...'),
+                contentPadding: EdgeInsets.zero,
+              ),
+            ),
+            const PopupMenuItem(
+              value: CloudPhotoGridAction.delete,
+              child: ListTile(
+                leading: Icon(Icons.delete),
+                title: Text('Delete'),
                 contentPadding: EdgeInsets.zero,
               ),
             ),

@@ -156,7 +156,7 @@ class _CloudPhotoViewerState extends State<CloudPhotoViewer> {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (dialogContext) => _DownloadProgressDialog(
+      builder: (dialogContext) => DownloadProgressDialog(
         photo: _currentPhoto,
         onComplete: (success, error) {
           Navigator.pop(dialogContext);
@@ -462,21 +462,21 @@ class _CloudPhotoViewerState extends State<CloudPhotoViewer> {
 }
 
 /// Dialog that shows download progress
-class _DownloadProgressDialog extends StatefulWidget {
+class DownloadProgressDialog extends StatefulWidget {
   final Photo photo;
   final void Function(bool success, String? error) onComplete;
 
-  const _DownloadProgressDialog({
+  const DownloadProgressDialog({
+    super.key,
     required this.photo,
     required this.onComplete,
   });
 
   @override
-  State<_DownloadProgressDialog> createState() =>
-      _DownloadProgressDialogState();
+  State<DownloadProgressDialog> createState() => _DownloadProgressDialogState();
 }
 
-class _DownloadProgressDialogState extends State<_DownloadProgressDialog> {
+class _DownloadProgressDialogState extends State<DownloadProgressDialog> {
   int _bytesReceived = 0;
   int _totalBytes = 0;
 
