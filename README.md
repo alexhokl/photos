@@ -1,4 +1,5 @@
 # photos
+
 Personal photo management
 
 > [!WARNING]
