@@ -234,13 +234,15 @@ const ListPhotosResponse$json = {
       '10': 'photos'
     },
     {'1': 'next_page_token', '3': 2, '4': 1, '5': 9, '10': 'nextPageToken'},
+    {'1': 'total_count', '3': 3, '4': 1, '5': 5, '10': 'totalCount'},
   ],
 };
 
 /// Descriptor for `ListPhotosResponse`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List listPhotosResponseDescriptor = $convert.base64Decode(
     'ChJMaXN0UGhvdG9zUmVzcG9uc2USJQoGcGhvdG9zGAEgAygLMg0ucGhvdG9zLlBob3RvUgZwaG'
-    '90b3MSJgoPbmV4dF9wYWdlX3Rva2VuGAIgASgJUg1uZXh0UGFnZVRva2Vu');
+    '90b3MSJgoPbmV4dF9wYWdlX3Rva2VuGAIgASgJUg1uZXh0UGFnZVRva2VuEh8KC3RvdGFsX2Nv'
+    'dW50GAMgASgFUgp0b3RhbENvdW50');
 
 @$core.Deprecated('Use copyPhotoRequestDescriptor instead')
 const CopyPhotoRequest$json = {

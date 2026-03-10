@@ -30,6 +30,7 @@ class CloudPhotoGridState extends State<CloudPhotoGrid> {
   String _currentPrefix = '';
   String? _nextPageToken;
   bool _isLoadingMore = false;
+  int _totalCount = 0;
   final Set<String> _selectedObjectIds = {};
   bool _isSelectionMode = false;
   final ScrollController _scrollController = ScrollController();
@@ -115,6 +116,7 @@ class CloudPhotoGridState extends State<CloudPhotoGrid> {
       _photos = [];
       _subdirectories = [];
       _nextPageToken = null;
+      _totalCount = 0;
       _signedUrlCache.clear();
       _clearSelection();
     });
@@ -142,6 +144,7 @@ class CloudPhotoGridState extends State<CloudPhotoGrid> {
         _subdirectories = directories;
         _photos = photosResult.photos;
         _nextPageToken = photosResult.nextPageToken;
+        _totalCount = photosResult.totalCount;
         _isLoading = false;
       });
 
@@ -789,83 +792,100 @@ class CloudPhotoGridState extends State<CloudPhotoGrid> {
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Expanded(
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  InkWell(
-                    onTap: _currentPrefix.isNotEmpty
-                        ? () => _navigateToBreadcrumb(-1)
-                        : null,
-                    borderRadius: BorderRadius.circular(4),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 4,
-                        vertical: 2,
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.cloud,
-                            size: 18,
-                            color: Theme.of(context).colorScheme.primary,
+          Row(
+            children: [
+              Expanded(
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      InkWell(
+                        onTap: _currentPrefix.isNotEmpty
+                            ? () => _navigateToBreadcrumb(-1)
+                            : null,
+                        borderRadius: BorderRadius.circular(4),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 4,
+                            vertical: 2,
                           ),
-                          const SizedBox(width: 4),
-                          Text(
-                            'Cloud',
-                            style: TextStyle(
-                              color: Theme.of(context).colorScheme.primary,
-                              fontWeight: FontWeight.w500,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.cloud,
+                                size: 18,
+                                color: Theme.of(context).colorScheme.primary,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                'Cloud',
+                                style: TextStyle(
+                                  color: Theme.of(context).colorScheme.primary,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      for (var i = 0; i < segments.length; i++) ...[
+                        Icon(
+                          Icons.chevron_right,
+                          size: 18,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                        InkWell(
+                          onTap: i < segments.length - 1
+                              ? () => _navigateToBreadcrumb(i)
+                              : null,
+                          borderRadius: BorderRadius.circular(4),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 4,
+                              vertical: 2,
+                            ),
+                            child: Text(
+                              segments[i],
+                              style: TextStyle(
+                                color: i < segments.length - 1
+                                    ? Theme.of(context).colorScheme.primary
+                                    : Theme.of(context).colorScheme.onSurface,
+                                fontWeight: i == segments.length - 1
+                                    ? FontWeight.w600
+                                    : FontWeight.w500,
+                              ),
                             ),
                           ),
-                        ],
-                      ),
-                    ),
+                        ),
+                      ],
+                    ],
                   ),
-                  for (var i = 0; i < segments.length; i++) ...[
-                    Icon(
-                      Icons.chevron_right,
-                      size: 18,
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
-                    InkWell(
-                      onTap: i < segments.length - 1
-                          ? () => _navigateToBreadcrumb(i)
-                          : null,
-                      borderRadius: BorderRadius.circular(4),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 4,
-                          vertical: 2,
-                        ),
-                        child: Text(
-                          segments[i],
-                          style: TextStyle(
-                            color: i < segments.length - 1
-                                ? Theme.of(context).colorScheme.primary
-                                : Theme.of(context).colorScheme.onSurface,
-                            fontWeight: i == segments.length - 1
-                                ? FontWeight.w600
-                                : FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ],
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.edit, size: 18),
+                tooltip: 'Edit path',
+                onPressed: _showEditPathDialog,
+                visualDensity: VisualDensity.compact,
+              ),
+            ],
+          ),
+          if (!_isLoading)
+            Padding(
+              padding: const EdgeInsets.only(left: 4),
+              child: Text(
+                '$_totalCount items',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
               ),
             ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.edit, size: 18),
-            tooltip: 'Edit path',
-            onPressed: _showEditPathDialog,
-            visualDensity: VisualDensity.compact,
-          ),
         ],
       ),
     );

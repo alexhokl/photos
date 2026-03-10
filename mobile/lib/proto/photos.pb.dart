@@ -966,10 +966,12 @@ class ListPhotosResponse extends $pb.GeneratedMessage {
   factory ListPhotosResponse({
     $core.Iterable<Photo>? photos,
     $core.String? nextPageToken,
+    $core.int? totalCount,
   }) {
     final result = create();
     if (photos != null) result.photos.addAll(photos);
     if (nextPageToken != null) result.nextPageToken = nextPageToken;
+    if (totalCount != null) result.totalCount = totalCount;
     return result;
   }
 
@@ -988,6 +990,7 @@ class ListPhotosResponse extends $pb.GeneratedMessage {
       createEmptyInstance: create)
     ..pPM<Photo>(1, _omitFieldNames ? '' : 'photos', subBuilder: Photo.create)
     ..aOS(2, _omitFieldNames ? '' : 'nextPageToken')
+    ..aI(3, _omitFieldNames ? '' : 'totalCount')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -1020,6 +1023,15 @@ class ListPhotosResponse extends $pb.GeneratedMessage {
   $core.bool hasNextPageToken() => $_has(1);
   @$pb.TagNumber(2)
   void clearNextPageToken() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.int get totalCount => $_getIZ(2);
+  @$pb.TagNumber(3)
+  set totalCount($core.int value) => $_setSignedInt32(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasTotalCount() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearTotalCount() => $_clearField(3);
 }
 
 /// CopyPhotoRequest specifies source and destination for copy operation

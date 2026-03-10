@@ -741,6 +741,7 @@ type ListPhotosResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Photos        []*Photo               `protobuf:"bytes,1,rep,name=photos,proto3" json:"photos,omitempty"`
 	NextPageToken string                 `protobuf:"bytes,2,opt,name=next_page_token,json=nextPageToken,proto3" json:"next_page_token,omitempty"`
+	TotalCount    int32                  `protobuf:"varint,3,opt,name=total_count,json=totalCount,proto3" json:"total_count,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -787,6 +788,13 @@ func (x *ListPhotosResponse) GetNextPageToken() string {
 		return x.NextPageToken
 	}
 	return ""
+}
+
+func (x *ListPhotosResponse) GetTotalCount() int32 {
+	if x != nil {
+		return x.TotalCount
+	}
+	return 0
 }
 
 // CopyPhotoRequest specifies source and destination for copy operation
@@ -2294,10 +2302,12 @@ const file_proto_photos_proto_rawDesc = "" +
 	"\tpage_size\x18\x01 \x01(\x05R\bpageSize\x12\x1d\n" +
 	"\n" +
 	"page_token\x18\x02 \x01(\tR\tpageToken\x12\x16\n" +
-	"\x06prefix\x18\x03 \x01(\tR\x06prefix\"c\n" +
+	"\x06prefix\x18\x03 \x01(\tR\x06prefix\"\x84\x01\n" +
 	"\x12ListPhotosResponse\x12%\n" +
 	"\x06photos\x18\x01 \x03(\v2\r.photos.PhotoR\x06photos\x12&\n" +
-	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken\"p\n" +
+	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken\x12\x1f\n" +
+	"\vtotal_count\x18\x03 \x01(\x05R\n" +
+	"totalCount\"p\n" +
 	"\x10CopyPhotoRequest\x12(\n" +
 	"\x10source_object_id\x18\x01 \x01(\tR\x0esourceObjectId\x122\n" +
 	"\x15destination_object_id\x18\x02 \x01(\tR\x13destinationObjectId\"8\n" +

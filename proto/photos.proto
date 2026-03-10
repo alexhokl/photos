@@ -107,6 +107,7 @@ message ListPhotosRequest {
 message ListPhotosResponse {
   repeated Photo photos = 1;
   string next_page_token = 2;
+  int32 total_count = 3;
 }
 
 // CopyPhotoRequest specifies source and destination for copy operation

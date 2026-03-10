@@ -837,6 +837,10 @@
         },
         "nextPageToken": {
           "type": "string"
+        },
+        "totalCount": {
+          "type": "integer",
+          "format": "int32"
         }
       },
       "title": "ListPhotosResponse returns a paginated list of photos"

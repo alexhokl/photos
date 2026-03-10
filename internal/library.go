@@ -557,6 +557,20 @@ func (s *LibraryServer) ListPhotos(ctx context.Context, req *proto.ListPhotosReq
 	// Apply prefix filter if specified
 	if prefix != "" {
 		query = query.Where("object_id LIKE ?", prefix+"%")
+		// Exclude items in sub-directories relative to the prefix
+		query = query.Where("object_id NOT LIKE ?", prefix+"%/%")
+	} else {
+		// Exclude items in any sub-directory at root level
+		query = query.Where("object_id NOT LIKE ?", "%/%")
+	}
+
+	// Exclude markdown files
+	query = query.Where("object_id NOT LIKE ?", "%.md")
+
+	// Count total matching items (before pagination)
+	var totalCount int64
+	if err := query.Model(&database.PhotoObject{}).Count(&totalCount).Error; err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to count photos: %v", err)
 	}
 
 	// Handle pagination token
@@ -631,19 +645,6 @@ func (s *LibraryServer) ListPhotos(ctx context.Context, req *proto.ListPhotosReq
 
 	for i := range photoObjects {
 		obj := &photoObjects[i]
-		// Skip objects that are in sub-directories relative to the prefix
-		relativePath := obj.ObjectID
-		if prefix != "" {
-			relativePath = strings.TrimPrefix(obj.ObjectID, prefix)
-		}
-		if strings.Contains(relativePath, "/") {
-			continue
-		}
-
-		// Skip markdown files
-		if strings.HasSuffix(strings.ToLower(obj.ObjectID), ".md") {
-			continue
-		}
 
 		// Stop if we've reached the page size
 		if count >= pageSize {
@@ -708,6 +709,7 @@ func (s *LibraryServer) ListPhotos(ctx context.Context, req *proto.ListPhotosReq
 	return &proto.ListPhotosResponse{
 		Photos:        photos,
 		NextPageToken: nextPageToken,
+		TotalCount:    int32(totalCount),
 	}, nil
 }
 

@@ -6,8 +6,13 @@ import 'package:photos/proto/photos.pbgrpc.dart';
 class ListPhotosResult {
   final List<Photo> photos;
   final String? nextPageToken;
+  final int totalCount;
 
-  ListPhotosResult({required this.photos, this.nextPageToken});
+  ListPhotosResult({
+    required this.photos,
+    this.nextPageToken,
+    this.totalCount = 0,
+  });
 }
 
 /// Result of a signed URL generation
@@ -106,6 +111,7 @@ class LibraryService {
         nextPageToken: response.nextPageToken.isEmpty
             ? null
             : response.nextPageToken,
+        totalCount: response.totalCount,
       );
     } on GrpcError catch (e) {
       throw LibraryException('gRPC error: ${e.message}', grpcError: e);
