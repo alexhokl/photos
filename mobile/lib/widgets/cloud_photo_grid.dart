@@ -876,15 +876,29 @@ class CloudPhotoGridState extends State<CloudPhotoGrid> {
             ],
           ),
           if (!_isLoading)
-            Padding(
-              padding: const EdgeInsets.only(left: 4),
-              child: Text(
-                '$_totalCount items',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.refresh, size: 16),
+                  tooltip: 'Refresh',
+                  onPressed: () => _loadDirectory(_currentPrefix),
+                  visualDensity: VisualDensity.compact,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                  style: IconButton.styleFrom(
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
                 ),
-              ),
+                const SizedBox(width: 2),
+                Text(
+                  '$_totalCount items',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
             ),
         ],
       ),
