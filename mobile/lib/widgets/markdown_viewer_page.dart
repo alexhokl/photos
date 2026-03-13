@@ -48,6 +48,39 @@ class MarkdownViewerPage extends StatelessWidget {
         data: strippedMarkdown,
         onTapLink: _onTapLink,
         selectable: true,
+        styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
+          strong: Theme.of(
+            context,
+          ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
+          h1: Theme.of(context).textTheme.bodyMedium?.copyWith(
+            fontWeight: FontWeight.bold,
+            fontSize: 28,
+          ),
+          h2: Theme.of(context).textTheme.bodyMedium?.copyWith(
+            fontWeight: FontWeight.bold,
+            fontSize: 22,
+          ),
+          h3: Theme.of(context).textTheme.bodyMedium?.copyWith(
+            fontWeight: FontWeight.bold,
+            fontSize: 18,
+          ),
+          h4: Theme.of(context).textTheme.bodyMedium?.copyWith(
+            fontWeight: FontWeight.bold,
+            fontSize: 16,
+          ),
+          h5: Theme.of(context).textTheme.bodyMedium?.copyWith(
+            fontWeight: FontWeight.bold,
+            fontSize: 14,
+          ),
+          code: Theme.of(context).textTheme.bodyMedium?.copyWith(
+            fontFamily: 'monospace',
+            backgroundColor: const Color(0xFFEEF0F3),
+          ),
+          codeblockDecoration: BoxDecoration(
+            color: const Color(0xFFEEF0F3),
+            borderRadius: BorderRadius.circular(4),
+          ),
+        ),
       ),
     );
   }
