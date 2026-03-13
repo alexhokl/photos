@@ -320,12 +320,6 @@ class CloudPhotoGridState extends State<CloudPhotoGrid> {
     String sourcePrefix,
     String destinationPrefix,
   ) async {
-    final photosToMove = List<Photo>.from(_photos);
-    if (photosToMove.isEmpty) {
-      _loadDirectory(destinationPrefix);
-      return;
-    }
-
     // Show progress indicator
     if (!mounted) return;
     showDialog(
@@ -349,6 +343,25 @@ class CloudPhotoGridState extends State<CloudPhotoGrid> {
     try {
       final config = await BackendConfig.load();
       libraryService = LibraryService(host: config.host, port: config.port);
+
+      // Fetch all photos under sourcePrefix by paginating through all pages
+      final List<Photo> photosToMove = [];
+      String? pageToken;
+      do {
+        final result = await libraryService.listPhotos(
+          prefix: sourcePrefix,
+          pageSize: _pageSize,
+          pageToken: pageToken,
+        );
+        photosToMove.addAll(result.photos);
+        pageToken = result.nextPageToken;
+      } while (pageToken != null);
+
+      if (photosToMove.isEmpty) {
+        if (mounted) Navigator.of(context).pop();
+        _loadDirectory(destinationPrefix);
+        return;
+      }
 
       for (final photo in photosToMove) {
         try {
