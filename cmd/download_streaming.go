@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"os"
@@ -57,7 +56,7 @@ func runDownloadStreaming(cmd *cobra.Command, args []string) error {
 		ObjectId: objectID,
 	}
 
-	stream, err := client.StreamingDownload(context.Background(), req)
+	stream, err := client.StreamingDownload(cmd.Context(), req)
 	if err != nil {
 		return fmt.Errorf("failed to create download stream: %w", err)
 	}

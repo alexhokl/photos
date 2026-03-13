@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/alexhokl/photos/proto"
@@ -54,7 +53,7 @@ func runMovePhoto(cmd *cobra.Command, args []string) error {
 		DestinationObjectId: destinationObjectID,
 	}
 
-	resp, err := client.RenamePhoto(context.Background(), req)
+	resp, err := client.RenamePhoto(cmd.Context(), req)
 	if err != nil {
 		return fmt.Errorf("failed to move photo: %w", err)
 	}

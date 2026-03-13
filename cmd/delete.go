@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/alexhokl/photos/proto"
@@ -49,7 +48,7 @@ func runDelete(cmd *cobra.Command, args []string) error {
 		ObjectId: objectID,
 	}
 
-	resp, err := client.DeletePhoto(context.Background(), req)
+	resp, err := client.DeletePhoto(cmd.Context(), req)
 	if err != nil {
 		return fmt.Errorf("failed to delete photo: %w", err)
 	}

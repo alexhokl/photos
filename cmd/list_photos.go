@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/alexhokl/photos/proto"
@@ -51,7 +50,7 @@ func runListPhotos(cmd *cobra.Command, args []string) error {
 		PageToken: listPhotosOpts.pageToken,
 	}
 
-	resp, err := client.ListPhotos(context.Background(), req)
+	resp, err := client.ListPhotos(cmd.Context(), req)
 	if err != nil {
 		return fmt.Errorf("failed to list photos: %w", err)
 	}

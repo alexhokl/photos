@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/alexhokl/photos/proto"
@@ -43,7 +42,7 @@ func runUpdateDatabase(cmd *cobra.Command, args []string) error {
 		UpdateMetadata: updateDatabaseOpts.updateMetadata,
 	}
 
-	_, err = client.SyncDatabase(context.Background(), req)
+	_, err = client.SyncDatabase(cmd.Context(), req)
 	if err != nil {
 		return fmt.Errorf("failed to sync database: %w", err)
 	}

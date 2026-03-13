@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/alexhokl/photos/proto"
@@ -48,7 +47,7 @@ func runListDirectories(cmd *cobra.Command, args []string) error {
 		Recursive: listDirectoriesOpts.recursive,
 	}
 
-	resp, err := client.ListDirectories(context.Background(), req)
+	resp, err := client.ListDirectories(cmd.Context(), req)
 	if err != nil {
 		return fmt.Errorf("failed to list directories: %w", err)
 	}

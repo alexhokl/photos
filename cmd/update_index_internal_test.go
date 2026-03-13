@@ -13,6 +13,7 @@ func TestUpdateIndexCommandFlags(t *testing.T) {
 		{"prefix flag exists", "prefix", ""},
 		{"markdown flag exists", "markdown", ""},
 		{"file flag exists", "file", ""},
+		{"editor flag exists", "editor", "false"},
 	}
 
 	for _, test := range tests {
@@ -111,6 +112,7 @@ func TestUpdateIndexOptionsStruct(t *testing.T) {
 		prefix:   "photos/vacation",
 		markdown: "---\n---\n# Updated",
 		file:     "index.md",
+		editor:   true,
 	}
 
 	if opts.prefix != "photos/vacation" {
@@ -124,6 +126,10 @@ func TestUpdateIndexOptionsStruct(t *testing.T) {
 	if opts.file != "index.md" {
 		t.Errorf("Expected file to be %q but got %q", "index.md", opts.file)
 	}
+
+	if !opts.editor {
+		t.Errorf("Expected editor to be true but got false")
+	}
 }
 
 func TestUpdateIndexFlagDescriptions(t *testing.T) {
@@ -134,6 +140,7 @@ func TestUpdateIndexFlagDescriptions(t *testing.T) {
 		{"prefix", "Directory prefix where index.md is located"},
 		{"markdown", "New markdown content with YAML frontmatter"},
 		{"file", "Path to a file containing new markdown content"},
+		{"editor", "Open index in $EDITOR for editing, starting from empty if not found"},
 	}
 
 	for _, test := range tests {
@@ -158,6 +165,7 @@ func TestUpdateIndexFlagShorthand(t *testing.T) {
 		{"prefix", "p"},
 		{"markdown", "m"},
 		{"file", "f"},
+		{"editor", "e"},
 	}
 
 	for _, test := range tests {

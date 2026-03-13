@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"context"
 	"fmt"
 	"os"
 
@@ -57,7 +56,7 @@ func runGetIndex(cmd *cobra.Command, args []string) error {
 		Prefix: prefix,
 	}
 
-	resp, err := client.GetMarkdown(context.Background(), req)
+	resp, err := client.GetMarkdown(cmd.Context(), req)
 	if err != nil {
 		return fmt.Errorf("failed to get index: %w", err)
 	}

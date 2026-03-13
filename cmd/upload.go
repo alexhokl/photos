@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"context"
 	"fmt"
 	"mime"
 	"os"
@@ -89,7 +88,7 @@ func runUpload(cmd *cobra.Command, args []string) error {
 		Data:        data,
 	}
 
-	resp, err := client.Upload(context.Background(), req)
+	resp, err := client.Upload(cmd.Context(), req)
 	if err != nil {
 		return fmt.Errorf("failed to upload: %w", err)
 	}

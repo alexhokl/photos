@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/alexhokl/photos/proto"
@@ -53,7 +52,7 @@ func runGetSignedUrl(cmd *cobra.Command, args []string) error {
 		Method:            getSignedUrlOpts.method,
 	}
 
-	resp, err := client.GenerateSignedUrl(context.Background(), req)
+	resp, err := client.GenerateSignedUrl(cmd.Context(), req)
 	if err != nil {
 		return fmt.Errorf("failed to generate signed URL: %w", err)
 	}

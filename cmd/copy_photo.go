@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/alexhokl/photos/proto"
@@ -54,7 +53,7 @@ func runCopyPhoto(cmd *cobra.Command, args []string) error {
 		DestinationObjectId: destinationObjectID,
 	}
 
-	resp, err := client.CopyPhoto(context.Background(), req)
+	resp, err := client.CopyPhoto(cmd.Context(), req)
 	if err != nil {
 		return fmt.Errorf("failed to copy photo: %w", err)
 	}

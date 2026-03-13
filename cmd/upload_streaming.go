@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"mime"
@@ -99,7 +98,7 @@ func runUploadStreaming(cmd *cobra.Command, args []string) error {
 	// Create client and start streaming upload
 	client := proto.NewByteServiceClient(conn)
 
-	stream, err := client.StreamingUpload(context.Background())
+	stream, err := client.StreamingUpload(cmd.Context())
 	if err != nil {
 		return fmt.Errorf("failed to create upload stream: %w", err)
 	}

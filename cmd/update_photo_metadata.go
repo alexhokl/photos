@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"context"
 	"fmt"
 	"strings"
 
@@ -76,7 +75,7 @@ func runUpdatePhotoMetadata(cmd *cobra.Command, args []string) error {
 		CustomMetadata: customMetadata,
 	}
 
-	resp, err := client.UpdatePhotoMetadata(context.Background(), req)
+	resp, err := client.UpdatePhotoMetadata(cmd.Context(), req)
 	if err != nil {
 		return fmt.Errorf("failed to update photo metadata: %w", err)
 	}

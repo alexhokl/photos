@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/alexhokl/photos/proto"
@@ -52,7 +51,7 @@ func runDeleteIndex(cmd *cobra.Command, args []string) error {
 		Prefix: prefix,
 	}
 
-	resp, err := client.DeleteMarkdown(context.Background(), req)
+	resp, err := client.DeleteMarkdown(cmd.Context(), req)
 	if err != nil {
 		return fmt.Errorf("failed to delete index: %w", err)
 	}

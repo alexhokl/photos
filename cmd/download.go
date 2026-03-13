@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"context"
 	"fmt"
 	"os"
 
@@ -53,7 +52,7 @@ func runDownload(cmd *cobra.Command, args []string) error {
 		ObjectId: objectID,
 	}
 
-	resp, err := client.Download(context.Background(), req)
+	resp, err := client.Download(cmd.Context(), req)
 	if err != nil {
 		return fmt.Errorf("failed to download: %w", err)
 	}

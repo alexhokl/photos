@@ -138,13 +138,13 @@ func runServe(cmd *cobra.Command, args []string) error {
 	}
 
 	// Verify GCS bucket connection
-	gcsClient, err := getGCSClient(context.Background(), serveOpts)
+	gcsClient, err := getGCSClient(cmd.Context(), serveOpts)
 	if err != nil {
 		return fmt.Errorf("failed to create GCS client: %w", err)
 	}
 	defer gcsClient.Close()
 
-	if err := verifyGCSBucket(context.Background(), gcsClient, serveOpts.GCSBucket); err != nil {
+	if err := verifyGCSBucket(cmd.Context(), gcsClient, serveOpts.GCSBucket); err != nil {
 		return fmt.Errorf("failed to connect to GCS bucket %q: %w", serveOpts.GCSBucket, err)
 	}
 	slog.Info("successfully connected to GCS bucket", slog.String("bucket", serveOpts.GCSBucket))

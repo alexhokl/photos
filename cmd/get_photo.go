@@ -60,7 +60,7 @@ func runGetPhoto(cmd *cobra.Command, args []string) error {
 		ObjectId: objectID,
 	}
 
-	resp, err := client.GetPhoto(context.Background(), req)
+	resp, err := client.GetPhoto(cmd.Context(), req)
 	if err != nil {
 		return fmt.Errorf("failed to get photo: %w", err)
 	}
