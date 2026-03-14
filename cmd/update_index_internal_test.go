@@ -4,6 +4,44 @@ import (
 	"testing"
 )
 
+func TestEnsureFrontmatter(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name:     "empty string gets frontmatter prepended",
+			input:    "",
+			expected: "---\n---\n",
+		},
+		{
+			name:     "content without frontmatter gets frontmatter prepended",
+			input:    "# My Photos",
+			expected: "---\n---\n# My Photos",
+		},
+		{
+			name:     "content with frontmatter is returned unchanged",
+			input:    "---\nsort_photos_in_chronological_order: true\n---\n# My Photos",
+			expected: "---\nsort_photos_in_chronological_order: true\n---\n# My Photos",
+		},
+		{
+			name:     "minimal frontmatter is returned unchanged",
+			input:    "---\n---\n",
+			expected: "---\n---\n",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			result := ensureFrontmatter(test.input)
+			if result != test.expected {
+				t.Errorf("expected %q but got %q", test.expected, result)
+			}
+		})
+	}
+}
+
 func TestUpdateIndexCommandFlags(t *testing.T) {
 	tests := []struct {
 		name     string

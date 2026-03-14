@@ -110,6 +110,9 @@ func runUpdateIndex(cmd *cobra.Command, args []string) error {
 			existingContent = getResp.GetMarkdown()
 		}
 
+		// Ensure the content has frontmatter before opening the editor
+		existingContent = ensureFrontmatter(existingContent)
+
 		// Write content to a temp file
 		tmpFile, err := os.CreateTemp("", "photos-index-*.md")
 		if err != nil {
@@ -156,4 +159,13 @@ func runUpdateIndex(cmd *cobra.Command, args []string) error {
 	fmt.Printf("Successfully updated index file: %s\n", resp.GetObjectId())
 
 	return nil
+}
+
+// ensureFrontmatter prepends a minimal YAML frontmatter block to content that
+// does not already begin with the "---" delimiter.
+func ensureFrontmatter(content string) string {
+	if len(content) >= 3 && content[:3] == "---" {
+		return content
+	}
+	return "---\n---\n" + content
 }
