@@ -2824,6 +2824,147 @@ class GenerateVideoThumbnailResponse extends $pb.GeneratedMessage {
   void clearExpiresAt() => $_clearField(3);
 }
 
+/// GenerateDNGPreviewRequest specifies the DNG photo for which to generate a JPEG preview
+class GenerateDNGPreviewRequest extends $pb.GeneratedMessage {
+  factory GenerateDNGPreviewRequest({
+    $core.String? objectId,
+  }) {
+    final result = create();
+    if (objectId != null) result.objectId = objectId;
+    return result;
+  }
+
+  GenerateDNGPreviewRequest._();
+
+  factory GenerateDNGPreviewRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory GenerateDNGPreviewRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'GenerateDNGPreviewRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'photos'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'objectId')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  GenerateDNGPreviewRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  GenerateDNGPreviewRequest copyWith(
+          void Function(GenerateDNGPreviewRequest) updates) =>
+      super.copyWith((message) => updates(message as GenerateDNGPreviewRequest))
+          as GenerateDNGPreviewRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static GenerateDNGPreviewRequest create() => GenerateDNGPreviewRequest._();
+  @$core.override
+  GenerateDNGPreviewRequest createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static GenerateDNGPreviewRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<GenerateDNGPreviewRequest>(create);
+  static GenerateDNGPreviewRequest? _defaultInstance;
+
+  /// The object ID of the DNG photo
+  @$pb.TagNumber(1)
+  $core.String get objectId => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set objectId($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasObjectId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearObjectId() => $_clearField(1);
+}
+
+/// GenerateDNGPreviewResponse returns the generated preview information
+class GenerateDNGPreviewResponse extends $pb.GeneratedMessage {
+  factory GenerateDNGPreviewResponse({
+    $core.String? thumbnailObjectId,
+    $core.String? signedUrl,
+    $core.String? expiresAt,
+  }) {
+    final result = create();
+    if (thumbnailObjectId != null) result.thumbnailObjectId = thumbnailObjectId;
+    if (signedUrl != null) result.signedUrl = signedUrl;
+    if (expiresAt != null) result.expiresAt = expiresAt;
+    return result;
+  }
+
+  GenerateDNGPreviewResponse._();
+
+  factory GenerateDNGPreviewResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory GenerateDNGPreviewResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'GenerateDNGPreviewResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'photos'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'thumbnailObjectId')
+    ..aOS(2, _omitFieldNames ? '' : 'signedUrl')
+    ..aOS(3, _omitFieldNames ? '' : 'expiresAt')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  GenerateDNGPreviewResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  GenerateDNGPreviewResponse copyWith(
+          void Function(GenerateDNGPreviewResponse) updates) =>
+      super.copyWith(
+              (message) => updates(message as GenerateDNGPreviewResponse))
+          as GenerateDNGPreviewResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static GenerateDNGPreviewResponse create() => GenerateDNGPreviewResponse._();
+  @$core.override
+  GenerateDNGPreviewResponse createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static GenerateDNGPreviewResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<GenerateDNGPreviewResponse>(create);
+  static GenerateDNGPreviewResponse? _defaultInstance;
+
+  /// The object ID of the generated JPEG preview
+  @$pb.TagNumber(1)
+  $core.String get thumbnailObjectId => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set thumbnailObjectId($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasThumbnailObjectId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearThumbnailObjectId() => $_clearField(1);
+
+  /// A signed URL to access the preview
+  @$pb.TagNumber(2)
+  $core.String get signedUrl => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set signedUrl($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasSignedUrl() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearSignedUrl() => $_clearField(2);
+
+  /// When the signed URL expires (RFC3339 format)
+  @$pb.TagNumber(3)
+  $core.String get expiresAt => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set expiresAt($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasExpiresAt() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearExpiresAt() => $_clearField(3);
+}
+
 const $core.bool _omitFieldNames =
     $core.bool.fromEnvironment('protobuf.omit_field_names');
 const $core.bool _omitMessageNames =

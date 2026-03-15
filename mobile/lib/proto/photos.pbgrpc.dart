@@ -295,6 +295,14 @@ class LibraryServiceClient extends $grpc.Client {
         options: options);
   }
 
+  /// GenerateDNGPreview generates a JPEG preview image for a DNG photo using dcraw
+  $grpc.ResponseFuture<$0.GenerateDNGPreviewResponse> generateDNGPreview(
+    $0.GenerateDNGPreviewRequest request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createUnaryCall(_$generateDNGPreview, request, options: options);
+  }
+
   // method descriptors
 
   static final _$deletePhoto =
@@ -372,6 +380,11 @@ class LibraryServiceClient extends $grpc.Client {
       '/photos.LibraryService/GenerateVideoThumbnail',
       ($0.GenerateVideoThumbnailRequest value) => value.writeToBuffer(),
       $0.GenerateVideoThumbnailResponse.fromBuffer);
+  static final _$generateDNGPreview = $grpc.ClientMethod<
+          $0.GenerateDNGPreviewRequest, $0.GenerateDNGPreviewResponse>(
+      '/photos.LibraryService/GenerateDNGPreview',
+      ($0.GenerateDNGPreviewRequest value) => value.writeToBuffer(),
+      $0.GenerateDNGPreviewResponse.fromBuffer);
 }
 
 @$pb.GrpcServiceName('photos.LibraryService')
@@ -507,6 +520,15 @@ abstract class LibraryServiceBase extends $grpc.Service {
         ($core.List<$core.int> value) =>
             $0.GenerateVideoThumbnailRequest.fromBuffer(value),
         ($0.GenerateVideoThumbnailResponse value) => value.writeToBuffer()));
+    $addMethod($grpc.ServiceMethod<$0.GenerateDNGPreviewRequest,
+            $0.GenerateDNGPreviewResponse>(
+        'GenerateDNGPreview',
+        generateDNGPreview_Pre,
+        false,
+        false,
+        ($core.List<$core.int> value) =>
+            $0.GenerateDNGPreviewRequest.fromBuffer(value),
+        ($0.GenerateDNGPreviewResponse value) => value.writeToBuffer()));
   }
 
   $async.Future<$0.DeletePhotoResponse> deletePhoto_Pre($grpc.ServiceCall $call,
@@ -635,4 +657,13 @@ abstract class LibraryServiceBase extends $grpc.Service {
 
   $async.Future<$0.GenerateVideoThumbnailResponse> generateVideoThumbnail(
       $grpc.ServiceCall call, $0.GenerateVideoThumbnailRequest request);
+
+  $async.Future<$0.GenerateDNGPreviewResponse> generateDNGPreview_Pre(
+      $grpc.ServiceCall $call,
+      $async.Future<$0.GenerateDNGPreviewRequest> $request) async {
+    return generateDNGPreview($call, await $request);
+  }
+
+  $async.Future<$0.GenerateDNGPreviewResponse> generateDNGPreview(
+      $grpc.ServiceCall call, $0.GenerateDNGPreviewRequest request);
 }

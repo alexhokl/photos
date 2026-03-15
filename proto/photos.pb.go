@@ -2239,6 +2239,116 @@ func (x *GenerateVideoThumbnailResponse) GetExpiresAt() string {
 	return ""
 }
 
+// GenerateDNGPreviewRequest specifies the DNG photo for which to generate a JPEG preview
+type GenerateDNGPreviewRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The object ID of the DNG photo
+	ObjectId      string `protobuf:"bytes,1,opt,name=object_id,json=objectId,proto3" json:"object_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GenerateDNGPreviewRequest) Reset() {
+	*x = GenerateDNGPreviewRequest{}
+	mi := &file_proto_photos_proto_msgTypes[38]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GenerateDNGPreviewRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GenerateDNGPreviewRequest) ProtoMessage() {}
+
+func (x *GenerateDNGPreviewRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_photos_proto_msgTypes[38]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GenerateDNGPreviewRequest.ProtoReflect.Descriptor instead.
+func (*GenerateDNGPreviewRequest) Descriptor() ([]byte, []int) {
+	return file_proto_photos_proto_rawDescGZIP(), []int{38}
+}
+
+func (x *GenerateDNGPreviewRequest) GetObjectId() string {
+	if x != nil {
+		return x.ObjectId
+	}
+	return ""
+}
+
+// GenerateDNGPreviewResponse returns the generated preview information
+type GenerateDNGPreviewResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The object ID of the generated JPEG preview
+	ThumbnailObjectId string `protobuf:"bytes,1,opt,name=thumbnail_object_id,json=thumbnailObjectId,proto3" json:"thumbnail_object_id,omitempty"`
+	// A signed URL to access the preview
+	SignedUrl string `protobuf:"bytes,2,opt,name=signed_url,json=signedUrl,proto3" json:"signed_url,omitempty"`
+	// When the signed URL expires (RFC3339 format)
+	ExpiresAt     string `protobuf:"bytes,3,opt,name=expires_at,json=expiresAt,proto3" json:"expires_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GenerateDNGPreviewResponse) Reset() {
+	*x = GenerateDNGPreviewResponse{}
+	mi := &file_proto_photos_proto_msgTypes[39]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GenerateDNGPreviewResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GenerateDNGPreviewResponse) ProtoMessage() {}
+
+func (x *GenerateDNGPreviewResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_photos_proto_msgTypes[39]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GenerateDNGPreviewResponse.ProtoReflect.Descriptor instead.
+func (*GenerateDNGPreviewResponse) Descriptor() ([]byte, []int) {
+	return file_proto_photos_proto_rawDescGZIP(), []int{39}
+}
+
+func (x *GenerateDNGPreviewResponse) GetThumbnailObjectId() string {
+	if x != nil {
+		return x.ThumbnailObjectId
+	}
+	return ""
+}
+
+func (x *GenerateDNGPreviewResponse) GetSignedUrl() string {
+	if x != nil {
+		return x.SignedUrl
+	}
+	return ""
+}
+
+func (x *GenerateDNGPreviewResponse) GetExpiresAt() string {
+	if x != nil {
+		return x.ExpiresAt
+	}
+	return ""
+}
+
 var File_proto_photos_proto protoreflect.FileDescriptor
 
 const file_proto_photos_proto_rawDesc = "" +
@@ -2388,12 +2498,20 @@ const file_proto_photos_proto_rawDesc = "" +
 	"\n" +
 	"signed_url\x18\x02 \x01(\tR\tsignedUrl\x12\x1d\n" +
 	"\n" +
+	"expires_at\x18\x03 \x01(\tR\texpiresAt\"8\n" +
+	"\x19GenerateDNGPreviewRequest\x12\x1b\n" +
+	"\tobject_id\x18\x01 \x01(\tR\bobjectId\"\x8a\x01\n" +
+	"\x1aGenerateDNGPreviewResponse\x12.\n" +
+	"\x13thumbnail_object_id\x18\x01 \x01(\tR\x11thumbnailObjectId\x12\x1d\n" +
+	"\n" +
+	"signed_url\x18\x02 \x01(\tR\tsignedUrl\x12\x1d\n" +
+	"\n" +
 	"expires_at\x18\x03 \x01(\tR\texpiresAt2\xf5\x02\n" +
 	"\vByteService\x12U\n" +
 	"\x06Upload\x12\x15.photos.UploadRequest\x1a\x16.photos.UploadResponse\"\x1c\x82\xd3\xe4\x93\x02\x16:\x01*\"\x11/v1/photos/upload\x12f\n" +
 	"\bDownload\x12\x17.photos.DownloadRequest\x1a\x18.photos.DownloadResponse\"'\x82\xd3\xe4\x93\x02!\x12\x1f/v1/photos/{object_id}/download\x12K\n" +
 	"\x0fStreamingUpload\x12\x1e.photos.StreamingUploadRequest\x1a\x16.photos.UploadResponse(\x01\x12Z\n" +
-	"\x11StreamingDownload\x12 .photos.StreamingDownloadRequest\x1a!.photos.StreamingDownloadResponse0\x012\xf1\r\n" +
+	"\x11StreamingDownload\x12 .photos.StreamingDownloadRequest\x1a!.photos.StreamingDownloadResponse0\x012\xfe\x0e\n" +
 	"\x0eLibraryService\x12f\n" +
 	"\vDeletePhoto\x12\x1a.photos.DeletePhotoRequest\x1a\x1b.photos.DeletePhotoResponse\"\x1e\x82\xd3\xe4\x93\x02\x18*\x16/v1/photos/{object_id}\x12]\n" +
 	"\bGetPhoto\x12\x17.photos.GetPhotoRequest\x1a\x18.photos.GetPhotoResponse\"\x1e\x82\xd3\xe4\x93\x02\x18\x12\x16/v1/photos/{object_id}\x12W\n" +
@@ -2411,7 +2529,8 @@ const file_proto_photos_proto_rawDesc = "" +
 	"\vGetMarkdown\x12\x1a.photos.GetMarkdownRequest\x1a\x1b.photos.GetMarkdownResponse\")\x82\xd3\xe4\x93\x02#\x12!/v1/directories/{prefix}/markdown\x12}\n" +
 	"\x0eUpdateMarkdown\x12\x1d.photos.UpdateMarkdownRequest\x1a\x1e.photos.UpdateMarkdownResponse\",\x82\xd3\xe4\x93\x02&:\x01*\x1a!/v1/directories/{prefix}/markdown\x12z\n" +
 	"\x0eDeleteMarkdown\x12\x1d.photos.DeleteMarkdownRequest\x1a\x1e.photos.DeleteMarkdownResponse\")\x82\xd3\xe4\x93\x02#*!/v1/directories/{prefix}/markdown\x12\x94\x01\n" +
-	"\x16GenerateVideoThumbnail\x12%.photos.GenerateVideoThumbnailRequest\x1a&.photos.GenerateVideoThumbnailResponse\"+\x82\xd3\xe4\x93\x02%:\x01*\" /v1/photos/{object_id}/thumbnailB\x0eZ\fphotos/protob\x06proto3"
+	"\x16GenerateVideoThumbnail\x12%.photos.GenerateVideoThumbnailRequest\x1a&.photos.GenerateVideoThumbnailResponse\"+\x82\xd3\xe4\x93\x02%:\x01*\" /v1/photos/{object_id}/thumbnail\x12\x8a\x01\n" +
+	"\x12GenerateDNGPreview\x12!.photos.GenerateDNGPreviewRequest\x1a\".photos.GenerateDNGPreviewResponse\"-\x82\xd3\xe4\x93\x02':\x01*\"\"/v1/photos/{object_id}/dng-previewB\x0eZ\fphotos/protob\x06proto3"
 
 var (
 	file_proto_photos_proto_rawDescOnce sync.Once
@@ -2425,7 +2544,7 @@ func file_proto_photos_proto_rawDescGZIP() []byte {
 	return file_proto_photos_proto_rawDescData
 }
 
-var file_proto_photos_proto_msgTypes = make([]protoimpl.MessageInfo, 39)
+var file_proto_photos_proto_msgTypes = make([]protoimpl.MessageInfo, 41)
 var file_proto_photos_proto_goTypes = []any{
 	(*Photo)(nil),                          // 0: photos.Photo
 	(*UploadRequest)(nil),                  // 1: photos.UploadRequest
@@ -2465,8 +2584,10 @@ var file_proto_photos_proto_goTypes = []any{
 	(*DeleteMarkdownResponse)(nil),         // 35: photos.DeleteMarkdownResponse
 	(*GenerateVideoThumbnailRequest)(nil),  // 36: photos.GenerateVideoThumbnailRequest
 	(*GenerateVideoThumbnailResponse)(nil), // 37: photos.GenerateVideoThumbnailResponse
-	nil,                                    // 38: photos.UpdatePhotoMetadataRequest.CustomMetadataEntry
-	(*emptypb.Empty)(nil),                  // 39: google.protobuf.Empty
+	(*GenerateDNGPreviewRequest)(nil),      // 38: photos.GenerateDNGPreviewRequest
+	(*GenerateDNGPreviewResponse)(nil),     // 39: photos.GenerateDNGPreviewResponse
+	nil,                                    // 40: photos.UpdatePhotoMetadataRequest.CustomMetadataEntry
+	(*emptypb.Empty)(nil),                  // 41: google.protobuf.Empty
 }
 var file_proto_photos_proto_depIdxs = []int32{
 	0,  // 0: photos.UploadResponse.photo:type_name -> photos.Photo
@@ -2475,7 +2596,7 @@ var file_proto_photos_proto_depIdxs = []int32{
 	0,  // 3: photos.ListPhotosResponse.photos:type_name -> photos.Photo
 	0,  // 4: photos.CopyPhotoResponse.photo:type_name -> photos.Photo
 	0,  // 5: photos.RenamePhotoResponse.photo:type_name -> photos.Photo
-	38, // 6: photos.UpdatePhotoMetadataRequest.custom_metadata:type_name -> photos.UpdatePhotoMetadataRequest.CustomMetadataEntry
+	40, // 6: photos.UpdatePhotoMetadataRequest.custom_metadata:type_name -> photos.UpdatePhotoMetadataRequest.CustomMetadataEntry
 	0,  // 7: photos.UpdatePhotoMetadataResponse.photo:type_name -> photos.Photo
 	25, // 8: photos.StreamingUploadRequest.metadata:type_name -> photos.PhotoMetadata
 	0,  // 9: photos.StreamingDownloadResponse.metadata:type_name -> photos.Photo
@@ -2498,27 +2619,29 @@ var file_proto_photos_proto_depIdxs = []int32{
 	32, // 26: photos.LibraryService.UpdateMarkdown:input_type -> photos.UpdateMarkdownRequest
 	34, // 27: photos.LibraryService.DeleteMarkdown:input_type -> photos.DeleteMarkdownRequest
 	36, // 28: photos.LibraryService.GenerateVideoThumbnail:input_type -> photos.GenerateVideoThumbnailRequest
-	2,  // 29: photos.ByteService.Upload:output_type -> photos.UploadResponse
-	4,  // 30: photos.ByteService.Download:output_type -> photos.DownloadResponse
-	2,  // 31: photos.ByteService.StreamingUpload:output_type -> photos.UploadResponse
-	27, // 32: photos.ByteService.StreamingDownload:output_type -> photos.StreamingDownloadResponse
-	6,  // 33: photos.LibraryService.DeletePhoto:output_type -> photos.DeletePhotoResponse
-	8,  // 34: photos.LibraryService.GetPhoto:output_type -> photos.GetPhotoResponse
-	10, // 35: photos.LibraryService.ListPhotos:output_type -> photos.ListPhotosResponse
-	12, // 36: photos.LibraryService.CopyPhoto:output_type -> photos.CopyPhotoResponse
-	14, // 37: photos.LibraryService.RenamePhoto:output_type -> photos.RenamePhotoResponse
-	16, // 38: photos.LibraryService.UpdatePhotoMetadata:output_type -> photos.UpdatePhotoMetadataResponse
-	18, // 39: photos.LibraryService.GenerateSignedUrl:output_type -> photos.GenerateSignedUrlResponse
-	20, // 40: photos.LibraryService.PhotoExists:output_type -> photos.PhotoExistsResponse
-	22, // 41: photos.LibraryService.ListDirectories:output_type -> photos.ListDirectoriesResponse
-	39, // 42: photos.LibraryService.SyncDatabase:output_type -> google.protobuf.Empty
-	29, // 43: photos.LibraryService.CreateMarkdown:output_type -> photos.CreateMarkdownResponse
-	31, // 44: photos.LibraryService.GetMarkdown:output_type -> photos.GetMarkdownResponse
-	33, // 45: photos.LibraryService.UpdateMarkdown:output_type -> photos.UpdateMarkdownResponse
-	35, // 46: photos.LibraryService.DeleteMarkdown:output_type -> photos.DeleteMarkdownResponse
-	37, // 47: photos.LibraryService.GenerateVideoThumbnail:output_type -> photos.GenerateVideoThumbnailResponse
-	29, // [29:48] is the sub-list for method output_type
-	10, // [10:29] is the sub-list for method input_type
+	38, // 29: photos.LibraryService.GenerateDNGPreview:input_type -> photos.GenerateDNGPreviewRequest
+	2,  // 30: photos.ByteService.Upload:output_type -> photos.UploadResponse
+	4,  // 31: photos.ByteService.Download:output_type -> photos.DownloadResponse
+	2,  // 32: photos.ByteService.StreamingUpload:output_type -> photos.UploadResponse
+	27, // 33: photos.ByteService.StreamingDownload:output_type -> photos.StreamingDownloadResponse
+	6,  // 34: photos.LibraryService.DeletePhoto:output_type -> photos.DeletePhotoResponse
+	8,  // 35: photos.LibraryService.GetPhoto:output_type -> photos.GetPhotoResponse
+	10, // 36: photos.LibraryService.ListPhotos:output_type -> photos.ListPhotosResponse
+	12, // 37: photos.LibraryService.CopyPhoto:output_type -> photos.CopyPhotoResponse
+	14, // 38: photos.LibraryService.RenamePhoto:output_type -> photos.RenamePhotoResponse
+	16, // 39: photos.LibraryService.UpdatePhotoMetadata:output_type -> photos.UpdatePhotoMetadataResponse
+	18, // 40: photos.LibraryService.GenerateSignedUrl:output_type -> photos.GenerateSignedUrlResponse
+	20, // 41: photos.LibraryService.PhotoExists:output_type -> photos.PhotoExistsResponse
+	22, // 42: photos.LibraryService.ListDirectories:output_type -> photos.ListDirectoriesResponse
+	41, // 43: photos.LibraryService.SyncDatabase:output_type -> google.protobuf.Empty
+	29, // 44: photos.LibraryService.CreateMarkdown:output_type -> photos.CreateMarkdownResponse
+	31, // 45: photos.LibraryService.GetMarkdown:output_type -> photos.GetMarkdownResponse
+	33, // 46: photos.LibraryService.UpdateMarkdown:output_type -> photos.UpdateMarkdownResponse
+	35, // 47: photos.LibraryService.DeleteMarkdown:output_type -> photos.DeleteMarkdownResponse
+	37, // 48: photos.LibraryService.GenerateVideoThumbnail:output_type -> photos.GenerateVideoThumbnailResponse
+	39, // 49: photos.LibraryService.GenerateDNGPreview:output_type -> photos.GenerateDNGPreviewResponse
+	30, // [30:50] is the sub-list for method output_type
+	10, // [10:30] is the sub-list for method input_type
 	10, // [10:10] is the sub-list for extension type_name
 	10, // [10:10] is the sub-list for extension extendee
 	0,  // [0:10] is the sub-list for field type_name
@@ -2543,7 +2666,7 @@ func file_proto_photos_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_photos_proto_rawDesc), len(file_proto_photos_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   39,
+			NumMessages:   41,
 			NumExtensions: 0,
 			NumServices:   2,
 		},

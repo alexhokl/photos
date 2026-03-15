@@ -290,6 +290,22 @@ message GenerateVideoThumbnailResponse {
   string expires_at = 3;
 }
 
+// GenerateDNGPreviewRequest specifies the DNG photo for which to generate a JPEG preview
+message GenerateDNGPreviewRequest {
+  // The object ID of the DNG photo
+  string object_id = 1;
+}
+
+// GenerateDNGPreviewResponse returns the generated preview information
+message GenerateDNGPreviewResponse {
+  // The object ID of the generated JPEG preview
+  string thumbnail_object_id = 1;
+  // A signed URL to access the preview
+  string signed_url = 2;
+  // When the signed URL expires (RFC3339 format)
+  string expires_at = 3;
+}
+
 // ByteService provides photo upload, retrieval, and deletion operations
 service ByteService {
   // Upload uploads a new photo
@@ -424,6 +440,14 @@ service LibraryService {
   rpc GenerateVideoThumbnail(GenerateVideoThumbnailRequest) returns (GenerateVideoThumbnailResponse) {
     option (google.api.http) = {
       post: "/v1/photos/{object_id}/thumbnail"
+      body: "*"
+    };
+  }
+
+  // GenerateDNGPreview generates a JPEG preview image for a DNG photo using dcraw
+  rpc GenerateDNGPreview(GenerateDNGPreviewRequest) returns (GenerateDNGPreviewResponse) {
+    option (google.api.http) = {
+      post: "/v1/photos/{object_id}/dng-preview"
       body: "*"
     };
   }

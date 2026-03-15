@@ -212,6 +212,12 @@ class CloudPhotoGridState extends State<CloudPhotoGrid> {
     }
   }
 
+  /// Returns true if the photo is a DNG raw image.
+  bool _isDNG(Photo photo) {
+    const dngTypes = {'image/x-adobe-dng', 'image/dng', 'image/x-dng'};
+    return dngTypes.contains(photo.contentType.toLowerCase());
+  }
+
   Future<void> _fetchSignedUrls(
     List<Photo> photos,
     BackendConfig config,
@@ -240,8 +246,11 @@ class CloudPhotoGridState extends State<CloudPhotoGrid> {
           }
         }
 
-        // For videos, fetch or generate a signed URL for the thumbnail image
-        if (isVideo && !_thumbnailSignedUrlCache.containsKey(photo.objectId)) {
+        // For videos and DNG files, fetch or generate a signed URL for the
+        // thumbnail / preview image.
+        final isDng = _isDNG(photo);
+        if ((isVideo || isDng) &&
+            !_thumbnailSignedUrlCache.containsKey(photo.objectId)) {
           if (photo.thumbnailObjectId.isNotEmpty) {
             // Thumbnail already generated — just get a signed URL for it
             try {
@@ -258,15 +267,29 @@ class CloudPhotoGridState extends State<CloudPhotoGrid> {
               // Skip individual failures; grid cell will fall back to placeholder
             }
           } else if (!_thumbnailGenerationInProgress.contains(photo.objectId)) {
-            // No thumbnail yet — ask the server to generate one via ffmpeg
+            // No thumbnail yet — ask the server to generate one
             _thumbnailGenerationInProgress.add(photo.objectId);
             try {
-              final result = await libraryService.generateVideoThumbnail(
-                photo.objectId,
-              );
+              String signedUrl;
+              String thumbnailObjectId;
+              if (isDng) {
+                // DNG: generate JPEG preview via dcraw on the server
+                final result = await libraryService.generateDngPreview(
+                  photo.objectId,
+                );
+                signedUrl = result.signedUrl;
+                thumbnailObjectId = result.thumbnailObjectId;
+              } else {
+                // Video: generate thumbnail via ffmpeg on the server
+                final result = await libraryService.generateVideoThumbnail(
+                  photo.objectId,
+                );
+                signedUrl = result.signedUrl;
+                thumbnailObjectId = result.thumbnailObjectId;
+              }
               if (mounted) {
                 setState(() {
-                  _thumbnailSignedUrlCache[photo.objectId] = result.signedUrl;
+                  _thumbnailSignedUrlCache[photo.objectId] = signedUrl;
                   // Update the in-memory Photo so future signed-URL refreshes
                   // use the correct thumbnailObjectId without a server round-trip
                   final idx = _photos.indexWhere(
@@ -275,12 +298,12 @@ class CloudPhotoGridState extends State<CloudPhotoGrid> {
                   if (idx != -1) {
                     _photos[idx] = Photo()
                       ..mergeFromMessage(_photos[idx])
-                      ..thumbnailObjectId = result.thumbnailObjectId;
+                      ..thumbnailObjectId = thumbnailObjectId;
                   }
                 });
               }
             } catch (_) {
-              // Server-side failure (e.g. ffmpeg error) — leave placeholder
+              // Server-side failure — leave placeholder
             } finally {
               _thumbnailGenerationInProgress.remove(photo.objectId);
             }
@@ -735,12 +758,23 @@ class CloudPhotoGridState extends State<CloudPhotoGrid> {
     final signedUrl = _signedUrlCache[photo.objectId];
     if (signedUrl == null) return;
 
+    // For DNG photos, substitute the preview signed URL so the viewer renders
+    // the server-generated JPEG instead of the undecodable raw DNG bytes.
+    Map<String, String> viewerSignedUrls = _signedUrlCache;
+    if (_isDNG(photo)) {
+      final previewUrl = _thumbnailSignedUrlCache[photo.objectId];
+      if (previewUrl != null) {
+        viewerSignedUrls = Map<String, String>.from(_signedUrlCache)
+          ..[photo.objectId] = previewUrl;
+      }
+    }
+
     final result = await Navigator.push<CloudPhotoViewerResult>(
       context,
       MaterialPageRoute(
         builder: (context) => CloudPhotoViewer(
           photos: _photos,
-          signedUrls: _signedUrlCache,
+          signedUrls: viewerSignedUrls,
           initialIndex: index,
         ),
       ),
@@ -1020,13 +1054,20 @@ class _CloudPhotoThumbnail extends StatelessWidget {
 
   bool get _isVideo => photo.contentType.startsWith('video/');
 
+  bool get _isDNG {
+    const dngTypes = {'image/x-adobe-dng', 'image/dng', 'image/x-dng'};
+    return dngTypes.contains(photo.contentType.toLowerCase());
+  }
+
   /// The URL to display as the grid thumbnail image.
   /// For videos with a thumbnailObjectId, use the thumbnail signed URL.
-  /// For videos without a thumbnailObjectId, fall back to the main signed URL.
-  /// For non-videos, use the main signed URL directly.
+  /// For DNG files with a thumbnailObjectId, use the preview signed URL.
+  /// For videos/DNG without a thumbnailObjectId, fall back to the main signed URL.
+  /// For non-videos/non-DNG, use the main signed URL directly.
   String? get _gridImageUrl {
-    if (!_isVideo) return signedUrl;
-    if (photo.thumbnailObjectId.isNotEmpty) return thumbnailSignedUrl;
+    if (_isVideo || _isDNG) {
+      if (photo.thumbnailObjectId.isNotEmpty) return thumbnailSignedUrl;
+    }
     return signedUrl;
   }
 

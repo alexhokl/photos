@@ -711,3 +711,40 @@ final $typed_data.Uint8List generateVideoThumbnailResponseDescriptor =
         'Ch5HZW5lcmF0ZVZpZGVvVGh1bWJuYWlsUmVzcG9uc2USLgoTdGh1bWJuYWlsX29iamVjdF9pZB'
         'gBIAEoCVIRdGh1bWJuYWlsT2JqZWN0SWQSHQoKc2lnbmVkX3VybBgCIAEoCVIJc2lnbmVkVXJs'
         'Eh0KCmV4cGlyZXNfYXQYAyABKAlSCWV4cGlyZXNBdA==');
+
+@$core.Deprecated('Use generateDNGPreviewRequestDescriptor instead')
+const GenerateDNGPreviewRequest$json = {
+  '1': 'GenerateDNGPreviewRequest',
+  '2': [
+    {'1': 'object_id', '3': 1, '4': 1, '5': 9, '10': 'objectId'},
+  ],
+};
+
+/// Descriptor for `GenerateDNGPreviewRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List generateDNGPreviewRequestDescriptor =
+    $convert.base64Decode(
+        'ChlHZW5lcmF0ZUROR1ByZXZpZXdSZXF1ZXN0EhsKCW9iamVjdF9pZBgBIAEoCVIIb2JqZWN0SW'
+        'Q=');
+
+@$core.Deprecated('Use generateDNGPreviewResponseDescriptor instead')
+const GenerateDNGPreviewResponse$json = {
+  '1': 'GenerateDNGPreviewResponse',
+  '2': [
+    {
+      '1': 'thumbnail_object_id',
+      '3': 1,
+      '4': 1,
+      '5': 9,
+      '10': 'thumbnailObjectId'
+    },
+    {'1': 'signed_url', '3': 2, '4': 1, '5': 9, '10': 'signedUrl'},
+    {'1': 'expires_at', '3': 3, '4': 1, '5': 9, '10': 'expiresAt'},
+  ],
+};
+
+/// Descriptor for `GenerateDNGPreviewResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List generateDNGPreviewResponseDescriptor =
+    $convert.base64Decode(
+        'ChpHZW5lcmF0ZUROR1ByZXZpZXdSZXNwb25zZRIuChN0aHVtYm5haWxfb2JqZWN0X2lkGAEgAS'
+        'gJUhF0aHVtYm5haWxPYmplY3RJZBIdCgpzaWduZWRfdXJsGAIgASgJUglzaWduZWRVcmwSHQoK'
+        'ZXhwaXJlc19hdBgDIAEoCVIJZXhwaXJlc0F0');

@@ -260,6 +260,7 @@ const (
 	LibraryService_UpdateMarkdown_FullMethodName         = "/photos.LibraryService/UpdateMarkdown"
 	LibraryService_DeleteMarkdown_FullMethodName         = "/photos.LibraryService/DeleteMarkdown"
 	LibraryService_GenerateVideoThumbnail_FullMethodName = "/photos.LibraryService/GenerateVideoThumbnail"
+	LibraryService_GenerateDNGPreview_FullMethodName     = "/photos.LibraryService/GenerateDNGPreview"
 )
 
 // LibraryServiceClient is the client API for LibraryService service.
@@ -296,6 +297,8 @@ type LibraryServiceClient interface {
 	DeleteMarkdown(ctx context.Context, in *DeleteMarkdownRequest, opts ...grpc.CallOption) (*DeleteMarkdownResponse, error)
 	// GenerateVideoThumbnail generates a thumbnail image for a video
 	GenerateVideoThumbnail(ctx context.Context, in *GenerateVideoThumbnailRequest, opts ...grpc.CallOption) (*GenerateVideoThumbnailResponse, error)
+	// GenerateDNGPreview generates a JPEG preview image for a DNG photo using dcraw
+	GenerateDNGPreview(ctx context.Context, in *GenerateDNGPreviewRequest, opts ...grpc.CallOption) (*GenerateDNGPreviewResponse, error)
 }
 
 type libraryServiceClient struct {
@@ -456,6 +459,16 @@ func (c *libraryServiceClient) GenerateVideoThumbnail(ctx context.Context, in *G
 	return out, nil
 }
 
+func (c *libraryServiceClient) GenerateDNGPreview(ctx context.Context, in *GenerateDNGPreviewRequest, opts ...grpc.CallOption) (*GenerateDNGPreviewResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GenerateDNGPreviewResponse)
+	err := c.cc.Invoke(ctx, LibraryService_GenerateDNGPreview_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // LibraryServiceServer is the server API for LibraryService service.
 // All implementations must embed UnimplementedLibraryServiceServer
 // for forward compatibility.
@@ -490,6 +503,8 @@ type LibraryServiceServer interface {
 	DeleteMarkdown(context.Context, *DeleteMarkdownRequest) (*DeleteMarkdownResponse, error)
 	// GenerateVideoThumbnail generates a thumbnail image for a video
 	GenerateVideoThumbnail(context.Context, *GenerateVideoThumbnailRequest) (*GenerateVideoThumbnailResponse, error)
+	// GenerateDNGPreview generates a JPEG preview image for a DNG photo using dcraw
+	GenerateDNGPreview(context.Context, *GenerateDNGPreviewRequest) (*GenerateDNGPreviewResponse, error)
 	mustEmbedUnimplementedLibraryServiceServer()
 }
 
@@ -544,6 +559,9 @@ func (UnimplementedLibraryServiceServer) DeleteMarkdown(context.Context, *Delete
 }
 func (UnimplementedLibraryServiceServer) GenerateVideoThumbnail(context.Context, *GenerateVideoThumbnailRequest) (*GenerateVideoThumbnailResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GenerateVideoThumbnail not implemented")
+}
+func (UnimplementedLibraryServiceServer) GenerateDNGPreview(context.Context, *GenerateDNGPreviewRequest) (*GenerateDNGPreviewResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GenerateDNGPreview not implemented")
 }
 func (UnimplementedLibraryServiceServer) mustEmbedUnimplementedLibraryServiceServer() {}
 func (UnimplementedLibraryServiceServer) testEmbeddedByValue()                        {}
@@ -836,6 +854,24 @@ func _LibraryService_GenerateVideoThumbnail_Handler(srv interface{}, ctx context
 	return interceptor(ctx, in, info, handler)
 }
 
+func _LibraryService_GenerateDNGPreview_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GenerateDNGPreviewRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LibraryServiceServer).GenerateDNGPreview(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LibraryService_GenerateDNGPreview_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LibraryServiceServer).GenerateDNGPreview(ctx, req.(*GenerateDNGPreviewRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // LibraryService_ServiceDesc is the grpc.ServiceDesc for LibraryService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -902,6 +938,10 @@ var LibraryService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GenerateVideoThumbnail",
 			Handler:    _LibraryService_GenerateVideoThumbnail_Handler,
+		},
+		{
+			MethodName: "GenerateDNGPreview",
+			Handler:    _LibraryService_GenerateDNGPreview_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

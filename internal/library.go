@@ -930,6 +930,7 @@ func (s *LibraryServer) SyncDatabase(ctx context.Context, req *proto.SyncDatabas
 
 // updateObjectMetadata downloads a photo, extracts EXIF metadata, updates GCS object metadata,
 // and updates the time_taken field in the database.
+// For DNG files it also generates a JPEG preview if one does not already exist.
 // Returns true if metadata was updated, false if skipped (already has metadata).
 func (s *LibraryServer) updateObjectMetadata(ctx context.Context, objectID string, attrs *storage.ObjectAttrs, userID uint) (bool, error) {
 	bucket := s.GCSClient.Bucket(s.BucketName)
@@ -969,6 +970,50 @@ func (s *LibraryServer) updateObjectMetadata(ctx context.Context, objectID strin
 		Where("object_id = ? AND user_id = ?", objectID, userID).
 		Update("time_taken", timeTaken).Error; err != nil {
 		return false, err
+	}
+
+	// For DNG files, generate a JPEG preview if one does not already exist.
+	if IsDNGContentType(attrs.ContentType) {
+		var photoObject database.PhotoObject
+		if err := s.DB.Where("object_id = ? AND user_id = ?", objectID, userID).First(&photoObject).Error; err == nil {
+			if photoObject.ThumbnailObjectID == nil || *photoObject.ThumbnailObjectID == "" {
+				previewData, err := GenerateDNGPreview(data)
+				if err != nil {
+					slog.Warn("failed to generate DNG preview during sync",
+						slog.String("object_id", objectID),
+						slog.String("error", err.Error()),
+					)
+				} else {
+					previewObjectID := dngPreviewObjectID(objectID)
+					previewWriter := bucket.Object(previewObjectID).NewWriter(ctx)
+					previewWriter.ContentType = "image/jpeg"
+					if _, writeErr := previewWriter.Write(previewData); writeErr != nil {
+						_ = previewWriter.Close()
+						slog.Warn("failed to write DNG preview during sync",
+							slog.String("object_id", objectID),
+							slog.String("error", writeErr.Error()),
+						)
+					} else if closeErr := previewWriter.Close(); closeErr != nil {
+						slog.Warn("failed to close DNG preview writer during sync",
+							slog.String("object_id", objectID),
+							slog.String("error", closeErr.Error()),
+						)
+					} else {
+						if dbErr := s.DB.Model(&photoObject).Update("thumbnail_object_id", previewObjectID).Error; dbErr != nil {
+							slog.Warn("failed to update thumbnail_object_id during sync",
+								slog.String("object_id", objectID),
+								slog.String("error", dbErr.Error()),
+							)
+						} else {
+							slog.Info("Generated DNG preview during sync",
+								slog.String("object_id", objectID),
+								slog.String("preview_object_id", previewObjectID),
+							)
+						}
+					}
+				}
+			}
+		}
 	}
 
 	slog.Info("Updated metadata for object",
@@ -1477,6 +1522,132 @@ func (s *LibraryServer) GenerateVideoThumbnail(ctx context.Context, req *proto.G
 
 	return &proto.GenerateVideoThumbnailResponse{
 		ThumbnailObjectId: thumbnailObjectID,
+		SignedUrl:         signedURL,
+		ExpiresAt:         expiresAt.Format(time.RFC3339),
+	}, nil
+}
+
+// GenerateDNGPreview generates a JPEG preview image for a DNG photo using dcraw and stores it in GCS.
+func (s *LibraryServer) GenerateDNGPreview(ctx context.Context, req *proto.GenerateDNGPreviewRequest) (*proto.GenerateDNGPreviewResponse, error) {
+	userID, ok := ctx.Value(contextKeyUser{}).(uint)
+	if !ok {
+		return nil, status.Errorf(codes.Unauthenticated, "authentication required")
+	}
+
+	objectID := req.GetObjectId()
+	if objectID == "" {
+		return nil, status.Errorf(codes.InvalidArgument, "object_id is required")
+	}
+
+	// Query the photo from the database to verify ownership and check content type
+	var photoObject database.PhotoObject
+	if err := s.DB.Where("object_id = ? AND user_id = ?", objectID, userID).First(&photoObject).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, status.Errorf(codes.NotFound, "photo not found: %s", objectID)
+		}
+		return nil, status.Errorf(codes.Internal, "failed to query photo: %v", err)
+	}
+
+	// Verify this is a DNG file
+	if !IsDNGContentType(photoObject.ContentType) {
+		return nil, status.Errorf(codes.InvalidArgument, "object is not a DNG file: %s", photoObject.ContentType)
+	}
+
+	bucket := s.GCSClient.Bucket(s.BucketName)
+
+	// Check if preview already exists
+	if photoObject.ThumbnailObjectID != nil && *photoObject.ThumbnailObjectID != "" {
+		thumbObj := bucket.Object(*photoObject.ThumbnailObjectID)
+
+		// Verify preview exists in storage
+		_, err := thumbObj.Attrs(ctx)
+		if err == nil {
+			// Preview exists, generate signed URL
+			expiresAt := time.Now().Add(time.Hour)
+			signedURL, err := bucket.SignedURL(*photoObject.ThumbnailObjectID, &storage.SignedURLOptions{
+				Method:  "GET",
+				Expires: expiresAt,
+			})
+			if err != nil {
+				return nil, status.Errorf(codes.Internal, "failed to generate signed URL for existing preview: %v", err)
+			}
+
+			slog.Info("Returned existing DNG preview",
+				slog.String("object_id", objectID),
+				slog.String("thumbnail_object_id", *photoObject.ThumbnailObjectID),
+				slog.Uint64("user_id", uint64(userID)),
+			)
+
+			return &proto.GenerateDNGPreviewResponse{
+				ThumbnailObjectId: *photoObject.ThumbnailObjectID,
+				SignedUrl:         signedURL,
+				ExpiresAt:         expiresAt.Format(time.RFC3339),
+			}, nil
+		}
+		// Preview record exists but file doesn't - regenerate it
+	}
+
+	// Download DNG from GCS
+	obj := bucket.Object(objectID)
+
+	reader, err := obj.NewReader(ctx)
+	if err != nil {
+		if err == storage.ErrObjectNotExist {
+			return nil, status.Errorf(codes.NotFound, "DNG not found in storage: %s", objectID)
+		}
+		return nil, status.Errorf(codes.Internal, "failed to open DNG: %v", err)
+	}
+	defer func() { _ = reader.Close() }()
+
+	dngData, err := io.ReadAll(reader)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to read DNG: %v", err)
+	}
+
+	// Generate JPEG preview using dcraw
+	previewData, err := GenerateDNGPreview(dngData)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to generate DNG preview: %v", err)
+	}
+
+	// Derive preview object ID
+	previewObjectID := dngPreviewObjectID(objectID)
+
+	// Upload preview to GCS
+	previewWriter := bucket.Object(previewObjectID).NewWriter(ctx)
+	previewWriter.ContentType = "image/jpeg"
+
+	if _, err := previewWriter.Write(previewData); err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to write DNG preview to GCS: %v", err)
+	}
+
+	if err := previewWriter.Close(); err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to close DNG preview writer: %v", err)
+	}
+
+	// Update the database with preview object ID
+	if err := s.DB.Model(&photoObject).Update("thumbnail_object_id", previewObjectID).Error; err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to update photo with preview: %v", err)
+	}
+
+	// Generate signed URL for the new preview
+	expiresAt := time.Now().Add(time.Hour)
+	signedURL, err := bucket.SignedURL(previewObjectID, &storage.SignedURLOptions{
+		Method:  "GET",
+		Expires: expiresAt,
+	})
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to generate signed URL: %v", err)
+	}
+
+	slog.Info("Generated DNG preview",
+		slog.String("object_id", objectID),
+		slog.String("thumbnail_object_id", previewObjectID),
+		slog.Uint64("user_id", uint64(userID)),
+	)
+
+	return &proto.GenerateDNGPreviewResponse{
+		ThumbnailObjectId: previewObjectID,
 		SignedUrl:         signedURL,
 		ExpiresAt:         expiresAt.Format(time.RFC3339),
 	}, nil

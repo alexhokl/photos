@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/rwcarlsen/goexif/exif"
@@ -65,9 +66,25 @@ const (
 // ExtractPhotoMetadata extracts EXIF metadata from image data.
 // It returns a PhotoMetadataInfo struct with available metadata.
 // Fields that cannot be extracted will have their Has* flags set to false.
+//
+// For DNG raw images the raw bytes cannot be parsed by goexif directly.
+// GenerateDNGPreview is called first to extract the embedded JPEG, and EXIF
+// is then read from that JPEG instead.
 func ExtractPhotoMetadata(data []byte, originalFilename string) *PhotoMetadataInfo {
 	info := &PhotoMetadataInfo{
 		OriginalFilename: originalFilename,
+	}
+
+	// For DNG files, extract the embedded JPEG preview and read EXIF from it.
+	// Detect DNG by checking the originalFilename extension (content-type is not
+	// always available here, but the extension is reliable).
+	lowerName := strings.ToLower(originalFilename)
+	if strings.HasSuffix(lowerName, ".dng") {
+		if jpegData, err := GenerateDNGPreview(data); err == nil && len(jpegData) > 0 {
+			data = jpegData
+		}
+		// If GenerateDNGPreview fails, fall through and let goexif try anyway —
+		// it will simply return no EXIF, which is the same outcome as before.
 	}
 
 	// Try to decode EXIF data

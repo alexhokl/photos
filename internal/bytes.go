@@ -81,6 +81,12 @@ func (s *BytesServer) Upload(ctx context.Context, req *proto.UploadRequest) (*pr
 		timeTaken = &photoMetadata.DateTaken
 	}
 	photoObject := createPhotoObject(objectID, attrs, userID, md5HashBase64, timeTaken)
+
+	// For DNG files, generate a JPEG preview and upload it to GCS
+	if IsDNGContentType(req.GetContentType()) {
+		uploadDNGPreview(ctx, bucket, data, objectID, photoObject)
+	}
+
 	if err := database.CreateOrRestorePhotoObject(s.DB, photoObject); err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to create photo object record: %v", err)
 	}
@@ -162,6 +168,47 @@ func createPhotoObject(objectID string, attrs *storage.ObjectAttrs, userID uint,
 		UserID:      userID,
 		TimeTaken:   timeTaken,
 	}
+}
+
+// uploadDNGPreview generates a JPEG preview for a DNG file, uploads it to GCS,
+// and sets the ThumbnailObjectID on photoObject.  Errors are logged but not fatal.
+func uploadDNGPreview(ctx context.Context, bucket *storage.BucketHandle, data []byte, objectID string, photoObject *database.PhotoObject) {
+	previewData, err := GenerateDNGPreview(data)
+	if err != nil {
+		slog.Warn("failed to generate DNG preview",
+			slog.String("object_id", objectID),
+			slog.String("error", err.Error()),
+		)
+		return
+	}
+
+	previewObjectID := dngPreviewObjectID(objectID)
+	previewWriter := bucket.Object(previewObjectID).NewWriter(ctx)
+	previewWriter.ContentType = "image/jpeg"
+
+	if _, err := previewWriter.Write(previewData); err != nil {
+		_ = previewWriter.Close()
+		slog.Warn("failed to write DNG preview to GCS",
+			slog.String("object_id", objectID),
+			slog.String("error", err.Error()),
+		)
+		return
+	}
+
+	if err := previewWriter.Close(); err != nil {
+		slog.Warn("failed to close DNG preview writer",
+			slog.String("object_id", objectID),
+			slog.String("error", err.Error()),
+		)
+		return
+	}
+
+	photoObject.ThumbnailObjectID = &previewObjectID
+
+	slog.Info("Generated DNG preview",
+		slog.String("object_id", objectID),
+		slog.String("preview_object_id", previewObjectID),
+	)
 }
 
 // Download downloads a file from Google Cloud Storage.
@@ -383,6 +430,12 @@ func (s *BytesServer) StreamingUpload(stream grpc.ClientStreamingServer[proto.St
 		streamTimeTaken = &photoMetadata.DateTaken
 	}
 	photoObject := createPhotoObject(objectID, attrs, userID, md5HashBase64, streamTimeTaken)
+
+	// For DNG files, generate a JPEG preview and upload it to GCS
+	if IsDNGContentType(contentType) {
+		uploadDNGPreview(ctx, bucket, allData, objectID, photoObject)
+	}
+
 	if err := database.CreateOrRestorePhotoObject(s.DB, photoObject); err != nil {
 		return status.Errorf(codes.Internal, "failed to create photo object record: %v", err)
 	}

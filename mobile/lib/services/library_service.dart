@@ -36,6 +36,19 @@ class VideoThumbnailResult {
   });
 }
 
+/// Result of a DNG preview generation
+class DngPreviewResult {
+  final String thumbnailObjectId;
+  final String signedUrl;
+  final String expiresAt;
+
+  DngPreviewResult({
+    required this.thumbnailObjectId,
+    required this.signedUrl,
+    required this.expiresAt,
+  });
+}
+
 /// Service for interacting with the photo library via gRPC
 class LibraryService {
   static const String _defaultHost = 'localhost';
@@ -205,6 +218,26 @@ class LibraryService {
     try {
       final response = await _client!.generateVideoThumbnail(request);
       return VideoThumbnailResult(
+        thumbnailObjectId: response.thumbnailObjectId,
+        signedUrl: response.signedUrl,
+        expiresAt: response.expiresAt,
+      );
+    } on GrpcError catch (e) {
+      throw LibraryException('gRPC error: ${e.message}', grpcError: e);
+    }
+  }
+
+  /// Generate a JPEG preview image for a DNG photo on the server using dcraw.
+  /// Returns a [DngPreviewResult] with the preview object ID, a pre-signed
+  /// URL for direct access, and the URL expiry timestamp.
+  Future<DngPreviewResult> generateDngPreview(String objectId) async {
+    _ensureInitialized();
+
+    final request = GenerateDNGPreviewRequest(objectId: objectId);
+
+    try {
+      final response = await _client!.generateDNGPreview(request);
+      return DngPreviewResult(
         thumbnailObjectId: response.thumbnailObjectId,
         signedUrl: response.signedUrl,
         expiresAt: response.expiresAt,

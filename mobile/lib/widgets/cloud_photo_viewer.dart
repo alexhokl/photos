@@ -525,6 +525,11 @@ class _DownloadProgressDialogState extends State<DownloadProgressDialog> {
 
   bool get _isVideo => widget.photo.contentType.startsWith('video/');
 
+  bool get _isDNG {
+    const dngTypes = {'image/x-adobe-dng', 'image/dng', 'image/x-dng'};
+    return dngTypes.contains(widget.photo.contentType.toLowerCase());
+  }
+
   Future<void> _startDownload() async {
     DownloadService? downloadService;
     try {
@@ -543,7 +548,8 @@ class _DownloadProgressDialogState extends State<DownloadProgressDialog> {
         },
       );
 
-      // Save to device gallery - use saveVideo for videos, saveImage for images
+      // Save to device gallery - use saveVideo for videos, file save for DNG,
+      // and saveImage for regular images.
       final filename = widget.photo.objectId.split('/').last;
       if (_isVideo) {
         // Write to temp file first, then save video
@@ -553,6 +559,12 @@ class _DownloadProgressDialogState extends State<DownloadProgressDialog> {
         await PhotoManager.editor.saveVideo(tempFile, title: filename);
         // Clean up temp file
         await tempFile.delete();
+      } else if (_isDNG) {
+        // DNG files cannot be stored in the photo library via PhotoManager;
+        // save directly to the app's Downloads folder instead.
+        final downloadsDir = await getApplicationDocumentsDirectory();
+        final saveFile = File('${downloadsDir.path}/$filename');
+        await saveFile.writeAsBytes(result.data);
       } else {
         await PhotoManager.editor.saveImage(result.data, filename: filename);
       }
