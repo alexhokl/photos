@@ -38,6 +38,12 @@ class CloudPhotoGridState extends State<CloudPhotoGrid> {
   // Cache signed URLs to avoid re-generating for each rebuild
   final Map<String, String> _signedUrlCache = {};
 
+  // Cache signed URLs for video thumbnails (keyed by photo.objectId)
+  final Map<String, String> _thumbnailSignedUrlCache = {};
+
+  // Guard against duplicate concurrent thumbnail generation for the same video
+  final Set<String> _thumbnailGenerationInProgress = {};
+
   static const int _pageSize = 50;
 
   bool _hasInitiallyLoaded = false;
@@ -118,6 +124,8 @@ class CloudPhotoGridState extends State<CloudPhotoGrid> {
       _nextPageToken = null;
       _totalCount = 0;
       _signedUrlCache.clear();
+      _thumbnailSignedUrlCache.clear();
+      _thumbnailGenerationInProgress.clear();
       _clearSelection();
     });
 
@@ -213,20 +221,70 @@ class CloudPhotoGridState extends State<CloudPhotoGrid> {
       libraryService = LibraryService(host: config.host, port: config.port);
 
       for (final photo in photos) {
-        if (_signedUrlCache.containsKey(photo.objectId)) continue;
+        final isVideo = photo.contentType.startsWith('video/');
 
-        try {
-          final result = await libraryService.generateSignedUrl(
-            photo.objectId,
-            expirationSeconds: config.signedUrlExpirationSeconds,
-          );
-          if (mounted) {
-            setState(() {
-              _signedUrlCache[photo.objectId] = result.signedUrl;
-            });
+        // Fetch signed URL for the main object (used by the full-screen viewer)
+        if (!_signedUrlCache.containsKey(photo.objectId)) {
+          try {
+            final result = await libraryService.generateSignedUrl(
+              photo.objectId,
+              expirationSeconds: config.signedUrlExpirationSeconds,
+            );
+            if (mounted) {
+              setState(() {
+                _signedUrlCache[photo.objectId] = result.signedUrl;
+              });
+            }
+          } catch (_) {
+            // Skip individual failures; thumbnail will show placeholder
           }
-        } catch (_) {
-          // Skip individual failures; thumbnail will show placeholder
+        }
+
+        // For videos, fetch or generate a signed URL for the thumbnail image
+        if (isVideo && !_thumbnailSignedUrlCache.containsKey(photo.objectId)) {
+          if (photo.thumbnailObjectId.isNotEmpty) {
+            // Thumbnail already generated — just get a signed URL for it
+            try {
+              final result = await libraryService.generateSignedUrl(
+                photo.thumbnailObjectId,
+                expirationSeconds: config.signedUrlExpirationSeconds,
+              );
+              if (mounted) {
+                setState(() {
+                  _thumbnailSignedUrlCache[photo.objectId] = result.signedUrl;
+                });
+              }
+            } catch (_) {
+              // Skip individual failures; grid cell will fall back to placeholder
+            }
+          } else if (!_thumbnailGenerationInProgress.contains(photo.objectId)) {
+            // No thumbnail yet — ask the server to generate one via ffmpeg
+            _thumbnailGenerationInProgress.add(photo.objectId);
+            try {
+              final result = await libraryService.generateVideoThumbnail(
+                photo.objectId,
+              );
+              if (mounted) {
+                setState(() {
+                  _thumbnailSignedUrlCache[photo.objectId] = result.signedUrl;
+                  // Update the in-memory Photo so future signed-URL refreshes
+                  // use the correct thumbnailObjectId without a server round-trip
+                  final idx = _photos.indexWhere(
+                    (p) => p.objectId == photo.objectId,
+                  );
+                  if (idx != -1) {
+                    _photos[idx] = Photo()
+                      ..mergeFromMessage(_photos[idx])
+                      ..thumbnailObjectId = result.thumbnailObjectId;
+                  }
+                });
+              }
+            } catch (_) {
+              // Server-side failure (e.g. ffmpeg error) — leave placeholder
+            } finally {
+              _thumbnailGenerationInProgress.remove(photo.objectId);
+            }
+          }
         }
       }
     } finally {
@@ -779,6 +837,8 @@ class CloudPhotoGridState extends State<CloudPhotoGrid> {
                   return _CloudPhotoThumbnail(
                     photo: photo,
                     signedUrl: _signedUrlCache[photo.objectId],
+                    thumbnailSignedUrl:
+                        _thumbnailSignedUrlCache[photo.objectId],
                     isSelected: _selectedObjectIds.contains(photo.objectId),
                     onTap: () {
                       if (_isSelectionMode) {
@@ -944,6 +1004,7 @@ class CloudPhotoGridState extends State<CloudPhotoGrid> {
 class _CloudPhotoThumbnail extends StatelessWidget {
   final Photo photo;
   final String? signedUrl;
+  final String? thumbnailSignedUrl;
   final bool isSelected;
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
@@ -951,12 +1012,23 @@ class _CloudPhotoThumbnail extends StatelessWidget {
   const _CloudPhotoThumbnail({
     required this.photo,
     this.signedUrl,
+    this.thumbnailSignedUrl,
     this.isSelected = false,
     this.onTap,
     this.onLongPress,
   });
 
   bool get _isVideo => photo.contentType.startsWith('video/');
+
+  /// The URL to display as the grid thumbnail image.
+  /// For videos with a thumbnailObjectId, use the thumbnail signed URL.
+  /// For videos without a thumbnailObjectId, fall back to the main signed URL.
+  /// For non-videos, use the main signed URL directly.
+  String? get _gridImageUrl {
+    if (!_isVideo) return signedUrl;
+    if (photo.thumbnailObjectId.isNotEmpty) return thumbnailSignedUrl;
+    return signedUrl;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -966,9 +1038,9 @@ class _CloudPhotoThumbnail extends StatelessWidget {
       child: Stack(
         fit: StackFit.expand,
         children: [
-          if (signedUrl != null)
+          if (_gridImageUrl != null)
             CachedNetworkImage(
-              imageUrl: signedUrl!,
+              imageUrl: _gridImageUrl!,
               cacheManager: PhotoCacheManager.instance,
               fit: BoxFit.cover,
               placeholder: (context, url) => Container(

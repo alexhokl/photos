@@ -13,7 +13,7 @@ RUN CGO_ENABLED=1 go build -o photos .
 
 FROM alpine:3.21
 
-RUN apk add --no-cache ca-certificates
+RUN apk add --no-cache ca-certificates ffmpeg
 
 WORKDIR /app
 

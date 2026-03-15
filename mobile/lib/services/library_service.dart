@@ -23,6 +23,19 @@ class SignedUrlResult {
   SignedUrlResult({required this.signedUrl, required this.expiresAt});
 }
 
+/// Result of a video thumbnail generation
+class VideoThumbnailResult {
+  final String thumbnailObjectId;
+  final String signedUrl;
+  final String expiresAt;
+
+  VideoThumbnailResult({
+    required this.thumbnailObjectId,
+    required this.signedUrl,
+    required this.expiresAt,
+  });
+}
+
 /// Service for interacting with the photo library via gRPC
 class LibraryService {
   static const String _defaultHost = 'localhost';
@@ -174,8 +187,34 @@ class LibraryService {
     }
   }
 
-  /// Copy a photo to a new location within the cloud storage bucket
-  /// Returns the copied photo metadata
+  /// Generate a thumbnail image for a video on the server using ffmpeg.
+  /// [timeOffsetMs] is the frame position in milliseconds (default 0 = first frame).
+  /// Returns a [VideoThumbnailResult] with the thumbnail object ID, a pre-signed
+  /// URL for direct access, and the URL expiry timestamp.
+  Future<VideoThumbnailResult> generateVideoThumbnail(
+    String objectId, {
+    int timeOffsetMs = 0,
+  }) async {
+    _ensureInitialized();
+
+    final request = GenerateVideoThumbnailRequest(
+      objectId: objectId,
+      timeOffsetMs: Int64(timeOffsetMs),
+    );
+
+    try {
+      final response = await _client!.generateVideoThumbnail(request);
+      return VideoThumbnailResult(
+        thumbnailObjectId: response.thumbnailObjectId,
+        signedUrl: response.signedUrl,
+        expiresAt: response.expiresAt,
+      );
+    } on GrpcError catch (e) {
+      throw LibraryException('gRPC error: ${e.message}', grpcError: e);
+    }
+  }
+
+  /// Copy a photo to a new location within the cloud storage bucket  /// Returns the copied photo metadata
   Future<Photo> copyPhoto(
     String sourceObjectId,
     String destinationObjectId,
