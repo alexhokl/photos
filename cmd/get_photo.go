@@ -119,6 +119,17 @@ func runGetPhoto(cmd *cobra.Command, args []string) error {
 		fmt.Printf("  Google Maps:       https://www.google.com/maps?q=%.6f,%.6f\n", photo.GetLatitude(), photo.GetLongitude())
 	}
 
+	// Video information
+	if photo.GetIsVideo() {
+		fmt.Printf("\nVideo\n")
+		if photo.GetDurationSeconds() > 0 {
+			fmt.Printf("  Duration:          %s\n", formatDuration(photo.GetDurationSeconds()))
+		}
+		if photo.GetThumbnailObjectId() != "" {
+			fmt.Printf("  Thumbnail ID:      %s\n", photo.GetThumbnailObjectId())
+		}
+	}
+
 	fmt.Printf("\nSystem\n")
 	fmt.Printf("  MD5 Hash:          %s\n", photo.GetMd5Hash())
 	fmt.Printf("  Created At:        %s\n", photo.GetCreatedAt())
@@ -180,6 +191,17 @@ func formatExposureTime(exposureTime float64) string {
 	}
 	denominator := int(1 / exposureTime)
 	return fmt.Sprintf("1/%ds", denominator)
+}
+
+// formatDuration formats a duration in seconds as a human-readable string.
+// For durations under a minute it shows seconds (e.g., "45s").
+// For longer durations it shows minutes and seconds (e.g., "1m 30s").
+func formatDuration(seconds float64) string {
+	total := int(seconds)
+	if total < 60 {
+		return fmt.Sprintf("%ds", total)
+	}
+	return fmt.Sprintf("%dm %ds", total/60, total%60)
 }
 
 // renderPhotoKitty renders an image in the terminal using the Kitty graphics protocol.
