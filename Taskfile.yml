@@ -142,3 +142,7 @@ tasks:
     platforms: [darwin]
     cmd: cp mobile/build/app/outputs/flutter-apk/app-release.apk ~/Desktop/photos.apk
 
+  deploy-mac:
+    desc: Deploy MacOS app locally
+    platforms: [darwin]
+    cmd: cp -r mobile/build/macos/Build/Products/Release/photos.app /Applications/
