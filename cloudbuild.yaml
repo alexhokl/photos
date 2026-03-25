@@ -1,15 +1,22 @@
 logsBucket: "gs://craffy-build-logs"
 
 options:
-  machineType: E2_MEDIUM # 1 vCPU
-  # logging: CLOUD_LOGGING_ONLY
+  machineType: E2_HIGHCPU_8 # 8 vCPU
   logging: GCS_ONLY
 
 timeout: "1200s" # 20 minutes
 
+availableSecrets:
+  secretManager:
+    - versionName: projects/craffy/secrets/photos-keystore/versions/latest
+      env: KEYSTORE_B64
+    - versionName: projects/craffy/secrets/photos-key-properties/versions/latest
+      env: KEY_PROPERTIES
+
 steps:
   - name: "gcr.io/cloud-builders/docker"
     id: Build
+    waitFor: ["-"]
     args:
       - "build"
       - "-t"
@@ -18,6 +25,54 @@ steps:
 
   - name: "gcr.io/cloud-builders/docker"
     id: Push to Container registry
+    waitFor: [Build]
     args:
       - "push"
       - "asia-east1-docker.pkg.dev/$PROJECT_ID/private/photos:$TAG_NAME"
+
+  - name: "ghcr.io/cirruslabs/flutter:stable"
+    id: Write local.properties
+    waitFor: ["-"]
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        FLUTTER_SDK=$(dirname $(dirname $(which flutter)))
+        echo "flutter.sdk=$$FLUTTER_SDK" > mobile/android/local.properties
+        echo "sdk.dir=$$ANDROID_SDK_ROOT" >> mobile/android/local.properties
+
+  - name: "ghcr.io/cirruslabs/flutter:stable"
+    id: Write signing files
+    waitFor: [Write local.properties]
+    entrypoint: bash
+    secretEnv: ["KEYSTORE_B64", "KEY_PROPERTIES"]
+    args:
+      - -c
+      - |
+        echo "$$KEYSTORE_B64" | base64 -d > mobile/android/app/release.jks
+        printf '%s' "$$KEY_PROPERTIES" > mobile/android/key.properties
+
+  - name: "ghcr.io/cirruslabs/flutter:stable"
+    id: Flutter pub get
+    waitFor: [Write local.properties, Write signing files]
+    entrypoint: flutter
+    args: ["pub", "get", "--no-example"]
+    dir: mobile
+
+  - name: "ghcr.io/cirruslabs/flutter:stable"
+    id: Build APK
+    waitFor: [Flutter pub get]
+    entrypoint: flutter
+    args:
+      - build
+      - apk
+      - --dart-define=GIT_COMMIT=$SHORT_SHA
+    dir: mobile
+
+  - name: "gcr.io/cloud-builders/gsutil"
+    id: Upload APK
+    waitFor: [Build APK]
+    args:
+      - cp
+      - mobile/build/app/outputs/flutter-apk/app-release.apk
+      - gs://alexhokl_public/apk/photos-$TAG_NAME.apk
