@@ -75,4 +75,4 @@ steps:
     args:
       - cp
       - mobile/build/app/outputs/flutter-apk/app-release.apk
-      - gs://alexhokl_public/apk/photos-$TAG_NAME.apk
+      - gs://alexhokl_public/apk/photos-$TAG_NAME-$SHORT_SHA.apk
