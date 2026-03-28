@@ -378,6 +378,29 @@ class PhotoGridState extends State<PhotoGrid> {
     }
   }
 
+  /// Reloads all photos from the device library from scratch.
+  void reloadFromDevice() {
+    _selectionNotifier.clearSelection();
+    widget.onSelectionChanged?.call(0);
+    setState(() {
+      _photos = [];
+      _photoGroups = [];
+      _isLoading = true;
+      _hasPermission = false;
+      _errorMessage = null;
+      _currentPage = 0;
+      _hasMorePhotos = true;
+      _isLoadingAll = false;
+      _primaryAlbum = null;
+      _loadError = null;
+      _totalPhotoCount = 0;
+      _displayOrderPhotosCache = null;
+    });
+    widget.onLoadingChanged?.call(true);
+    widget.onLoadError?.call(null);
+    _requestPermissionAndLoadPhotos();
+  }
+
   /// Retries loading photos after an error.
   /// Returns true if retry was started, false if there's nothing to retry.
   bool retryLoading() {

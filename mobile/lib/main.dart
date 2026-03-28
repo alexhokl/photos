@@ -79,6 +79,10 @@ class _HomePageState extends State<HomePage> {
     _photoGridKey.currentState?.retryLoading();
   }
 
+  void _onRefreshDevicePhotos() {
+    _photoGridKey.currentState?.reloadFromDevice();
+  }
+
   void _onDeviceMenuAction(PhotoGridAction action) {
     _photoGridKey.currentState?.performAction(action);
   }
@@ -173,6 +177,11 @@ class _HomePageState extends State<HomePage> {
               child: CircularProgressIndicator(strokeWidth: 2),
             ),
           ),
+        IconButton(
+          icon: const Icon(Icons.refresh),
+          tooltip: 'Refresh',
+          onPressed: _isDeviceLoading ? null : _onRefreshDevicePhotos,
+        ),
         PopupMenuButton<PhotoGridAction>(
           enabled: _deviceSelectedCount > 0,
           icon: Icon(
