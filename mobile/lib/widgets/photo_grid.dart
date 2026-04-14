@@ -6,6 +6,7 @@ import 'package:photo_manager/photo_manager.dart';
 import 'package:photos/services/library_service.dart';
 import 'package:photos/services/upload_service.dart';
 import 'package:photos/widgets/settings_page.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// Represents a group of photos taken on the same date.
 class PhotoDateGroup {
@@ -519,15 +520,26 @@ class PhotoGridState extends State<PhotoGrid> {
     }
   }
 
-  void _showUploadToDialog() {
+  Future<void> _showUploadToDialog() async {
     final selectedPhotos = _selectedPhotos;
     if (selectedPhotos.isEmpty) return;
 
+    final prefs = SharedPreferencesAsync();
+    final lastDirectory =
+        await prefs.getString(SettingsPage.lastUploadToDirectoryKey) ?? '';
+
+    if (!mounted) return;
     showDialog(
       context: context,
       builder: (dialogContext) => _UploadToDirectoryDialog(
-        onDirectorySelected: (directory) {
+        initialDirectory: lastDirectory,
+        onDirectorySelected: (directory) async {
           Navigator.pop(dialogContext);
+          final prefs = SharedPreferencesAsync();
+          await prefs.setString(
+            SettingsPage.lastUploadToDirectoryKey,
+            directory,
+          );
           _uploadSelectedPhotosToDirectory(directory);
         },
       ),
@@ -1188,8 +1200,12 @@ class _UploadProgressDialogState extends State<_UploadProgressDialog> {
 /// Dialog for selecting a directory to upload photos to
 class _UploadToDirectoryDialog extends StatefulWidget {
   final void Function(String directory) onDirectorySelected;
+  final String initialDirectory;
 
-  const _UploadToDirectoryDialog({required this.onDirectorySelected});
+  const _UploadToDirectoryDialog({
+    required this.onDirectorySelected,
+    this.initialDirectory = '',
+  });
 
   @override
   State<_UploadToDirectoryDialog> createState() =>
@@ -1197,7 +1213,7 @@ class _UploadToDirectoryDialog extends StatefulWidget {
 }
 
 class _UploadToDirectoryDialogState extends State<_UploadToDirectoryDialog> {
-  final TextEditingController _directoryController = TextEditingController();
+  late final TextEditingController _directoryController;
   List<String> _directorySuggestions = [];
   bool _isLoadingDirectories = false;
   String? _errorText;
@@ -1205,6 +1221,7 @@ class _UploadToDirectoryDialogState extends State<_UploadToDirectoryDialog> {
   @override
   void initState() {
     super.initState();
+    _directoryController = TextEditingController(text: widget.initialDirectory);
     _loadDirectorySuggestions();
   }
 
@@ -1264,6 +1281,7 @@ class _UploadToDirectoryDialogState extends State<_UploadToDirectoryDialog> {
       content: SizedBox(
         width: double.maxFinite,
         child: Autocomplete<String>(
+          initialValue: TextEditingValue(text: widget.initialDirectory),
           optionsBuilder: (TextEditingValue textEditingValue) {
             if (_directorySuggestions.isEmpty) {
               return const Iterable<String>.empty();

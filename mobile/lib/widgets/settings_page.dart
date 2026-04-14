@@ -93,6 +93,7 @@ class SettingsPage extends StatefulWidget {
   static const int defaultUploadTimeoutSeconds = 30;
   static const String signedUrlExpirationKey = 'signed_url_expiration_seconds';
   static const int defaultSignedUrlExpirationSeconds = 300;
+  static const String lastUploadToDirectoryKey = 'last_upload_to_directory';
 
   @override
   State<SettingsPage> createState() => _SettingsPageState();
