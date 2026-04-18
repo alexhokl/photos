@@ -1857,17 +1857,19 @@ class SyncDatabaseRequest extends $pb.GeneratedMessage {
   void clearUpdateMetadata() => $_clearField(1);
 }
 
-enum StreamingUploadRequest_Data { metadata, chunk, notSet }
+enum StreamingUploadRequest_Data { metadata, chunk, endOfFile, notSet }
 
 /// StreamingUploadRequest is sent as a stream of chunks for large uploads
 class StreamingUploadRequest extends $pb.GeneratedMessage {
   factory StreamingUploadRequest({
     PhotoMetadata? metadata,
     $core.List<$core.int>? chunk,
+    $core.bool? endOfFile,
   }) {
     final result = create();
     if (metadata != null) result.metadata = metadata;
     if (chunk != null) result.chunk = chunk;
+    if (endOfFile != null) result.endOfFile = endOfFile;
     return result;
   }
 
@@ -1884,17 +1886,19 @@ class StreamingUploadRequest extends $pb.GeneratedMessage {
       _StreamingUploadRequest_DataByTag = {
     1: StreamingUploadRequest_Data.metadata,
     2: StreamingUploadRequest_Data.chunk,
+    3: StreamingUploadRequest_Data.endOfFile,
     0: StreamingUploadRequest_Data.notSet
   };
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'StreamingUploadRequest',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'photos'),
       createEmptyInstance: create)
-    ..oo(0, [1, 2])
+    ..oo(0, [1, 2, 3])
     ..aOM<PhotoMetadata>(1, _omitFieldNames ? '' : 'metadata',
         subBuilder: PhotoMetadata.create)
     ..a<$core.List<$core.int>>(
         2, _omitFieldNames ? '' : 'chunk', $pb.PbFieldType.OY)
+    ..aOB(3, _omitFieldNames ? '' : 'endOfFile')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -1919,10 +1923,12 @@ class StreamingUploadRequest extends $pb.GeneratedMessage {
 
   @$pb.TagNumber(1)
   @$pb.TagNumber(2)
+  @$pb.TagNumber(3)
   StreamingUploadRequest_Data whichData() =>
       _StreamingUploadRequest_DataByTag[$_whichOneof(0)]!;
   @$pb.TagNumber(1)
   @$pb.TagNumber(2)
+  @$pb.TagNumber(3)
   void clearData() => $_clearField($_whichOneof(0));
 
   /// metadata is sent in the first message only
@@ -1946,6 +1952,113 @@ class StreamingUploadRequest extends $pb.GeneratedMessage {
   $core.bool hasChunk() => $_has(1);
   @$pb.TagNumber(2)
   void clearChunk() => $_clearField(2);
+
+  /// end_of_file signals the end of the current file in a bulk upload; value is ignored
+  @$pb.TagNumber(3)
+  $core.bool get endOfFile => $_getBF(2);
+  @$pb.TagNumber(3)
+  set endOfFile($core.bool value) => $_setBool(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasEndOfFile() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearEndOfFile() => $_clearField(3);
+}
+
+/// BulkUploadFileResult is streamed back for each file in a bulk upload
+class BulkUploadFileResult extends $pb.GeneratedMessage {
+  factory BulkUploadFileResult({
+    $core.String? objectId,
+    $core.bool? success,
+    Photo? photo,
+    $core.String? errorMessage,
+  }) {
+    final result = create();
+    if (objectId != null) result.objectId = objectId;
+    if (success != null) result.success = success;
+    if (photo != null) result.photo = photo;
+    if (errorMessage != null) result.errorMessage = errorMessage;
+    return result;
+  }
+
+  BulkUploadFileResult._();
+
+  factory BulkUploadFileResult.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory BulkUploadFileResult.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'BulkUploadFileResult',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'photos'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'objectId')
+    ..aOB(2, _omitFieldNames ? '' : 'success')
+    ..aOM<Photo>(3, _omitFieldNames ? '' : 'photo', subBuilder: Photo.create)
+    ..aOS(4, _omitFieldNames ? '' : 'errorMessage')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  BulkUploadFileResult clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  BulkUploadFileResult copyWith(void Function(BulkUploadFileResult) updates) =>
+      super.copyWith((message) => updates(message as BulkUploadFileResult))
+          as BulkUploadFileResult;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static BulkUploadFileResult create() => BulkUploadFileResult._();
+  @$core.override
+  BulkUploadFileResult createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static BulkUploadFileResult getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<BulkUploadFileResult>(create);
+  static BulkUploadFileResult? _defaultInstance;
+
+  /// object_id identifies which file this result corresponds to
+  @$pb.TagNumber(1)
+  $core.String get objectId => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set objectId($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasObjectId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearObjectId() => $_clearField(1);
+
+  /// success indicates whether the upload succeeded
+  @$pb.TagNumber(2)
+  $core.bool get success => $_getBF(1);
+  @$pb.TagNumber(2)
+  set success($core.bool value) => $_setBool(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasSuccess() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearSuccess() => $_clearField(2);
+
+  /// photo is populated on success
+  @$pb.TagNumber(3)
+  Photo get photo => $_getN(2);
+  @$pb.TagNumber(3)
+  set photo(Photo value) => $_setField(3, value);
+  @$pb.TagNumber(3)
+  $core.bool hasPhoto() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearPhoto() => $_clearField(3);
+  @$pb.TagNumber(3)
+  Photo ensurePhoto() => $_ensure(2);
+
+  /// error_message is populated on failure
+  @$pb.TagNumber(4)
+  $core.String get errorMessage => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set errorMessage($core.String value) => $_setString(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasErrorMessage() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearErrorMessage() => $_clearField(4);
 }
 
 /// PhotoMetadata contains info about the photo being uploaded

@@ -192,7 +192,21 @@ message StreamingUploadRequest {
     PhotoMetadata metadata = 1;
     // chunk contains a portion of the photo data
     bytes chunk = 2;
+    // end_of_file signals the end of the current file in a bulk upload; value is ignored
+    bool end_of_file = 3;
   }
+}
+
+// BulkUploadFileResult is streamed back for each file in a bulk upload
+message BulkUploadFileResult {
+  // object_id identifies which file this result corresponds to
+  string object_id = 1;
+  // success indicates whether the upload succeeded
+  bool success = 2;
+  // photo is populated on success
+  Photo photo = 3;
+  // error_message is populated on failure
+  string error_message = 4;
 }
 
 // PhotoMetadata contains info about the photo being uploaded
@@ -325,6 +339,12 @@ service ByteService {
 
   // StreamingUpload uploads a photo using client-side streaming for large files
   rpc StreamingUpload(stream StreamingUploadRequest) returns (UploadResponse);
+
+  // BulkStreamingUpload uploads multiple photos using a single bidirectional stream.
+  // Files are delimited by end_of_file sentinels in the request stream.
+  // A BulkUploadFileResult is streamed back for each file as it completes,
+  // without waiting for all files in the batch to finish.
+  rpc BulkStreamingUpload(stream StreamingUploadRequest) returns (stream BulkUploadFileResult);
 
   // StreamingDownload downloads a photo using server-side streaming for large files
   rpc StreamingDownload(StreamingDownloadRequest) returns (stream StreamingDownloadResponse);

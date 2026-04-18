@@ -753,6 +753,28 @@
       },
       "title": "UpdatePhotoMetadataRequest specifies metadata updates for a photo"
     },
+    "photosBulkUploadFileResult": {
+      "type": "object",
+      "properties": {
+        "objectId": {
+          "type": "string",
+          "title": "object_id identifies which file this result corresponds to"
+        },
+        "success": {
+          "type": "boolean",
+          "title": "success indicates whether the upload succeeded"
+        },
+        "photo": {
+          "$ref": "#/definitions/photosPhoto",
+          "title": "photo is populated on success"
+        },
+        "errorMessage": {
+          "type": "string",
+          "title": "error_message is populated on failure"
+        }
+      },
+      "title": "BulkUploadFileResult is streamed back for each file in a bulk upload"
+    },
     "photosCopyPhotoResponse": {
       "type": "object",
       "properties": {

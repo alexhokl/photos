@@ -5,9 +5,12 @@ import (
 	"context"
 	"crypto/md5"
 	"encoding/base64"
+	"fmt"
+	"hash"
 	"io"
 	"log/slog"
 	"path"
+	"sync"
 	"time"
 
 	"cloud.google.com/go/storage"
@@ -484,6 +487,251 @@ func (s *BytesServer) StreamingUpload(stream grpc.ClientStreamingServer[proto.St
 	return stream.SendAndClose(&proto.UploadResponse{
 		Photo: photo,
 	})
+}
+
+// BulkStreamingUpload uploads multiple photos using a single bidirectional stream.
+// The client sends metadata, chunks, and end_of_file sentinels for each file in sequence.
+// A BulkUploadFileResult is streamed back for each file as soon as its upload and database
+// entry creation completes, without waiting for the rest of the batch to finish.
+func (s *BytesServer) BulkStreamingUpload(stream grpc.BidiStreamingServer[proto.StreamingUploadRequest, proto.BulkUploadFileResult]) error {
+	ctx := stream.Context()
+
+	userID, ok := ctx.Value(contextKeyUser{}).(uint)
+	if !ok {
+		return status.Errorf(codes.Unauthenticated, "authentication required")
+	}
+
+	// resultCh carries per-file results from upload goroutines to the sender goroutine.
+	// A buffer of 16 prevents upload goroutines from blocking while the sender is busy.
+	resultCh := make(chan *proto.BulkUploadFileResult, 16)
+
+	var wg sync.WaitGroup
+
+	// senderDone receives any fatal stream.Send error from the sender goroutine.
+	senderDone := make(chan error, 1)
+
+	// Sender goroutine: serializes all stream.Send calls so they are not called
+	// concurrently from multiple upload goroutines.
+	go func() {
+		var sendErr error
+		for result := range resultCh {
+			if err := stream.Send(result); err != nil {
+				sendErr = err
+				// Drain the channel so upload goroutines are not blocked forever.
+				for range resultCh {
+				}
+				break
+			}
+		}
+		senderDone <- sendErr
+	}()
+
+	// Incoming stream state for the file currently being accumulated.
+	var (
+		currentObjectID  string
+		currentType      string
+		currentData      []byte
+		currentMD5Hasher hash.Hash
+		fileStarted      bool
+	)
+
+	var streamErr error
+	for {
+		msg, err := stream.Recv()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			streamErr = status.Errorf(codes.Internal, "failed to receive message: %v", err)
+			break
+		}
+
+		switch d := msg.Data.(type) {
+		case *proto.StreamingUploadRequest_Metadata:
+			// Receiving metadata while a file is already in progress is a protocol error.
+			if fileStarted {
+				streamErr = status.Errorf(
+					codes.InvalidArgument,
+					"received metadata for %q before end_of_file for %q",
+					d.Metadata.GetFilename(), currentObjectID,
+				)
+			} else if d.Metadata.GetFilename() == "" {
+				streamErr = status.Errorf(codes.InvalidArgument, "filename is required in metadata")
+			} else {
+				currentObjectID = d.Metadata.GetFilename()
+				currentType = d.Metadata.GetContentType()
+				currentData = nil
+				currentMD5Hasher = md5.New()
+				fileStarted = true
+			}
+
+		case *proto.StreamingUploadRequest_Chunk:
+			if !fileStarted {
+				slog.Warn("bulk upload: received chunk before metadata, ignoring")
+				continue
+			}
+			currentData = append(currentData, d.Chunk...)
+			_, _ = currentMD5Hasher.Write(d.Chunk)
+
+		case *proto.StreamingUploadRequest_EndOfFile:
+			if !fileStarted {
+				slog.Warn("bulk upload: received end_of_file with no preceding metadata, ignoring")
+				continue
+			}
+			// Snapshot the current file's state so the goroutine captures its own copy.
+			objectID := currentObjectID
+			contentType := currentType
+			data := currentData
+			md5Hasher := currentMD5Hasher
+
+			fileStarted = false
+			currentObjectID = ""
+			currentType = ""
+			currentData = nil
+			currentMD5Hasher = nil
+
+			wg.Go(func() {
+				result := s.uploadSingleFile(ctx, userID, objectID, contentType, data, md5Hasher)
+				resultCh <- result
+			})
+		}
+
+		if streamErr != nil {
+			break
+		}
+	}
+
+	// Wait for all in-flight upload goroutines to finish, then close resultCh to
+	// signal the sender goroutine that no more results are coming.
+	wg.Wait()
+	close(resultCh)
+
+	// Wait for the sender goroutine to finish and collect any send error.
+	sendErr := <-senderDone
+
+	if streamErr != nil {
+		return streamErr
+	}
+	return sendErr
+}
+
+// uploadSingleFile performs the full upload pipeline for one file: EXIF extraction,
+// GCS write, database entry creation, and optional DNG preview generation.
+// It returns a BulkUploadFileResult so errors are reported per-file rather than
+// aborting the entire bulk upload.
+func (s *BytesServer) uploadSingleFile(
+	ctx context.Context,
+	userID uint,
+	objectID, contentType string,
+	data []byte,
+	md5Hasher hash.Hash,
+) *proto.BulkUploadFileResult {
+	failResult := func(format string, args ...any) *proto.BulkUploadFileResult {
+		msg := fmt.Sprintf(format, args...)
+		slog.Error("bulk upload: file failed",
+			slog.String("object_id", objectID),
+			slog.String("error", msg),
+		)
+		return &proto.BulkUploadFileResult{
+			ObjectId:     objectID,
+			Success:      false,
+			ErrorMessage: msg,
+		}
+	}
+
+	slog.Info("bulk upload: starting file upload",
+		slog.String("object_id", objectID),
+		slog.String("content_type", contentType),
+	)
+
+	// Extract photo metadata from EXIF data.
+	photoMetadata := ExtractPhotoMetadata(data, objectID)
+
+	bucket := s.GCSClient.Bucket(s.BucketName)
+	obj := bucket.Object(objectID)
+
+	writer := obj.NewWriter(ctx)
+	writer.ContentType = contentType
+	writer.Metadata = photoMetadata.ToGCSMetadata()
+
+	if _, err := writer.Write(data); err != nil {
+		_ = writer.Close()
+		return failResult("failed to write data to GCS: %v", err)
+	}
+	if err := writer.Close(); err != nil {
+		return failResult("failed to close GCS writer: %v", err)
+	}
+
+	// Compute the final MD5 hash.
+	md5HashBase64 := base64.StdEncoding.EncodeToString(md5Hasher.Sum(nil))
+
+	// Fetch GCS object attributes confirmed after the upload.
+	attrs, err := obj.Attrs(ctx)
+	if err != nil {
+		return failResult("failed to get object attributes: %v", err)
+	}
+
+	var timeTaken *time.Time
+	if photoMetadata.HasDateTaken {
+		timeTaken = &photoMetadata.DateTaken
+	}
+	photoObject := createPhotoObject(objectID, attrs, userID, md5HashBase64, timeTaken)
+
+	// For DNG files, generate a JPEG preview and upload it to GCS.
+	if IsDNGContentType(contentType) {
+		uploadDNGPreview(ctx, bucket, data, objectID, photoObject)
+	}
+
+	// Create the database entry immediately — this is the key behaviour: the entry
+	// is written as soon as this file's upload completes, not after the full batch.
+	if err := database.CreateOrRestorePhotoObject(s.DB, photoObject); err != nil {
+		return failResult("failed to create photo object record: %v", err)
+	}
+
+	dir := ExtractDirectoryFromPath(objectID)
+	if dir != "" {
+		if err := database.CreateOrRestorePhotoDirectory(s.DB, dir); err != nil {
+			return failResult("failed to create photo directory record: %v", err)
+		}
+	}
+
+	slog.Info("bulk upload: file upload completed",
+		slog.String("object_id", objectID),
+		slog.Int64("size_bytes", attrs.Size),
+		slog.String("md5_hash", md5HashBase64),
+	)
+
+	photo := &proto.Photo{
+		ObjectId:         objectID,
+		Filename:         objectID,
+		ContentType:      attrs.ContentType,
+		SizeBytes:        attrs.Size,
+		CreatedAt:        attrs.Created.Format(time.RFC3339),
+		UpdatedAt:        attrs.Updated.Format(time.RFC3339),
+		Md5Hash:          md5HashBase64,
+		Latitude:         photoMetadata.Latitude,
+		Longitude:        photoMetadata.Longitude,
+		HasLocation:      photoMetadata.HasLocation,
+		DateTaken:        photoMetadata.FormatDateTaken(),
+		HasDateTaken:     photoMetadata.HasDateTaken,
+		Width:            int32(photoMetadata.Width),
+		Height:           int32(photoMetadata.Height),
+		HasDimensions:    photoMetadata.HasDimensions,
+		OriginalFilename: photoMetadata.OriginalFilename,
+		CameraMake:       photoMetadata.CameraMake,
+		CameraModel:      photoMetadata.CameraModel,
+		FocalLength:      photoMetadata.FocalLength,
+		Iso:              int32(photoMetadata.ISO),
+		Aperture:         photoMetadata.Aperture,
+		ExposureTime:     photoMetadata.ExposureTime,
+		LensModel:        photoMetadata.LensModel,
+	}
+
+	return &proto.BulkUploadFileResult{
+		ObjectId: objectID,
+		Success:  true,
+		Photo:    photo,
+	}
 }
 
 const defaultDownloadChunkSize = 64 * 1024 // 64 KB

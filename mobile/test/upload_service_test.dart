@@ -1,5 +1,12 @@
+import 'dart:async';
+import 'dart:typed_data';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:grpc/grpc.dart';
+import 'package:mocktail/mocktail.dart';
+import 'package:photo_manager/photo_manager.dart';
+import 'package:photos/proto/photos.pb.dart';
+import 'package:photos/proto/photos.pbgrpc.dart';
 import 'package:photos/services/upload_service.dart';
 
 void main() {
@@ -580,4 +587,379 @@ void main() {
       expect(deleteResults, isEmpty);
     });
   });
+
+  group('bulkStreamingUpload', () {
+    late List<StreamingUploadRequest> capturedRequests;
+    late StreamController<BulkUploadFileResult> responseController;
+
+    // Builds a testable service.  [responses] are the BulkUploadFileResult
+    // values the "server" will return.  [onCall] adds them to
+    // [responseController] before draining the request stream; it closes
+    // [responseController] only after all requests have been received.  This
+    // guarantees that by the time [bulkStreamingUpload] completes its
+    // [await for] loop, [capturedRequests] is fully populated.
+    _TestableUploadService makeService({
+      int chunkSize = 64 * 1024,
+      List<BulkUploadFileResult> responses = const [],
+    }) {
+      capturedRequests = [];
+      responseController = StreamController<BulkUploadFileResult>();
+
+      Future<void> onCall(Stream<StreamingUploadRequest> requestStream) async {
+        // Queue all responses first (they will be buffered by the controller
+        // until the consumer subscribes).
+        for (final r in responses) {
+          responseController.add(r);
+        }
+        // Drain all incoming requests so _sendAllAssets can complete.
+        await for (final req in requestStream) {
+          capturedRequests.add(req);
+        }
+        // All requests received — now close the response stream so the caller
+        // can finish.
+        responseController.close();
+      }
+
+      return _TestableUploadService(
+        chunkSize: chunkSize,
+        onCall: onCall,
+        responseStream: responseController.stream,
+      );
+    }
+
+    MockAssetEntity makeAsset({
+      required String id,
+      String? title,
+      String? mimeType,
+      Uint8List? bytes,
+    }) {
+      final asset = MockAssetEntity();
+      when(() => asset.id).thenReturn(id);
+      when(() => asset.title).thenReturn(title);
+      when(() => asset.mimeType).thenReturn(mimeType);
+      when(() => asset.originBytes).thenAnswer((_) async => bytes);
+      return asset;
+    }
+
+    test(
+      'empty asset list completes stream without yielding any result',
+      () async {
+        final service = makeService();
+
+        final results = await service.bulkStreamingUpload([]).toList();
+
+        expect(results, isEmpty);
+        expect(capturedRequests, isEmpty);
+      },
+    );
+
+    test(
+      'asset with null bytes is skipped — no requests sent for it',
+      () async {
+        final service = makeService();
+        final asset = makeAsset(id: 'a1', title: 'photo.jpg', bytes: null);
+
+        final results = await service.bulkStreamingUpload([asset]).toList();
+
+        expect(results, isEmpty);
+        expect(capturedRequests, isEmpty);
+      },
+    );
+
+    test(
+      'single asset sends metadata then chunk(s) then end_of_file',
+      () async {
+        // 6-byte payload with a 4-byte chunk size → 2 chunks
+        final data = Uint8List.fromList([1, 2, 3, 4, 5, 6]);
+        final service = makeService(
+          chunkSize: 4,
+          responses: [
+            BulkUploadFileResult(objectId: 'shot.jpg', success: true),
+          ],
+        );
+        final asset = makeAsset(
+          id: 'a1',
+          title: 'shot.jpg',
+          mimeType: 'image/jpeg',
+          bytes: data,
+        );
+
+        final results = await service.bulkStreamingUpload([asset]).toList();
+
+        expect(results, hasLength(1));
+        expect(results.first.objectId, equals('shot.jpg'));
+        expect(results.first.success, isTrue);
+
+        // Protocol: metadata → chunk[0..3] → chunk[4..5] → end_of_file
+        expect(capturedRequests, hasLength(4));
+        expect(capturedRequests[0].hasMetadata(), isTrue);
+        expect(capturedRequests[0].metadata.filename, equals('shot.jpg'));
+        expect(capturedRequests[0].metadata.contentType, equals('image/jpeg'));
+        expect(capturedRequests[1].hasChunk(), isTrue);
+        expect(capturedRequests[1].chunk, equals([1, 2, 3, 4]));
+        expect(capturedRequests[2].hasChunk(), isTrue);
+        expect(capturedRequests[2].chunk, equals([5, 6]));
+        expect(capturedRequests[3].hasEndOfFile(), isTrue);
+      },
+    );
+
+    test(
+      'multiple assets each get their own metadata + chunks + end_of_file',
+      () async {
+        final data = Uint8List.fromList([10, 20, 30]);
+        final service = makeService(
+          responses: [
+            BulkUploadFileResult(objectId: 'first.jpg', success: true),
+            BulkUploadFileResult(objectId: 'second.png', success: true),
+          ],
+        );
+        final asset1 = makeAsset(
+          id: 'a1',
+          title: 'first.jpg',
+          mimeType: 'image/jpeg',
+          bytes: data,
+        );
+        final asset2 = makeAsset(
+          id: 'a2',
+          title: 'second.png',
+          mimeType: 'image/png',
+          bytes: data,
+        );
+
+        final results = await service.bulkStreamingUpload([
+          asset1,
+          asset2,
+        ]).toList();
+
+        expect(results, hasLength(2));
+
+        // Each file: metadata + 1 chunk + end_of_file = 3 messages × 2 files = 6
+        expect(capturedRequests, hasLength(6));
+
+        expect(capturedRequests[0].hasMetadata(), isTrue);
+        expect(capturedRequests[0].metadata.filename, equals('first.jpg'));
+        expect(capturedRequests[1].hasChunk(), isTrue);
+        expect(capturedRequests[2].hasEndOfFile(), isTrue);
+
+        expect(capturedRequests[3].hasMetadata(), isTrue);
+        expect(capturedRequests[3].metadata.filename, equals('second.png'));
+        expect(capturedRequests[4].hasChunk(), isTrue);
+        expect(capturedRequests[5].hasEndOfFile(), isTrue);
+      },
+    );
+
+    test('asset with null mimeType defaults to image/jpeg', () async {
+      final service = makeService();
+      final asset = makeAsset(
+        id: 'a1',
+        title: 'photo.jpg',
+        mimeType: null,
+        bytes: Uint8List.fromList([1]),
+      );
+
+      await service.bulkStreamingUpload([asset]).toList();
+
+      expect(capturedRequests.first.metadata.contentType, equals('image/jpeg'));
+    });
+
+    test('asset with null title falls back to id.jpg', () async {
+      final service = makeService();
+      final asset = makeAsset(
+        id: 'xyz123',
+        title: null,
+        mimeType: 'image/jpeg',
+        bytes: Uint8List.fromList([1]),
+      );
+
+      await service.bulkStreamingUpload([asset]).toList();
+
+      expect(capturedRequests.first.metadata.filename, equals('xyz123.jpg'));
+    });
+
+    test('null directoryPrefix → objectId is filename only', () async {
+      final service = makeService();
+      final asset = makeAsset(
+        id: 'a1',
+        title: 'vacation.jpg',
+        mimeType: 'image/jpeg',
+        bytes: Uint8List.fromList([1]),
+      );
+
+      await service.bulkStreamingUpload([
+        asset,
+      ], directoryPrefix: null).toList();
+
+      expect(capturedRequests.first.metadata.filename, equals('vacation.jpg'));
+    });
+
+    test('empty directoryPrefix → objectId is filename only', () async {
+      final service = makeService();
+      final asset = makeAsset(
+        id: 'a1',
+        title: 'vacation.jpg',
+        mimeType: 'image/jpeg',
+        bytes: Uint8List.fromList([1]),
+      );
+
+      await service.bulkStreamingUpload([asset], directoryPrefix: '').toList();
+
+      expect(capturedRequests.first.metadata.filename, equals('vacation.jpg'));
+    });
+
+    test(
+      'directoryPrefix without trailing slash gets slash appended',
+      () async {
+        final service = makeService();
+        final asset = makeAsset(
+          id: 'a1',
+          title: 'img.jpg',
+          mimeType: 'image/jpeg',
+          bytes: Uint8List.fromList([1]),
+        );
+
+        await service.bulkStreamingUpload([
+          asset,
+        ], directoryPrefix: 'trip/2024').toList();
+
+        expect(
+          capturedRequests.first.metadata.filename,
+          equals('trip/2024/img.jpg'),
+        );
+      },
+    );
+
+    test('directoryPrefix with trailing slash is used as-is', () async {
+      final service = makeService();
+      final asset = makeAsset(
+        id: 'a1',
+        title: 'img.jpg',
+        mimeType: 'image/jpeg',
+        bytes: Uint8List.fromList([1]),
+      );
+
+      await service.bulkStreamingUpload([
+        asset,
+      ], directoryPrefix: 'trip/2024/').toList();
+
+      expect(
+        capturedRequests.first.metadata.filename,
+        equals('trip/2024/img.jpg'),
+      );
+    });
+
+    test(
+      'asset with null bytes among valid assets: null asset skipped, others processed',
+      () async {
+        final service = makeService(
+          responses: [
+            BulkUploadFileResult(objectId: 'good.jpg', success: true),
+          ],
+        );
+        final goodAsset = makeAsset(
+          id: 'a1',
+          title: 'good.jpg',
+          mimeType: 'image/jpeg',
+          bytes: Uint8List.fromList([1, 2, 3]),
+        );
+        final nullAsset = makeAsset(
+          id: 'a2',
+          title: 'bad.jpg',
+          mimeType: 'image/jpeg',
+          bytes: null,
+        );
+
+        final results = await service.bulkStreamingUpload([
+          goodAsset,
+          nullAsset,
+        ]).toList();
+
+        expect(results, hasLength(1));
+        // Only good asset's 3 messages (metadata + chunk + end_of_file).
+        expect(capturedRequests, hasLength(3));
+        expect(capturedRequests[0].metadata.filename, equals('good.jpg'));
+      },
+    );
+
+    test('server result with success=false is yielded as-is', () async {
+      final service = makeService(
+        responses: [
+          BulkUploadFileResult(
+            objectId: 'photo.jpg',
+            success: false,
+            errorMessage: 'checksum mismatch',
+          ),
+        ],
+      );
+      final asset = makeAsset(
+        id: 'a1',
+        title: 'photo.jpg',
+        mimeType: 'image/jpeg',
+        bytes: Uint8List.fromList([1]),
+      );
+
+      final results = await service.bulkStreamingUpload([asset]).toList();
+
+      expect(results, hasLength(1));
+      expect(results.first.success, isFalse);
+      expect(results.first.errorMessage, equals('checksum mismatch'));
+    });
+
+    test('results are yielded in server arrival order', () async {
+      final data = Uint8List.fromList([1]);
+      final service = makeService(
+        responses: [
+          BulkUploadFileResult(objectId: 'a.jpg', success: true),
+          BulkUploadFileResult(
+            objectId: 'b.jpg',
+            success: false,
+            errorMessage: 'err',
+          ),
+          BulkUploadFileResult(objectId: 'c.jpg', success: true),
+        ],
+      );
+      final assets = [
+        makeAsset(id: '1', title: 'a.jpg', mimeType: 'image/jpeg', bytes: data),
+        makeAsset(id: '2', title: 'b.jpg', mimeType: 'image/jpeg', bytes: data),
+        makeAsset(id: '3', title: 'c.jpg', mimeType: 'image/jpeg', bytes: data),
+      ];
+
+      final results = await service.bulkStreamingUpload(assets).toList();
+
+      expect(
+        results.map((r) => r.objectId).toList(),
+        equals(['a.jpg', 'b.jpg', 'c.jpg']),
+      );
+      expect(results[1].success, isFalse);
+    });
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Test helpers
+// ---------------------------------------------------------------------------
+
+class MockAssetEntity extends Mock implements AssetEntity {}
+
+/// A testable subclass of [UploadService] that overrides [makeBulkUploadCall]
+/// so tests can control the response stream and capture request messages
+/// without a real gRPC channel.
+class _TestableUploadService extends UploadService {
+  final Future<void> Function(Stream<StreamingUploadRequest>) onCall;
+  final Stream<BulkUploadFileResult> responseStream;
+
+  _TestableUploadService({
+    required this.onCall,
+    required this.responseStream,
+    super.chunkSize,
+  }) : super(host: 'localhost');
+
+  @override
+  Stream<BulkUploadFileResult> makeBulkUploadCall(
+    Stream<StreamingUploadRequest> requests,
+  ) {
+    // Drain the request stream in the background so the sender goroutine
+    // doesn't block, and let the caller observe via [onCall].
+    onCall(requests);
+    return responseStream;
+  }
 }

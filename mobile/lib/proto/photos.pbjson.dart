@@ -501,6 +501,7 @@ const StreamingUploadRequest$json = {
       '10': 'metadata'
     },
     {'1': 'chunk', '3': 2, '4': 1, '5': 12, '9': 0, '10': 'chunk'},
+    {'1': 'end_of_file', '3': 3, '4': 1, '5': 8, '9': 0, '10': 'endOfFile'},
   ],
   '8': [
     {'1': 'data'},
@@ -510,7 +511,32 @@ const StreamingUploadRequest$json = {
 /// Descriptor for `StreamingUploadRequest`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List streamingUploadRequestDescriptor = $convert.base64Decode(
     'ChZTdHJlYW1pbmdVcGxvYWRSZXF1ZXN0EjMKCG1ldGFkYXRhGAEgASgLMhUucGhvdG9zLlBob3'
-    'RvTWV0YWRhdGFIAFIIbWV0YWRhdGESFgoFY2h1bmsYAiABKAxIAFIFY2h1bmtCBgoEZGF0YQ==');
+    'RvTWV0YWRhdGFIAFIIbWV0YWRhdGESFgoFY2h1bmsYAiABKAxIAFIFY2h1bmsSIAoLZW5kX29m'
+    'X2ZpbGUYAyABKAhIAFIJZW5kT2ZGaWxlQgYKBGRhdGE=');
+
+@$core.Deprecated('Use bulkUploadFileResultDescriptor instead')
+const BulkUploadFileResult$json = {
+  '1': 'BulkUploadFileResult',
+  '2': [
+    {'1': 'object_id', '3': 1, '4': 1, '5': 9, '10': 'objectId'},
+    {'1': 'success', '3': 2, '4': 1, '5': 8, '10': 'success'},
+    {
+      '1': 'photo',
+      '3': 3,
+      '4': 1,
+      '5': 11,
+      '6': '.photos.Photo',
+      '10': 'photo'
+    },
+    {'1': 'error_message', '3': 4, '4': 1, '5': 9, '10': 'errorMessage'},
+  ],
+};
+
+/// Descriptor for `BulkUploadFileResult`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List bulkUploadFileResultDescriptor = $convert.base64Decode(
+    'ChRCdWxrVXBsb2FkRmlsZVJlc3VsdBIbCglvYmplY3RfaWQYASABKAlSCG9iamVjdElkEhgKB3'
+    'N1Y2Nlc3MYAiABKAhSB3N1Y2Nlc3MSIwoFcGhvdG8YAyABKAsyDS5waG90b3MuUGhvdG9SBXBo'
+    'b3RvEiMKDWVycm9yX21lc3NhZ2UYBCABKAlSDGVycm9yTWVzc2FnZQ==');
 
 @$core.Deprecated('Use photoMetadataDescriptor instead')
 const PhotoMetadata$json = {

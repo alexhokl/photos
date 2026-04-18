@@ -1,6 +1,6 @@
 import 'dart:async';
-import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart';
 import 'package:grpc/grpc.dart';
 import 'package:photo_manager/photo_manager.dart';
 import 'package:photos/proto/photos.pbgrpc.dart';
@@ -170,6 +170,100 @@ class UploadService {
 
     // Wait for the response
     return await responseFuture;
+  }
+
+  /// Upload multiple photo assets using a single BulkStreamingUpload gRPC call.
+  ///
+  /// Yields a [BulkUploadFileResult] for each file as its upload and database
+  /// entry creation completes on the server — without waiting for the full batch.
+  ///
+  /// If [directoryPrefix] is provided, all photos are uploaded to that directory.
+  Stream<BulkUploadFileResult> bulkStreamingUpload(
+    List<AssetEntity> assets, {
+    String? directoryPrefix,
+  }) async* {
+    _ensureInitialized();
+
+    final requestController = StreamController<StreamingUploadRequest>();
+
+    // Open a single BulkStreamingUpload call for the entire batch.
+    final responseStream = makeBulkUploadCall(requestController.stream);
+
+    // Send all asset data on the request stream in the background.
+    // We do not await this future here; the response stream is yielded
+    // concurrently so results arrive as each file completes on the server.
+    _sendAllAssets(
+      requestController,
+      assets,
+      directoryPrefix: directoryPrefix,
+    ).whenComplete(() => requestController.close());
+
+    // Yield each BulkUploadFileResult as it arrives from the server.
+    await for (final result in responseStream) {
+      yield result;
+    }
+  }
+
+  /// Wraps the underlying gRPC [bulkStreamingUpload] call.
+  ///
+  /// Exposed for testing only — override in a test subclass to provide a
+  /// controlled response stream without a real gRPC channel.
+  @visibleForTesting
+  Stream<BulkUploadFileResult> makeBulkUploadCall(
+    Stream<StreamingUploadRequest> requests,
+  ) => _client!.bulkStreamingUpload(requests);
+
+  /// Sends all [assets] as metadata + chunk + end_of_file sequences on [controller].
+  Future<void> _sendAllAssets(
+    StreamController<StreamingUploadRequest> controller,
+    List<AssetEntity> assets, {
+    String? directoryPrefix,
+  }) async {
+    for (final asset in assets) {
+      final Uint8List? data = await asset.originBytes;
+      if (data == null) {
+        // Skip assets whose bytes cannot be read; the server will never see
+        // a result for this file, so callers should account for fewer results
+        // than assets when this occurs.
+        continue;
+      }
+
+      final mimeType = asset.mimeType ?? 'image/jpeg';
+      final filename = asset.title ?? '${asset.id}.jpg';
+
+      String objectId;
+      if (directoryPrefix != null && directoryPrefix.isNotEmpty) {
+        final normalizedPrefix = directoryPrefix.endsWith('/')
+            ? directoryPrefix
+            : '$directoryPrefix/';
+        objectId = '$normalizedPrefix$filename';
+      } else {
+        objectId = filename;
+      }
+
+      // Send metadata message.
+      controller.add(
+        StreamingUploadRequest(
+          metadata: PhotoMetadata(filename: objectId, contentType: mimeType),
+        ),
+      );
+
+      // Send file data in chunks.
+      final totalBytes = data.length;
+      int bytesSent = 0;
+      while (bytesSent < totalBytes) {
+        final end = (bytesSent + chunkSize > totalBytes)
+            ? totalBytes
+            : bytesSent + chunkSize;
+        controller.add(
+          StreamingUploadRequest(chunk: data.sublist(bytesSent, end)),
+        );
+        bytesSent = end;
+      }
+
+      // Send end_of_file sentinel to tell the server this file is complete.
+      controller.add(StreamingUploadRequest(endOfFile: true));
+    }
   }
 
   /// Upload multiple photo assets to the cloud

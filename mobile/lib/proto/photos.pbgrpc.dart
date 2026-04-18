@@ -59,6 +59,18 @@ class ByteServiceClient extends $grpc.Client {
         .single;
   }
 
+  /// BulkStreamingUpload uploads multiple photos using a single bidirectional stream.
+  /// Files are delimited by end_of_file sentinels in the request stream.
+  /// A BulkUploadFileResult is streamed back for each file as it completes,
+  /// without waiting for all files in the batch to finish.
+  $grpc.ResponseStream<$0.BulkUploadFileResult> bulkStreamingUpload(
+    $async.Stream<$0.StreamingUploadRequest> request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createStreamingCall(_$bulkStreamingUpload, request,
+        options: options);
+  }
+
   /// StreamingDownload downloads a photo using server-side streaming for large files
   $grpc.ResponseStream<$0.StreamingDownloadResponse> streamingDownload(
     $0.StreamingDownloadRequest request, {
@@ -86,6 +98,11 @@ class ByteServiceClient extends $grpc.Client {
           '/photos.ByteService/StreamingUpload',
           ($0.StreamingUploadRequest value) => value.writeToBuffer(),
           $0.UploadResponse.fromBuffer);
+  static final _$bulkStreamingUpload =
+      $grpc.ClientMethod<$0.StreamingUploadRequest, $0.BulkUploadFileResult>(
+          '/photos.ByteService/BulkStreamingUpload',
+          ($0.StreamingUploadRequest value) => value.writeToBuffer(),
+          $0.BulkUploadFileResult.fromBuffer);
   static final _$streamingDownload = $grpc.ClientMethod<
           $0.StreamingDownloadRequest, $0.StreamingDownloadResponse>(
       '/photos.ByteService/StreamingDownload',
@@ -121,6 +138,15 @@ abstract class ByteServiceBase extends $grpc.Service {
             ($core.List<$core.int> value) =>
                 $0.StreamingUploadRequest.fromBuffer(value),
             ($0.UploadResponse value) => value.writeToBuffer()));
+    $addMethod(
+        $grpc.ServiceMethod<$0.StreamingUploadRequest, $0.BulkUploadFileResult>(
+            'BulkStreamingUpload',
+            bulkStreamingUpload,
+            true,
+            true,
+            ($core.List<$core.int> value) =>
+                $0.StreamingUploadRequest.fromBuffer(value),
+            ($0.BulkUploadFileResult value) => value.writeToBuffer()));
     $addMethod($grpc.ServiceMethod<$0.StreamingDownloadRequest,
             $0.StreamingDownloadResponse>(
         'StreamingDownload',
@@ -149,6 +175,9 @@ abstract class ByteServiceBase extends $grpc.Service {
       $grpc.ServiceCall call, $0.DownloadRequest request);
 
   $async.Future<$0.UploadResponse> streamingUpload(
+      $grpc.ServiceCall call, $async.Stream<$0.StreamingUploadRequest> request);
+
+  $async.Stream<$0.BulkUploadFileResult> bulkStreamingUpload(
       $grpc.ServiceCall call, $async.Stream<$0.StreamingUploadRequest> request);
 
   $async.Stream<$0.StreamingDownloadResponse> streamingDownload_Pre(
