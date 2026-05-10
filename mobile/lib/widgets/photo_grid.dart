@@ -494,30 +494,26 @@ class PhotoGridState extends State<PhotoGrid> {
     final uploadService = UploadService(
       host: config.host,
       port: config.port,
-      uploadTimeout: Duration(seconds: config.uploadTimeoutSeconds),
+      baseUploadTimeout: Duration(seconds: config.uploadTimeoutSeconds),
     );
 
-    try {
-      // Show upload progress dialog
-      if (!mounted) return;
+    if (!mounted) return;
 
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (dialogContext) => _UploadProgressDialog(
-          photos: selectedPhotos,
-          uploadService: uploadService,
-          directoryPrefix: config.defaultDirectory,
-          deleteAfterUpload: config.deleteAfterUpload,
-          onComplete: (results) {
-            Navigator.pop(dialogContext);
-            _showUploadResults(results, config.deleteAfterUpload);
-          },
-        ),
-      );
-    } finally {
-      await uploadService.dispose();
-    }
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => _UploadProgressDialog(
+        photos: selectedPhotos,
+        uploadService: uploadService,
+        directoryPrefix: config.defaultDirectory,
+        deleteAfterUpload: config.deleteAfterUpload,
+        onComplete: (results) async {
+          await uploadService.dispose();
+          Navigator.pop(dialogContext);
+          _showUploadResults(results, config.deleteAfterUpload);
+        },
+      ),
+    );
   }
 
   Future<void> _showUploadToDialog() async {
@@ -554,30 +550,26 @@ class PhotoGridState extends State<PhotoGrid> {
     final uploadService = UploadService(
       host: config.host,
       port: config.port,
-      uploadTimeout: Duration(seconds: config.uploadTimeoutSeconds),
+      baseUploadTimeout: Duration(seconds: config.uploadTimeoutSeconds),
     );
 
-    try {
-      // Show upload progress dialog
-      if (!mounted) return;
+    if (!mounted) return;
 
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (dialogContext) => _UploadProgressDialog(
-          photos: selectedPhotos,
-          uploadService: uploadService,
-          directoryPrefix: directory,
-          deleteAfterUpload: config.deleteAfterUpload,
-          onComplete: (results) {
-            Navigator.pop(dialogContext);
-            _showUploadResults(results, config.deleteAfterUpload);
-          },
-        ),
-      );
-    } finally {
-      await uploadService.dispose();
-    }
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => _UploadProgressDialog(
+        photos: selectedPhotos,
+        uploadService: uploadService,
+        directoryPrefix: directory,
+        deleteAfterUpload: config.deleteAfterUpload,
+        onComplete: (results) async {
+          await uploadService.dispose();
+          Navigator.pop(dialogContext);
+          _showUploadResults(results, config.deleteAfterUpload);
+        },
+      ),
+    );
   }
 
   void _showUploadResults(List<UploadResult> results, bool deleteAfterUpload) {

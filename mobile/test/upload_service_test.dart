@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -187,7 +188,7 @@ void main() {
         expect(service.host, equals('localhost'));
         expect(service.port, equals(50051));
         expect(service.chunkSize, equals(64 * 1024));
-        expect(service.uploadTimeout, equals(const Duration(seconds: 30)));
+        expect(service.baseUploadTimeout, equals(const Duration(seconds: 30)));
       });
 
       test('creates service with custom host and port', () {
@@ -205,10 +206,10 @@ void main() {
 
       test('creates service with custom upload timeout', () {
         final service = UploadService(
-          uploadTimeout: const Duration(seconds: 60),
+          baseUploadTimeout: const Duration(seconds: 60),
         );
 
-        expect(service.uploadTimeout, equals(const Duration(seconds: 60)));
+        expect(service.baseUploadTimeout, equals(const Duration(seconds: 60)));
       });
 
       test('creates service with all custom values', () {
@@ -216,13 +217,13 @@ void main() {
           host: 'custom.host.com',
           port: 9000,
           chunkSize: 32 * 1024,
-          uploadTimeout: const Duration(minutes: 2),
+          baseUploadTimeout: const Duration(minutes: 2),
         );
 
         expect(service.host, equals('custom.host.com'));
         expect(service.port, equals(9000));
         expect(service.chunkSize, equals(32 * 1024));
-        expect(service.uploadTimeout, equals(const Duration(minutes: 2)));
+        expect(service.baseUploadTimeout, equals(const Duration(minutes: 2)));
       });
     });
 
@@ -303,35 +304,35 @@ void main() {
     });
 
     group('default timeout constant', () {
-      test('default timeout is 30 seconds', () {
+      test('default base timeout is 30 seconds', () {
         final service = UploadService();
 
-        expect(service.uploadTimeout.inSeconds, equals(30));
-        expect(service.uploadTimeout, equals(const Duration(seconds: 30)));
+        expect(service.baseUploadTimeout.inSeconds, equals(30));
+        expect(service.baseUploadTimeout, equals(const Duration(seconds: 30)));
       });
 
-      test('custom timeout overrides default', () {
+      test('custom base timeout overrides default', () {
         const customTimeout = Duration(seconds: 45);
-        final service = UploadService(uploadTimeout: customTimeout);
+        final service = UploadService(baseUploadTimeout: customTimeout);
 
-        expect(service.uploadTimeout, equals(customTimeout));
-        expect(service.uploadTimeout.inSeconds, equals(45));
+        expect(service.baseUploadTimeout, equals(customTimeout));
+        expect(service.baseUploadTimeout.inSeconds, equals(45));
       });
 
-      test('timeout can be set to very short duration for testing', () {
+      test('base timeout can be set to very short duration for testing', () {
         const shortTimeout = Duration(milliseconds: 100);
-        final service = UploadService(uploadTimeout: shortTimeout);
+        final service = UploadService(baseUploadTimeout: shortTimeout);
 
-        expect(service.uploadTimeout, equals(shortTimeout));
-        expect(service.uploadTimeout.inMilliseconds, equals(100));
+        expect(service.baseUploadTimeout, equals(shortTimeout));
+        expect(service.baseUploadTimeout.inMilliseconds, equals(100));
       });
 
-      test('timeout can be set to longer duration', () {
+      test('base timeout can be set to longer duration', () {
         const longTimeout = Duration(minutes: 5);
-        final service = UploadService(uploadTimeout: longTimeout);
+        final service = UploadService(baseUploadTimeout: longTimeout);
 
-        expect(service.uploadTimeout, equals(longTimeout));
-        expect(service.uploadTimeout.inMinutes, equals(5));
+        expect(service.baseUploadTimeout, equals(longTimeout));
+        expect(service.baseUploadTimeout.inMinutes, equals(5));
       });
     });
 
@@ -637,7 +638,24 @@ void main() {
       when(() => asset.id).thenReturn(id);
       when(() => asset.title).thenReturn(title);
       when(() => asset.mimeType).thenReturn(mimeType);
-      when(() => asset.originBytes).thenAnswer((_) async => bytes);
+
+      if (bytes == null) {
+        // Simulate asset whose file cannot be resolved (originFile returns null).
+        when(
+          () => asset.originFile,
+        ).thenAnswer((_) async => null);
+      } else {
+        // Write bytes to a temp file so _sendAllAssets can stream from disk.
+        final tempFile = File(
+          '${Directory.systemTemp.path}/upload_test_${id}_${DateTime.now().microsecondsSinceEpoch}.bin',
+        );
+        tempFile.writeAsBytesSync(bytes);
+        addTearDown(tempFile.deleteSync);
+        when(
+          () => asset.originFile,
+        ).thenAnswer((_) async => tempFile);
+      }
+
       return asset;
     }
 
@@ -654,7 +672,7 @@ void main() {
     );
 
     test(
-      'asset with null bytes is skipped — no requests sent for it',
+      'asset with null file is skipped — no requests sent for it',
       () async {
         final service = makeService();
         final asset = makeAsset(id: 'a1', title: 'photo.jpg', bytes: null);
@@ -848,7 +866,7 @@ void main() {
     });
 
     test(
-      'asset with null bytes among valid assets: null asset skipped, others processed',
+      'asset with null file among valid assets: null asset skipped, others processed',
       () async {
         final service = makeService(
           responses: [

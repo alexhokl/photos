@@ -1,15 +1,22 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:grpc/grpc.dart';
 import 'package:photo_manager/photo_manager.dart';
 import 'package:photos/proto/photos.pbgrpc.dart';
-
 /// Default chunk size for streaming uploads (64 KB)
 const int _defaultChunkSize = 64 * 1024;
 
-/// Default timeout for each photo upload (30 seconds)
-const Duration _defaultUploadTimeout = Duration(seconds: 30);
+/// Base timeout added to the size-adaptive component for each upload.
+/// Covers connection setup, metadata exchange, and server-side write latency.
+const Duration _defaultBaseUploadTimeout = Duration(seconds: 30);
+
+/// Assumed upload throughput used for the adaptive timeout calculation.
+/// Set conservatively at 1 MB/s to account for slow uplinks and Tailscale
+/// overhead. The actual timeout scales linearly with file size on top of
+/// [_defaultBaseUploadTimeout].
+const int _assumedBytesPerSecond = 1 * 1024 * 1024; // 1 MB/s
 
 /// Service for uploading photos to the cloud via gRPC
 class UploadService {
@@ -26,14 +33,16 @@ class UploadService {
   /// Chunk size for streaming uploads in bytes
   final int chunkSize;
 
-  /// Timeout for each individual photo upload
-  final Duration uploadTimeout;
+  /// Base timeout added to the size-adaptive component for each upload.
+  /// The effective per-file timeout is:
+  ///   baseUploadTimeout + (fileSizeBytes / _assumedBytesPerSecond)
+  final Duration baseUploadTimeout;
 
   UploadService({
     this.host = _defaultHost,
     this.port = _defaultPort,
     this.chunkSize = _defaultChunkSize,
-    this.uploadTimeout = _defaultUploadTimeout,
+    this.baseUploadTimeout = _defaultBaseUploadTimeout,
   });
 
   /// Determine if a secure (TLS) connection is required based on the host.
@@ -81,11 +90,13 @@ class UploadService {
   }) async {
     _ensureInitialized();
 
-    // Get the original file bytes
-    final Uint8List? data = await asset.originBytes;
-    if (data == null) {
+    // Resolve the file from the device without loading it fully into RAM.
+    final File? file = await asset.originFile;
+    if (file == null) {
       throw UploadException('Failed to read photo data');
     }
+
+    final int fileSize = await file.length();
 
     // Determine content type from mime type
     final mimeType = asset.mimeType ?? 'image/jpeg';
@@ -105,18 +116,23 @@ class UploadService {
       objectId = filename;
     }
 
+    // Compute a size-adaptive timeout: base + (fileSize / assumed throughput).
+    final adaptiveTimeout = baseUploadTimeout +
+        Duration(seconds: (fileSize / _assumedBytesPerSecond).ceil());
+
     try {
       final response =
           await _streamingUpload(
             objectId: objectId,
             contentType: mimeType,
-            data: data,
+            fileStream: file.openRead(),
+            fileSize: fileSize,
             onChunkProgress: onChunkProgress,
           ).timeout(
-            uploadTimeout,
+            adaptiveTimeout,
             onTimeout: () {
               throw UploadTimeoutException(
-                'Upload timed out after ${uploadTimeout.inSeconds} seconds',
+                'Upload timed out after ${adaptiveTimeout.inSeconds} seconds',
                 objectId: objectId,
               );
             },
@@ -129,11 +145,16 @@ class UploadService {
     }
   }
 
-  /// Perform a streaming upload to the server
+  /// Perform a streaming upload to the server.
+  ///
+  /// [fileStream] is read chunk-by-chunk so the entire file is never held in
+  /// memory at once. OS buffers from [fileStream] are accumulated until
+  /// [chunkSize] bytes are ready, then sent as a single gRPC message.
   Future<UploadResponse> _streamingUpload({
     required String objectId,
     required String contentType,
-    required Uint8List data,
+    required Stream<List<int>> fileStream,
+    required int fileSize,
     void Function(int bytesSent, int totalBytes)? onChunkProgress,
   }) async {
     // Create a stream controller for sending requests
@@ -143,26 +164,43 @@ class UploadService {
     final responseFuture = _client!.streamingUpload(controller.stream);
 
     // Send metadata as the first message
-    final metadataRequest = StreamingUploadRequest(
-      metadata: PhotoMetadata(filename: objectId, contentType: contentType),
+    controller.add(
+      StreamingUploadRequest(
+        metadata: PhotoMetadata(filename: objectId, contentType: contentType),
+      ),
     );
-    controller.add(metadataRequest);
 
-    // Send data in chunks
-    final totalBytes = data.length;
+    // Read the file stream and forward in fixed-size chunks to the server.
+    // We accumulate OS-level read buffers (typically 64 KB each from dart:io)
+    // into [pending] until we have a full [chunkSize] worth of data, then
+    // flush it as a single gRPC message. This keeps peak RSS bounded to ~2x
+    // chunkSize regardless of the file size.
     int bytesSent = 0;
+    final pending = BytesBuilder(copy: false);
 
-    while (bytesSent < totalBytes) {
-      final end = (bytesSent + chunkSize > totalBytes)
-          ? totalBytes
-          : bytesSent + chunkSize;
-      final chunk = data.sublist(bytesSent, end);
+    await for (final buffer in fileStream) {
+      pending.add(buffer);
 
-      final chunkRequest = StreamingUploadRequest(chunk: chunk);
-      controller.add(chunkRequest);
+      while (pending.length >= chunkSize) {
+        final bytes = pending.takeBytes();
+        // Send exactly chunkSize and put any remainder back.
+        final chunk = bytes.sublist(0, chunkSize);
+        controller.add(StreamingUploadRequest(chunk: chunk));
+        bytesSent += chunkSize;
+        onChunkProgress?.call(bytesSent, fileSize);
 
-      bytesSent = end;
-      onChunkProgress?.call(bytesSent, totalBytes);
+        if (bytes.length > chunkSize) {
+          pending.add(bytes.sublist(chunkSize));
+        }
+      }
+    }
+
+    // Flush any remaining bytes that did not fill a full chunk.
+    if (pending.length > 0) {
+      final remaining = pending.takeBytes();
+      controller.add(StreamingUploadRequest(chunk: remaining));
+      bytesSent += remaining.length;
+      onChunkProgress?.call(bytesSent, fileSize);
     }
 
     // Close the stream to signal completion
@@ -214,15 +252,18 @@ class UploadService {
   ) => _client!.bulkStreamingUpload(requests);
 
   /// Sends all [assets] as metadata + chunk + end_of_file sequences on [controller].
+  ///
+  /// Files are read from disk in streaming fashion so that the full content of
+  /// a large video is never loaded into RAM simultaneously.
   Future<void> _sendAllAssets(
     StreamController<StreamingUploadRequest> controller,
     List<AssetEntity> assets, {
     String? directoryPrefix,
   }) async {
     for (final asset in assets) {
-      final Uint8List? data = await asset.originBytes;
-      if (data == null) {
-        // Skip assets whose bytes cannot be read; the server will never see
+      final File? file = await asset.originFile;
+      if (file == null) {
+        // Skip assets whose file cannot be resolved; the server will never see
         // a result for this file, so callers should account for fewer results
         // than assets when this occurs.
         continue;
@@ -248,17 +289,25 @@ class UploadService {
         ),
       );
 
-      // Send file data in chunks.
-      final totalBytes = data.length;
-      int bytesSent = 0;
-      while (bytesSent < totalBytes) {
-        final end = (bytesSent + chunkSize > totalBytes)
-            ? totalBytes
-            : bytesSent + chunkSize;
-        controller.add(
-          StreamingUploadRequest(chunk: data.sublist(bytesSent, end)),
-        );
-        bytesSent = end;
+      // Stream file data in fixed-size chunks to keep memory usage bounded.
+      final pending = BytesBuilder(copy: false);
+      await for (final buffer in file.openRead()) {
+        pending.add(buffer);
+
+        while (pending.length >= chunkSize) {
+          final bytes = pending.takeBytes();
+          controller.add(
+            StreamingUploadRequest(chunk: bytes.sublist(0, chunkSize)),
+          );
+          if (bytes.length > chunkSize) {
+            pending.add(bytes.sublist(chunkSize));
+          }
+        }
+      }
+
+      // Flush remainder.
+      if (pending.length > 0) {
+        controller.add(StreamingUploadRequest(chunk: pending.takeBytes()));
       }
 
       // Send end_of_file sentinel to tell the server this file is complete.
