@@ -124,3 +124,37 @@ func TestGenerateWebP_OutOfRangeQualityClamped(t *testing.T) {
 		})
 	}
 }
+
+func TestIsDerivedObjectID(t *testing.T) {
+	tests := []struct {
+		objectID string
+		expected bool
+	}{
+		// preview JPEGs from DNG processing
+		{"IMG_001_preview.jpg", true},
+		{"a/b/IMG_001_preview.jpg", true},
+		{"A/B/IMG_001_PREVIEW.JPG", true},
+		// video thumbnails
+		{"clip_thumb.jpg", true},
+		{"a/b/clip_thumb.jpg", true},
+		{"A/B/CLIP_THUMB.JPG", true},
+		// original uploads — must not be treated as derived
+		{"photo.jpg", false},
+		{"a/b/image.jpeg", false},
+		{"a/b/image.png", false},
+		{"a/b/image.webp", false},
+		{"preview.jpg", false},          // "preview" without underscore prefix
+		{"thumb.jpg", false},            // "thumb" without underscore prefix
+		{"my_preview_shot.jpg", false},  // contains "_preview" but not as suffix
+		{"my_thumbnail.jpg", false},     // contains "thumb" mid-name but not _thumb.jpg suffix
+		{"", false},
+	}
+	for _, test := range tests {
+		t.Run(test.objectID, func(t *testing.T) {
+			result := isDerivedObjectID(test.objectID)
+			if result != test.expected {
+				t.Errorf("isDerivedObjectID(%q) = %v, want %v", test.objectID, result, test.expected)
+			}
+		})
+	}
+}
