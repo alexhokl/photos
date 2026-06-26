@@ -27,6 +27,7 @@ type PhotoObject struct {
 	TimeTaken         *time.Time `gorm:""`
 	DurationSeconds   *float64   `gorm:""`
 	ThumbnailObjectID *string    `gorm:""`
+	WebpObjectID      *string    `gorm:""`
 }
 
 type PhotoDirectory struct {

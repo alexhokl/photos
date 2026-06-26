@@ -1033,6 +1033,10 @@
         "thumbnailObjectId": {
           "type": "string",
           "title": "Object ID of the thumbnail image (for videos)"
+        },
+        "webpObjectId": {
+          "type": "string",
+          "title": "Object ID of the generated WebP version (for images)"
         }
       },
       "title": "Photo represents a stored photo with metadata"

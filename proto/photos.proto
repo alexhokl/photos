@@ -49,6 +49,8 @@ message Photo {
   bool is_video = 25;
   // Object ID of the thumbnail image (for videos)
   string thumbnail_object_id = 26;
+  // Object ID of the generated WebP version (for images)
+  string webp_object_id = 27;
 }
 
 // UploadRequest contains the photo data to upload

@@ -24,9 +24,10 @@ import (
 
 type BytesServer struct {
 	proto.UnimplementedByteServiceServer
-	DB         *gorm.DB
-	GCSClient  *storage.Client
-	BucketName string
+	DB          *gorm.DB
+	GCSClient   *storage.Client
+	BucketName  string
+	WebPQuality int
 }
 
 // Upload uploads a file to Google Cloud Storage.
@@ -90,6 +91,11 @@ func (s *BytesServer) Upload(ctx context.Context, req *proto.UploadRequest) (*pr
 		uploadDNGPreview(ctx, bucket, data, objectID, photoObject)
 	}
 
+	// For convertible image types, generate a WebP version and upload it to GCS
+	if IsWebPConvertibleContentType(req.GetContentType()) {
+		uploadWebP(ctx, bucket, data, objectID, s.WebPQuality, photoObject)
+	}
+
 	if err := database.CreateOrRestorePhotoObject(s.DB, photoObject); err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to create photo object record: %v", err)
 	}
@@ -131,6 +137,9 @@ func (s *BytesServer) Upload(ctx context.Context, req *proto.UploadRequest) (*pr
 		Aperture:         photoMetadata.Aperture,
 		ExposureTime:     photoMetadata.ExposureTime,
 		LensModel:        photoMetadata.LensModel,
+	}
+	if photoObject.WebpObjectID != nil {
+		photo.WebpObjectId = *photoObject.WebpObjectID
 	}
 
 	return &proto.UploadResponse{
@@ -211,6 +220,47 @@ func uploadDNGPreview(ctx context.Context, bucket *storage.BucketHandle, data []
 	slog.Info("Generated DNG preview",
 		slog.String("object_id", objectID),
 		slog.String("preview_object_id", previewObjectID),
+	)
+}
+
+// uploadWebP generates a WebP version of an image, uploads it to GCS,
+// and sets the WebpObjectID on photoObject.  Errors are logged but not fatal.
+func uploadWebP(ctx context.Context, bucket *storage.BucketHandle, data []byte, objectID string, quality int, photoObject *database.PhotoObject) {
+	webpData, err := GenerateWebP(data, quality)
+	if err != nil {
+		slog.Warn("failed to generate WebP",
+			slog.String("object_id", objectID),
+			slog.String("error", err.Error()),
+		)
+		return
+	}
+
+	webpID := webpObjectID(objectID)
+	webpWriter := bucket.Object(webpID).NewWriter(ctx)
+	webpWriter.ContentType = "image/webp"
+
+	if _, err := webpWriter.Write(webpData); err != nil {
+		_ = webpWriter.Close()
+		slog.Warn("failed to write WebP to GCS",
+			slog.String("object_id", objectID),
+			slog.String("error", err.Error()),
+		)
+		return
+	}
+
+	if err := webpWriter.Close(); err != nil {
+		slog.Warn("failed to close WebP writer",
+			slog.String("object_id", objectID),
+			slog.String("error", err.Error()),
+		)
+		return
+	}
+
+	photoObject.WebpObjectID = &webpID
+
+	slog.Info("Generated WebP",
+		slog.String("object_id", objectID),
+		slog.String("webp_object_id", webpID),
 	)
 }
 
@@ -439,6 +489,11 @@ func (s *BytesServer) StreamingUpload(stream grpc.ClientStreamingServer[proto.St
 		uploadDNGPreview(ctx, bucket, allData, objectID, photoObject)
 	}
 
+	// For convertible image types, generate a WebP version and upload it to GCS
+	if IsWebPConvertibleContentType(contentType) {
+		uploadWebP(ctx, bucket, allData, objectID, s.WebPQuality, photoObject)
+	}
+
 	if err := database.CreateOrRestorePhotoObject(s.DB, photoObject); err != nil {
 		return status.Errorf(codes.Internal, "failed to create photo object record: %v", err)
 	}
@@ -482,6 +537,9 @@ func (s *BytesServer) StreamingUpload(stream grpc.ClientStreamingServer[proto.St
 		Aperture:         photoMetadata.Aperture,
 		ExposureTime:     photoMetadata.ExposureTime,
 		LensModel:        photoMetadata.LensModel,
+	}
+	if photoObject.WebpObjectID != nil {
+		photo.WebpObjectId = *photoObject.WebpObjectID
 	}
 
 	return stream.SendAndClose(&proto.UploadResponse{
@@ -682,6 +740,11 @@ func (s *BytesServer) uploadSingleFile(
 		uploadDNGPreview(ctx, bucket, data, objectID, photoObject)
 	}
 
+	// For convertible image types, generate a WebP version and upload it to GCS.
+	if IsWebPConvertibleContentType(contentType) {
+		uploadWebP(ctx, bucket, data, objectID, s.WebPQuality, photoObject)
+	}
+
 	// Create the database entry immediately — this is the key behaviour: the entry
 	// is written as soon as this file's upload completes, not after the full batch.
 	if err := database.CreateOrRestorePhotoObject(s.DB, photoObject); err != nil {
@@ -725,6 +788,9 @@ func (s *BytesServer) uploadSingleFile(
 		Aperture:         photoMetadata.Aperture,
 		ExposureTime:     photoMetadata.ExposureTime,
 		LensModel:        photoMetadata.LensModel,
+	}
+	if photoObject.WebpObjectID != nil {
+		photo.WebpObjectId = *photoObject.WebpObjectID
 	}
 
 	return &proto.BulkUploadFileResult{

@@ -41,6 +41,7 @@ type serveOptions struct {
 	GCSProject              string
 	GCSCredentials          string
 	GCSPrefix               string
+	WebPQuality             int
 }
 
 var serveOpts serveOptions
@@ -70,6 +71,7 @@ func init() {
 	flags.StringVar(&serveOpts.GCSProject, "gcs-project", "", "Google Cloud project ID (optional, auto-detected if not set)")
 	flags.StringVar(&serveOpts.GCSCredentials, "gcs-credentials", "", "Path to GCS service account credentials JSON file (optional, uses ADC if not set)")
 	flags.StringVar(&serveOpts.GCSPrefix, "gcs-prefix", "", "Object prefix/folder path within the bucket (optional)")
+	flags.IntVar(&serveOpts.WebPQuality, "webp-quality", internal.DefaultWebPQuality, "WebP quality percentage (1-100) for generated WebP images (requires cwebp)")
 
 	_ = viper.BindPFlag("port", flags.Lookup("port"))
 	_ = viper.BindPFlag("proxy_port", flags.Lookup("proxy-port"))
@@ -81,6 +83,7 @@ func init() {
 	_ = viper.BindPFlag("gcs_project", flags.Lookup("gcs-project"))
 	_ = viper.BindPFlag("gcs_credentials", flags.Lookup("gcs-credentials"))
 	_ = viper.BindPFlag("gcs_prefix", flags.Lookup("gcs-prefix"))
+	_ = viper.BindPFlag("webp_quality", flags.Lookup("webp-quality"))
 }
 
 func bindEnvironmentVariablesToServeOptions(cmd *cobra.Command, opts *serveOptions) {
@@ -120,6 +123,11 @@ func bindEnvironmentVariablesToServeOptions(cmd *cobra.Command, opts *serveOptio
 	if opts.GCSPrefix == "" {
 		opts.GCSPrefix = viper.GetString("gcs_prefix")
 	}
+	if !cmd.Flags().Changed("webp-quality") {
+		if v := viper.GetInt("webp_quality"); v != 0 {
+			opts.WebPQuality = v
+		}
+	}
 }
 
 func runServe(cmd *cobra.Command, args []string) error {
@@ -142,7 +150,7 @@ func runServe(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("failed to create GCS client: %w", err)
 	}
-	defer gcsClient.Close()
+	defer func() { _ = gcsClient.Close() }()
 
 	if err := verifyGCSBucket(cmd.Context(), gcsClient, serveOpts.GCSBucket); err != nil {
 		return fmt.Errorf("failed to connect to GCS bucket %q: %w", serveOpts.GCSBucket, err)
@@ -207,14 +215,14 @@ func runServe(cmd *cobra.Command, args []string) error {
 	g, ctx := errgroup.WithContext(ctx)
 
 	// Create gRPC server
-	grpcServer := getGrpcServer(ctx, dbConn, privateServer, gcsClient, serveOpts.GCSBucket)
+	grpcServer := getGrpcServer(ctx, dbConn, privateServer, gcsClient, serveOpts.GCSBucket, serveOpts.WebPQuality)
 
 	// Create HTTP servers for graceful shutdown support
 	fqdn := ""
 	if privateServer != nil {
 		fqdn = privateServer.FQDN()
 	}
-	restfulHandler, err := getRestfulProxyServerHandler(ctx, fqdn, serveOpts.Port)
+	restfulHandler, connCleanup, err := getRestfulProxyServerHandler(ctx, fqdn, serveOpts.Port)
 	if err != nil {
 		return fmt.Errorf("failed to create RESTful proxy server handler: %w", err)
 	}
@@ -250,6 +258,10 @@ func runServe(cmd *cobra.Command, args []string) error {
 		} else {
 			slog.Info("RESTful proxy server stopped gracefully")
 		}
+
+		// Close the gRPC client connection used by the raw bytes handler
+		connCleanup()
+		slog.Info("raw bytes gRPC client connection closed")
 
 		if nonHTTPSServer != nil {
 			if err := nonHTTPSServer.Shutdown(shutdownCtx); err != nil {
@@ -358,10 +370,13 @@ func validateFlags(opts serveOptions) error {
 			return fmt.Errorf("GCS credentials file does not exist: %s", opts.GCSCredentials)
 		}
 	}
+	if opts.WebPQuality < 1 || opts.WebPQuality > 100 {
+		return fmt.Errorf("invalid webp quality: %d (must be between 1 and 100)", opts.WebPQuality)
+	}
 	return nil
 }
 
-func getGrpcServer(_ context.Context, conn *gorm.DB, privateServer *pserver.Server, gcsClient *storage.Client, bucketName string) *grpc.Server {
+func getGrpcServer(_ context.Context, conn *gorm.DB, privateServer *pserver.Server, gcsClient *storage.Client, bucketName string, webPQuality int) *grpc.Server {
 	authenticationInterceptor := internal.DummyAuthenticationInterceptor
 	streamAuthenticationInterceptor := internal.DummyStreamAuthenticationInterceptor
 	if privateServer != nil {
@@ -382,9 +397,10 @@ func getGrpcServer(_ context.Context, conn *gorm.DB, privateServer *pserver.Serv
 	)
 
 	proto.RegisterByteServiceServer(grpcServer, &internal.BytesServer{
-		DB:         conn,
-		GCSClient:  gcsClient,
-		BucketName: bucketName,
+		DB:          conn,
+		GCSClient:   gcsClient,
+		BucketName:  bucketName,
+		WebPQuality: webPQuality,
 	})
 	proto.RegisterLibraryServiceServer(grpcServer, &internal.LibraryServer{
 		DB:         conn,
@@ -395,27 +411,35 @@ func getGrpcServer(_ context.Context, conn *gorm.DB, privateServer *pserver.Serv
 	return grpcServer
 }
 
-func getRestfulProxyServerHandler(ctx context.Context, fqdn string, grpcServerPort int) (http.Handler, error) {
-	mux := runtime.NewServeMux()
+func getRestfulProxyServerHandler(ctx context.Context, fqdn string, grpcServerPort int) (http.Handler, func(), error) {
+	gwMux := runtime.NewServeMux()
 
 	url := "localhost"
 	if requireSecureConnection(fqdn) {
 		url = fqdn
 	}
-	opts := []grpc.DialOption{grpc.WithTransportCredentials(getConnectionCredentials(requireSecureConnection(fqdn)))}
+	opts := []grpc.DialOption{
+		grpc.WithTransportCredentials(getConnectionCredentials(requireSecureConnection(fqdn))),
+		grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(10 * 1024 * 1024)), // 10 MB, matches server MaxSendMsgSize
+	}
 	grpcEndpoint := fmt.Sprintf("%s:%d", url, grpcServerPort)
 
-	err := proto.RegisterByteServiceHandlerFromEndpoint(ctx, mux, grpcEndpoint, opts)
+	err := proto.RegisterByteServiceHandlerFromEndpoint(ctx, gwMux, grpcEndpoint, opts)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	err = proto.RegisterByteServiceHandlerFromEndpoint(ctx, mux, grpcEndpoint, opts)
+	conn, err := grpc.NewClient(grpcEndpoint, opts...)
 	if err != nil {
-		return nil, err
+		return nil, nil, fmt.Errorf("failed to create gRPC client for raw bytes handler: %w", err)
 	}
+	client := proto.NewByteServiceClient(conn)
 
-	return mux, nil
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /v1/photos/bytes/{object_id...}", internal.NewRawBytesHandler(client))
+	mux.Handle("/", gwMux)
+
+	return mux, func() { _ = conn.Close() }, nil
 }
 
 func getGCSClient(ctx context.Context, opts serveOptions) (*storage.Client, error) {

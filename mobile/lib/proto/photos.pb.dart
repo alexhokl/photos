@@ -46,6 +46,7 @@ class Photo extends $pb.GeneratedMessage {
     $core.double? durationSeconds,
     $core.bool? isVideo,
     $core.String? thumbnailObjectId,
+    $core.String? webpObjectId,
   }) {
     final result = create();
     if (objectId != null) result.objectId = objectId;
@@ -74,6 +75,7 @@ class Photo extends $pb.GeneratedMessage {
     if (durationSeconds != null) result.durationSeconds = durationSeconds;
     if (isVideo != null) result.isVideo = isVideo;
     if (thumbnailObjectId != null) result.thumbnailObjectId = thumbnailObjectId;
+    if (webpObjectId != null) result.webpObjectId = webpObjectId;
     return result;
   }
 
@@ -116,6 +118,7 @@ class Photo extends $pb.GeneratedMessage {
     ..aD(24, _omitFieldNames ? '' : 'durationSeconds')
     ..aOB(25, _omitFieldNames ? '' : 'isVideo')
     ..aOS(26, _omitFieldNames ? '' : 'thumbnailObjectId')
+    ..aOS(27, _omitFieldNames ? '' : 'webpObjectId')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -383,6 +386,16 @@ class Photo extends $pb.GeneratedMessage {
   $core.bool hasThumbnailObjectId() => $_has(25);
   @$pb.TagNumber(26)
   void clearThumbnailObjectId() => $_clearField(26);
+
+  /// Object ID of the generated WebP version (for images)
+  @$pb.TagNumber(27)
+  $core.String get webpObjectId => $_getSZ(26);
+  @$pb.TagNumber(27)
+  set webpObjectId($core.String value) => $_setString(26, value);
+  @$pb.TagNumber(27)
+  $core.bool hasWebpObjectId() => $_has(26);
+  @$pb.TagNumber(27)
+  void clearWebpObjectId() => $_clearField(27);
 }
 
 /// UploadRequest contains the photo data to upload

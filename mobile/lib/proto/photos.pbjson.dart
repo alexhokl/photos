@@ -57,6 +57,7 @@ const Photo$json = {
       '5': 9,
       '10': 'thumbnailObjectId'
     },
+    {'1': 'webp_object_id', '3': 27, '4': 1, '5': 9, '10': 'webpObjectId'},
   ],
 };
 
@@ -77,7 +78,7 @@ final $typed_data.Uint8List photoDescriptor = $convert.base64Decode(
     'cG9zdXJlX3RpbWUYFiABKAFSDGV4cG9zdXJlVGltZRIdCgpsZW5zX21vZGVsGBcgASgJUglsZW'
     '5zTW9kZWwSKQoQZHVyYXRpb25fc2Vjb25kcxgYIAEoAVIPZHVyYXRpb25TZWNvbmRzEhkKCGlz'
     'X3ZpZGVvGBkgASgIUgdpc1ZpZGVvEi4KE3RodW1ibmFpbF9vYmplY3RfaWQYGiABKAlSEXRodW'
-    '1ibmFpbE9iamVjdElk');
+    '1ibmFpbE9iamVjdElkEiQKDndlYnBfb2JqZWN0X2lkGBsgASgJUgx3ZWJwT2JqZWN0SWQ=');
 
 @$core.Deprecated('Use uploadRequestDescriptor instead')
 const UploadRequest$json = {
