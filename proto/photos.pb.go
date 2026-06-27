@@ -1416,8 +1416,12 @@ type SyncDatabaseRequest struct {
 	// If true, downloads each photo file to extract EXIF metadata,
 	// updates GCS object metadata, and sets time_taken in the database
 	UpdateMetadata bool `protobuf:"varint,1,opt,name=update_metadata,json=updateMetadata,proto3" json:"update_metadata,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	// Seconds to sleep between per-object metadata updates. Used to reduce CPU
+	// pressure on the server during large syncs. Only effective when
+	// update_metadata is true.
+	PauseBetweenObjectsSeconds uint32 `protobuf:"varint,2,opt,name=pause_between_objects_seconds,json=pauseBetweenObjectsSeconds,proto3" json:"pause_between_objects_seconds,omitempty"`
+	unknownFields              protoimpl.UnknownFields
+	sizeCache                  protoimpl.SizeCache
 }
 
 func (x *SyncDatabaseRequest) Reset() {
@@ -1455,6 +1459,13 @@ func (x *SyncDatabaseRequest) GetUpdateMetadata() bool {
 		return x.UpdateMetadata
 	}
 	return false
+}
+
+func (x *SyncDatabaseRequest) GetPauseBetweenObjectsSeconds() uint32 {
+	if x != nil {
+		return x.PauseBetweenObjectsSeconds
+	}
+	return 0
 }
 
 // StreamingUploadRequest is sent as a stream of chunks for large uploads
@@ -2554,9 +2565,10 @@ const file_proto_photos_proto_rawDesc = "" +
 	"\x06prefix\x18\x01 \x01(\tR\x06prefix\x12\x1c\n" +
 	"\trecursive\x18\x02 \x01(\bR\trecursive\"5\n" +
 	"\x17ListDirectoriesResponse\x12\x1a\n" +
-	"\bprefixes\x18\x01 \x03(\tR\bprefixes\">\n" +
+	"\bprefixes\x18\x01 \x03(\tR\bprefixes\"\x81\x01\n" +
 	"\x13SyncDatabaseRequest\x12'\n" +
-	"\x0fupdate_metadata\x18\x01 \x01(\bR\x0eupdateMetadata\"\x8f\x01\n" +
+	"\x0fupdate_metadata\x18\x01 \x01(\bR\x0eupdateMetadata\x12A\n" +
+	"\x1dpause_between_objects_seconds\x18\x02 \x01(\rR\x1apauseBetweenObjectsSeconds\"\x8f\x01\n" +
 	"\x16StreamingUploadRequest\x123\n" +
 	"\bmetadata\x18\x01 \x01(\v2\x15.photos.PhotoMetadataH\x00R\bmetadata\x12\x16\n" +
 	"\x05chunk\x18\x02 \x01(\fH\x00R\x05chunk\x12 \n" +

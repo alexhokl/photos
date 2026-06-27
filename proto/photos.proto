@@ -185,6 +185,10 @@ message SyncDatabaseRequest {
   // If true, downloads each photo file to extract EXIF metadata,
   // updates GCS object metadata, and sets time_taken in the database
   bool update_metadata = 1;
+  // Seconds to sleep between per-object metadata updates. Used to reduce CPU
+  // pressure on the server during large syncs. Only effective when
+  // update_metadata is true.
+  uint32 pause_between_objects_seconds = 2;
 }
 
 // StreamingUploadRequest is sent as a stream of chunks for large uploads

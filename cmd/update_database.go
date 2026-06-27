@@ -10,6 +10,7 @@ import (
 
 type updateDatabaseOptions struct {
 	updateMetadata bool
+	pauseInSeconds uint32
 }
 
 var updateDatabaseOpts updateDatabaseOptions
@@ -48,6 +49,7 @@ log only — the command prints a single success line on completion.`,
 
 func init() {
 	updateDatabaseCmd.Flags().BoolVar(&updateDatabaseOpts.updateMetadata, "update-metadata", false, "Download each photo to extract EXIF metadata, update GCS object metadata, and set time_taken in the database")
+	updateDatabaseCmd.Flags().Uint32Var(&updateDatabaseOpts.pauseInSeconds, "update-metadata-pause-in-seconds", 0, "Seconds to sleep between per-object metadata updates (reduces CPU pressure; only effective with --update-metadata)")
 	updateCmd.AddCommand(updateDatabaseCmd)
 }
 
@@ -64,7 +66,8 @@ func runUpdateDatabase(cmd *cobra.Command, args []string) error {
 	client := proto.NewLibraryServiceClient(conn)
 
 	req := &proto.SyncDatabaseRequest{
-		UpdateMetadata: updateDatabaseOpts.updateMetadata,
+		UpdateMetadata:             updateDatabaseOpts.updateMetadata,
+		PauseBetweenObjectsSeconds: updateDatabaseOpts.pauseInSeconds,
 	}
 
 	_, err = client.SyncDatabase(cmd.Context(), req)

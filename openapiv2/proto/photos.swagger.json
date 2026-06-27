@@ -1092,6 +1092,11 @@
         "updateMetadata": {
           "type": "boolean",
           "title": "If true, downloads each photo file to extract EXIF metadata,\nupdates GCS object metadata, and sets time_taken in the database"
+        },
+        "pauseBetweenObjectsSeconds": {
+          "type": "integer",
+          "format": "int64",
+          "description": "Seconds to sleep between per-object metadata updates. Used to reduce CPU\npressure on the server during large syncs. Only effective when\nupdate_metadata is true."
         }
       },
       "title": "SyncDatabaseRequest specifies options for database synchronization"

@@ -1817,9 +1817,12 @@ class ListDirectoriesResponse extends $pb.GeneratedMessage {
 class SyncDatabaseRequest extends $pb.GeneratedMessage {
   factory SyncDatabaseRequest({
     $core.bool? updateMetadata,
+    $core.int? pauseBetweenObjectsSeconds,
   }) {
     final result = create();
     if (updateMetadata != null) result.updateMetadata = updateMetadata;
+    if (pauseBetweenObjectsSeconds != null)
+      result.pauseBetweenObjectsSeconds = pauseBetweenObjectsSeconds;
     return result;
   }
 
@@ -1837,6 +1840,8 @@ class SyncDatabaseRequest extends $pb.GeneratedMessage {
       package: const $pb.PackageName(_omitMessageNames ? '' : 'photos'),
       createEmptyInstance: create)
     ..aOB(1, _omitFieldNames ? '' : 'updateMetadata')
+    ..aI(2, _omitFieldNames ? '' : 'pauseBetweenObjectsSeconds',
+        fieldType: $pb.PbFieldType.OU3)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -1868,6 +1873,19 @@ class SyncDatabaseRequest extends $pb.GeneratedMessage {
   $core.bool hasUpdateMetadata() => $_has(0);
   @$pb.TagNumber(1)
   void clearUpdateMetadata() => $_clearField(1);
+
+  /// Seconds to sleep between per-object metadata updates. Used to reduce CPU
+  /// pressure on the server during large syncs. Only effective when
+  /// update_metadata is true.
+  @$pb.TagNumber(2)
+  $core.int get pauseBetweenObjectsSeconds => $_getIZ(1);
+  @$pb.TagNumber(2)
+  set pauseBetweenObjectsSeconds($core.int value) =>
+      $_setUnsignedInt32(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasPauseBetweenObjectsSeconds() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearPauseBetweenObjectsSeconds() => $_clearField(2);
 }
 
 enum StreamingUploadRequest_Data { metadata, chunk, endOfFile, notSet }

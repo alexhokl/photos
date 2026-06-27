@@ -480,13 +480,21 @@ const SyncDatabaseRequest$json = {
   '1': 'SyncDatabaseRequest',
   '2': [
     {'1': 'update_metadata', '3': 1, '4': 1, '5': 8, '10': 'updateMetadata'},
+    {
+      '1': 'pause_between_objects_seconds',
+      '3': 2,
+      '4': 1,
+      '5': 13,
+      '10': 'pauseBetweenObjectsSeconds'
+    },
   ],
 };
 
 /// Descriptor for `SyncDatabaseRequest`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List syncDatabaseRequestDescriptor = $convert.base64Decode(
     'ChNTeW5jRGF0YWJhc2VSZXF1ZXN0EicKD3VwZGF0ZV9tZXRhZGF0YRgBIAEoCFIOdXBkYXRlTW'
-    'V0YWRhdGE=');
+    'V0YWRhdGESQQodcGF1c2VfYmV0d2Vlbl9vYmplY3RzX3NlY29uZHMYAiABKA1SGnBhdXNlQmV0'
+    'd2Vlbk9iamVjdHNTZWNvbmRz');
 
 @$core.Deprecated('Use streamingUploadRequestDescriptor instead')
 const StreamingUploadRequest$json = {

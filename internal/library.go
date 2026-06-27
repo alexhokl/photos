@@ -902,6 +902,7 @@ func (s *LibraryServer) SyncDatabase(ctx context.Context, req *proto.SyncDatabas
 
 	// Update metadata for all objects if requested
 	if updateMetadata {
+		pause := time.Duration(req.GetPauseBetweenObjectsSeconds()) * time.Second
 		for objectID, attrs := range gcsObjects {
 			updated, err := s.updateObjectMetadata(ctx, objectID, attrs, userID)
 			if err != nil {
@@ -913,6 +914,9 @@ func (s *LibraryServer) SyncDatabase(ctx context.Context, req *proto.SyncDatabas
 			}
 			if updated {
 				metadataUpdated++
+				if pause > 0 {
+					time.Sleep(pause)
+				}
 			}
 		}
 	}
