@@ -165,3 +165,185 @@ gcs_project: my-gcp-project
 gcs_credentials: /path/to/credentials.json
 gcs_prefix: photos/
 ```
+
+## REST Proxy
+
+The server exposes a gRPC-gateway REST proxy on port 8081. All endpoints accept
+and return JSON. Examples below assume `PHOTOS_SERVICE=photos.husky-bee.ts.net`
+and use [`xh`](https://github.com/ducaale/xh) as the HTTP client.
+
+**Syntax notes:**
+- `key=value` — JSON string field in request body
+- `key:=value` — raw JSON value (boolean, number, or object) in request body
+- `key==value` — URL query parameter
+- `--output file` — write response body to a file
+
+### Photos
+
+List all photos:
+
+```bash
+xh GET http://photos.husky-bee.ts.net:8081/v1/photos
+```
+
+List photos with optional filters:
+
+```bash
+xh GET http://photos.husky-bee.ts.net:8081/v1/photos \
+  prefix==2024/vacation \
+  pageSize==50 \
+  pageToken==<next-page-token>
+```
+
+Get photo metadata:
+
+```bash
+xh GET http://photos.husky-bee.ts.net:8081/v1/photos/2024/vacation/img001.jpg
+```
+
+Check whether a photo exists:
+
+```bash
+xh GET http://photos.husky-bee.ts.net:8081/v1/photos/2024/vacation/img001.jpg/exists
+```
+
+Delete a photo:
+
+```bash
+xh DELETE http://photos.husky-bee.ts.net:8081/v1/photos/2024/vacation/img001.jpg
+```
+
+Copy a photo:
+
+```bash
+xh POST http://photos.husky-bee.ts.net:8081/v1/photos/2024/vacation/img001.jpg/copy \
+  destinationObjectId=2024/backup/img001.jpg
+```
+
+Rename (move) a photo:
+
+```bash
+xh POST http://photos.husky-bee.ts.net:8081/v1/photos/2024/vacation/img001.jpg/rename \
+  destinationObjectId=2024/vacation/renamed.jpg
+```
+
+Update photo metadata (content type and/or custom key-value pairs):
+
+```bash
+xh PATCH http://photos.husky-bee.ts.net:8081/v1/photos/2024/vacation/img001.jpg/metadata \
+  contentType=image/jpeg \
+  customMetadata:='{"author":"Alice","location":"Paris"}'
+```
+
+Generate a signed URL (valid for 1 hour):
+
+```bash
+xh POST http://photos.husky-bee.ts.net:8081/v1/photos/2024/vacation/img001.jpg/signed-url \
+  expirationSeconds=3600 \
+  method=GET
+```
+
+Generate a thumbnail for a video (capture frame at 5 seconds):
+
+```bash
+xh POST http://photos.husky-bee.ts.net:8081/v1/photos/2024/vacation/clip.mp4/thumbnail \
+  timeOffsetMs:=5000
+```
+
+Generate a JPEG preview for a DNG raw photo:
+
+```bash
+xh POST http://photos.husky-bee.ts.net:8081/v1/photos/2024/vacation/raw.DNG/dng-preview
+```
+
+Sync the database with the GCS bucket:
+
+```bash
+xh POST http://photos.husky-bee.ts.net:8081/v1/photos/sync \
+  updateMetadata:=false
+```
+
+Sync and re-extract EXIF metadata from each photo (slow; pauses 2 s between objects):
+
+```bash
+xh POST http://photos.husky-bee.ts.net:8081/v1/photos/sync \
+  updateMetadata:=true \
+  pauseBetweenObjectsSeconds:=2
+```
+
+### Upload and Download
+
+Upload a photo (image data is base64-encoded inline):
+
+```bash
+xh POST http://photos.husky-bee.ts.net:8081/v1/photos/upload \
+  objectId=2024/vacation/img001.jpg \
+  contentType=image/jpeg \
+  data=$(base64 < photo.jpg)
+```
+
+Download a photo as JSON (image data returned base64-encoded in the `data` field):
+
+```bash
+xh GET http://photos.husky-bee.ts.net:8081/v1/photos/2024/vacation/img001.jpg/download
+```
+
+Download stripping GPS location from EXIF:
+
+```bash
+xh GET http://photos.husky-bee.ts.net:8081/v1/photos/2024/vacation/img001.jpg/download \
+  stripLocation==true
+```
+
+Download raw bytes directly to a file:
+
+```bash
+xh GET http://photos.husky-bee.ts.net:8081/v1/photos/bytes/2024/vacation/img001.jpg \
+  --output img001.jpg
+```
+
+### Directories
+
+List top-level directories:
+
+```bash
+xh GET http://photos.husky-bee.ts.net:8081/v1/directories
+```
+
+List directories under a prefix, recursively:
+
+```bash
+xh GET http://photos.husky-bee.ts.net:8081/v1/directories \
+  prefix==2024/ \
+  recursive==true
+```
+
+Get the `index.md` for a directory:
+
+```bash
+xh GET http://photos.husky-bee.ts.net:8081/v1/directories/2024/vacation/markdown
+```
+
+Create an `index.md` in a directory:
+
+```bash
+xh POST http://photos.husky-bee.ts.net:8081/v1/directories/2024/vacation/markdown \
+  markdown='---
+---
+# Vacation 2024'
+```
+
+Update an existing `index.md`:
+
+```bash
+xh PUT http://photos.husky-bee.ts.net:8081/v1/directories/2024/vacation/markdown \
+  markdown='---
+---
+# Vacation 2024 (updated)'
+```
+
+Delete the `index.md` from a directory:
+
+```bash
+xh DELETE http://photos.husky-bee.ts.net:8081/v1/directories/2024/vacation/markdown
+```
