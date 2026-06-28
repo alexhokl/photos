@@ -1,7 +1,9 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
+	"os"
 
 	"github.com/alexhokl/photos/proto"
 	"github.com/spf13/cobra"
@@ -12,6 +14,7 @@ type listPhotosOptions struct {
 	prefix    string
 	pageSize  int32
 	pageToken string
+	format    string
 }
 
 var listPhotosOpts listPhotosOptions
@@ -30,6 +33,7 @@ func init() {
 	flags.StringVarP(&listPhotosOpts.prefix, "prefix", "p", "", "Filter photos by prefix")
 	flags.Int32Var(&listPhotosOpts.pageSize, "page-size", 0, "Number of photos to return per page")
 	flags.StringVar(&listPhotosOpts.pageToken, "page-token", "", "Token for fetching the next page of results")
+	flags.StringVarP(&listPhotosOpts.format, "format", "f", "text", "Output format: text or json")
 }
 
 func runListPhotos(cmd *cobra.Command, args []string) error {
@@ -57,7 +61,34 @@ func runListPhotos(cmd *cobra.Command, args []string) error {
 
 	photos := resp.GetPhotos()
 	if len(photos) == 0 {
-		fmt.Println("No photos found")
+		if listPhotosOpts.format == "json" {
+			enc := json.NewEncoder(os.Stdout)
+			enc.SetIndent("", "    ")
+			_ = enc.Encode([]string{})
+		} else {
+			fmt.Println("No photos found")
+		}
+		return nil
+	}
+
+	if listPhotosOpts.format == "json" {
+		result := struct {
+			Photos        []string `json:"photos"`
+			NextPageToken string   `json:"next_page_token,omitempty"`
+		}{
+			Photos: make([]string, 0, len(photos)),
+		}
+		for _, photo := range photos {
+			result.Photos = append(result.Photos, photo.GetObjectId())
+		}
+		if nextToken := resp.GetNextPageToken(); nextToken != "" {
+			result.NextPageToken = nextToken
+		}
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		if err := enc.Encode(result); err != nil {
+			return fmt.Errorf("failed to encode JSON: %w", err)
+		}
 		return nil
 	}
 
@@ -65,9 +96,9 @@ func runListPhotos(cmd *cobra.Command, args []string) error {
 		fmt.Println(photo.GetObjectId())
 	}
 
-	if nextToken := resp.GetNextPageToken(); nextToken != "" {
-		fmt.Printf("\nNext page token: %s\n", nextToken)
-	}
+	// if nextToken := resp.GetNextPageToken(); nextToken != "" {
+	// 	fmt.Printf("\nNext page token: %s\n", nextToken)
+	// }
 
 	return nil
 }
