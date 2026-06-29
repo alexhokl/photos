@@ -159,7 +159,8 @@ func (s *LibraryServer) GetPhoto(ctx context.Context, req *proto.GetPhotoRequest
 		ThumbnailObjectId: thumbnailObjectID,
 	}
 
-	slog.Info("Retrieved photo metadata",
+	slog.Info(
+		"Retrieved photo metadata",
 		slog.String("object_id", objectID),
 		slog.Uint64("user_id", uint64(userID)),
 	)
@@ -191,7 +192,8 @@ func (s *LibraryServer) PhotoExists(ctx context.Context, req *proto.PhotoExistsR
 
 	exists := count > 0
 
-	slog.Info("Checked photo existence",
+	slog.Info(
+		"Checked photo existence",
 		slog.String("object_id", objectID),
 		slog.Bool("exists", exists),
 		slog.Uint64("user_id", uint64(userID)),
@@ -277,14 +279,16 @@ func (s *LibraryServer) CopyPhoto(ctx context.Context, req *proto.CopyPhotoReque
 	dir := ExtractDirectoryFromPath(destObjectID)
 	if dir != "" {
 		if err := database.CreateOrRestorePhotoDirectory(s.DB, dir); err != nil {
-			slog.Warn("failed to create photo directory for copy",
+			slog.Warn(
+				"failed to create photo directory for copy",
 				slog.String("path", dir),
 				slog.String("error", err.Error()),
 			)
 		}
 	}
 
-	slog.Info("Copied photo",
+	slog.Info(
+		"Copied photo",
 		slog.String("source", sourceObjectID),
 		slog.String("destination", destObjectID),
 		slog.Uint64("user_id", uint64(userID)),
@@ -382,7 +386,8 @@ func (s *LibraryServer) RenamePhoto(ctx context.Context, req *proto.RenamePhotoR
 	destDir := ExtractDirectoryFromPath(destObjectID)
 	if destDir != "" {
 		if err := database.CreateOrRestorePhotoDirectory(s.DB, destDir); err != nil {
-			slog.Warn("failed to create photo directory for rename",
+			slog.Warn(
+				"failed to create photo directory for rename",
 				slog.String("path", destDir),
 				slog.String("error", err.Error()),
 			)
@@ -392,7 +397,8 @@ func (s *LibraryServer) RenamePhoto(ctx context.Context, req *proto.RenamePhotoR
 	// Delete the source object from GCS
 	if err := srcObj.Delete(ctx); err != nil {
 		if err != storage.ErrObjectNotExist {
-			slog.Warn("failed to delete source photo from storage during rename",
+			slog.Warn(
+				"failed to delete source photo from storage during rename",
 				slog.String("object_id", sourceObjectID),
 				slog.String("error", err.Error()),
 			)
@@ -411,25 +417,29 @@ func (s *LibraryServer) RenamePhoto(ctx context.Context, req *proto.RenamePhotoR
 		if err := s.DB.Model(&database.PhotoObject{}).
 			Where("object_id LIKE ? AND object_id != ?", sourceDir+"/%", sourceObjectID).
 			Count(&count).Error; err != nil {
-			slog.Warn("failed to count photos in source directory during rename",
+			slog.Warn(
+				"failed to count photos in source directory during rename",
 				slog.String("path", sourceDir),
 				slog.String("error", err.Error()),
 			)
 		} else if count == 0 {
 			if err := s.DB.Where("path = ?", sourceDir).Delete(&database.PhotoDirectory{}).Error; err != nil {
-				slog.Warn("failed to delete empty source directory during rename",
+				slog.Warn(
+					"failed to delete empty source directory during rename",
 					slog.String("path", sourceDir),
 					slog.String("error", err.Error()),
 				)
 			} else {
-				slog.Info("Deleted empty directory after rename",
+				slog.Info(
+					"Deleted empty directory after rename",
 					slog.String("path", sourceDir),
 				)
 			}
 		}
 	}
 
-	slog.Info("Renamed photo",
+	slog.Info(
+		"Renamed photo",
 		slog.String("source", sourceObjectID),
 		slog.String("destination", destObjectID),
 		slog.Uint64("user_id", uint64(userID)),
@@ -506,7 +516,8 @@ func (s *LibraryServer) GenerateSignedUrl(ctx context.Context, req *proto.Genera
 		return nil, status.Errorf(codes.Internal, "failed to generate signed URL: %v", err)
 	}
 
-	slog.Info("Generated signed URL",
+	slog.Info(
+		"Generated signed URL",
 		slog.String("object_id", objectID),
 		slog.String("method", method),
 		slog.Int64("expiration_seconds", expirationSeconds),
@@ -701,7 +712,8 @@ func (s *LibraryServer) ListPhotos(ctx context.Context, req *proto.ListPhotosReq
 		nextPageToken = base64.StdEncoding.EncodeToString([]byte(tokenValue))
 	}
 
-	slog.Info("Listed photos",
+	slog.Info(
+		"Listed photos",
 		slog.String("prefix", prefix),
 		slog.Int("count", int(count)),
 		slog.String("page_size", strconv.Itoa(int(pageSize))),
@@ -741,7 +753,8 @@ func (s *LibraryServer) DeletePhoto(ctx context.Context, req *proto.DeletePhotoR
 
 	if err := obj.Delete(ctx); err != nil {
 		if err == storage.ErrObjectNotExist {
-			slog.Warn("photo not found in GCS, continuing with database deletion",
+			slog.Warn(
+				"photo not found in GCS, continuing with database deletion",
 				slog.String("object_id", objectID),
 			)
 		} else {
@@ -766,19 +779,22 @@ func (s *LibraryServer) DeletePhoto(ctx context.Context, req *proto.DeletePhotoR
 		if count == 0 {
 			// This is the last file in the directory, delete the directory record
 			if err := s.DB.Where("path = ?", directoryPath).Delete(&database.PhotoDirectory{}).Error; err != nil {
-				slog.Warn("failed to delete empty directory",
+				slog.Warn(
+					"failed to delete empty directory",
 					slog.String("path", directoryPath),
 					slog.String("error", err.Error()),
 				)
 			} else {
-				slog.Info("Deleted empty directory",
+				slog.Info(
+					"Deleted empty directory",
 					slog.String("path", directoryPath),
 				)
 			}
 		}
 	}
 
-	slog.Info("Deleted photo",
+	slog.Info(
+		"Deleted photo",
 		slog.String("object_id", objectID),
 		slog.Uint64("user_id", uint64(userID)),
 	)
@@ -789,10 +805,28 @@ func (s *LibraryServer) DeletePhoto(ctx context.Context, req *proto.DeletePhotoR
 }
 
 // SyncDatabase syncs the photo database with the storage backend.
-// It adds objects that exist in GCS but not in the database,
-// and removes objects from the database that no longer exist in GCS.
-// If update_metadata is true, it downloads each photo file, extracts EXIF metadata,
-// updates GCS object metadata, and sets time_taken in the database.
+// Derived assets (.webp, _preview.jpg, _thumb.jpg) are excluded from all
+// insertion logic. The sync proceeds in three phases:
+//
+//  1. Add missing objects: any GCS object not already in the database (and not a
+//     derived asset) is inserted as a new PhotoObject. Content type, MD5 hash,
+//     and time_taken (parsed from GCS metadata) are recorded. The parent
+//     PhotoDirectory is created if needed. Soft-deleted records are restored
+//     rather than duplicated.
+//
+//  2. Remove stale objects: any PhotoObject in the database whose ObjectID no
+//     longer exists in GCS is deleted. Additionally, any PhotoObject whose
+//     ObjectID is a derived asset is deleted regardless of GCS state. In both
+//     cases, if the deletion leaves the parent directory empty the corresponding
+//     PhotoDirectory is also deleted.
+//
+//  3. Metadata refresh (update_metadata only): for every GCS object the file is
+//     downloaded, EXIF metadata is extracted, written back to GCS, and
+//     time_taken is updated in the database. DNG files without a JPEG preview
+//     have one generated and stored (thumbnail_object_id). Eligible images
+//     (JPEG, PNG, GIF, DNG-preview) without a WebP rendition have one generated
+//     and stored (webp_object_id). Derived assets are skipped for WebP
+//     generation. This phase is expensive as it downloads every object.
 func (s *LibraryServer) SyncDatabase(ctx context.Context, req *proto.SyncDatabaseRequest) (*emptypb.Empty, error) {
 	userID, ok := ctx.Value(contextKeyUser{}).(uint)
 	if !ok {
@@ -824,6 +858,9 @@ func (s *LibraryServer) SyncDatabase(ctx context.Context, req *proto.SyncDatabas
 
 	// Add objects that exist in GCS but not in DB
 	for objectID, attrs := range gcsObjects {
+		if isDerivedObjectID(objectID) {
+			continue
+		}
 		if _, exists := dbObjectMap[objectID]; !exists {
 			md5Hash := ""
 			if len(attrs.MD5) > 0 {
@@ -847,7 +884,8 @@ func (s *LibraryServer) SyncDatabase(ctx context.Context, req *proto.SyncDatabas
 
 			// Create or restore photo object if soft-deleted
 			if err := database.CreateOrRestorePhotoObject(s.DB, photoObject); err != nil {
-				slog.Warn("failed to create photo object during sync",
+				slog.Warn(
+					"failed to create photo object during sync",
 					slog.String("object_id", objectID),
 					slog.String("error", err.Error()),
 				)
@@ -858,7 +896,8 @@ func (s *LibraryServer) SyncDatabase(ctx context.Context, req *proto.SyncDatabas
 			dir := ExtractDirectoryFromPath(objectID)
 			if dir != "" {
 				if err := database.CreateOrRestorePhotoDirectory(s.DB, dir); err != nil {
-					slog.Warn("failed to create photo directory during sync",
+					slog.Warn(
+						"failed to create photo directory during sync",
 						slog.String("path", dir),
 						slog.String("error", err.Error()),
 					)
@@ -873,7 +912,8 @@ func (s *LibraryServer) SyncDatabase(ctx context.Context, req *proto.SyncDatabas
 	for objectID, photoObject := range dbObjectMap {
 		if _, exists := gcsObjects[objectID]; !exists {
 			if err := s.DB.Delete(&photoObject).Error; err != nil {
-				slog.Warn("failed to delete photo object during sync",
+				slog.Warn(
+					"failed to delete photo object during sync",
 					slog.String("object_id", objectID),
 					slog.String("error", err.Error()),
 				)
@@ -888,7 +928,8 @@ func (s *LibraryServer) SyncDatabase(ctx context.Context, req *proto.SyncDatabas
 					Where("object_id LIKE ?", dir+"/%").
 					Count(&count).Error; err == nil && count == 0 {
 					if err := s.DB.Where("path = ?", dir).Delete(&database.PhotoDirectory{}).Error; err != nil {
-						slog.Warn("failed to delete empty directory during sync",
+						slog.Warn(
+							"failed to delete empty directory during sync",
 							slog.String("path", dir),
 							slog.String("error", err.Error()),
 						)
@@ -900,13 +941,49 @@ func (s *LibraryServer) SyncDatabase(ctx context.Context, req *proto.SyncDatabas
 		}
 	}
 
+	// Remove any derived objects (WebP renditions, DNG previews, video thumbnails)
+	// that exist in the database but should not be tracked as first-class photos.
+	for objectID, photoObject := range dbObjectMap {
+		if !isDerivedObjectID(objectID) {
+			continue
+		}
+		if err := s.DB.Delete(&photoObject).Error; err != nil {
+			slog.Warn(
+				"failed to delete derived photo object during sync",
+				slog.String("object_id", objectID),
+				slog.String("error", err.Error()),
+			)
+			continue
+		}
+
+		// Check if it's the last file in the directory
+		dir := ExtractDirectoryFromPath(objectID)
+		if dir != "" {
+			var count int64
+			if err := s.DB.Model(&database.PhotoObject{}).
+				Where("object_id LIKE ?", dir+"/%").
+				Count(&count).Error; err == nil && count == 0 {
+				if err := s.DB.Where("path = ?", dir).Delete(&database.PhotoDirectory{}).Error; err != nil {
+					slog.Warn(
+						"failed to delete empty directory during sync",
+						slog.String("path", dir),
+						slog.String("error", err.Error()),
+					)
+				}
+			}
+		}
+
+		removed++
+	}
+
 	// Update metadata for all objects if requested
 	if updateMetadata {
 		pause := time.Duration(req.GetPauseBetweenObjectsSeconds()) * time.Second
 		for objectID, attrs := range gcsObjects {
 			updated, err := s.updateObjectMetadata(ctx, objectID, attrs, userID)
 			if err != nil {
-				slog.Warn("failed to update metadata during sync",
+				slog.Warn(
+					"failed to update metadata during sync",
 					slog.String("object_id", objectID),
 					slog.String("error", err.Error()),
 				)
@@ -921,7 +998,8 @@ func (s *LibraryServer) SyncDatabase(ctx context.Context, req *proto.SyncDatabas
 		}
 	}
 
-	slog.Info("Database sync completed",
+	slog.Info(
+		"Database sync completed",
 		slog.Int("added", added),
 		slog.Int("removed", removed),
 		slog.Int("metadata_updated", metadataUpdated),
@@ -993,7 +1071,8 @@ func (s *LibraryServer) updateObjectMetadata(ctx context.Context, objectID strin
 		if photoObject.ThumbnailObjectID == nil || *photoObject.ThumbnailObjectID == "" {
 			generated, err := GenerateDNGPreview(data)
 			if err != nil {
-				slog.Warn("failed to generate DNG preview during sync",
+				slog.Warn(
+					"failed to generate DNG preview during sync",
 					slog.String("object_id", objectID),
 					slog.String("error", err.Error()),
 				)
@@ -1003,24 +1082,28 @@ func (s *LibraryServer) updateObjectMetadata(ctx context.Context, objectID strin
 				previewWriter.ContentType = "image/jpeg"
 				if _, writeErr := previewWriter.Write(generated); writeErr != nil {
 					_ = previewWriter.Close()
-					slog.Warn("failed to write DNG preview during sync",
+					slog.Warn(
+						"failed to write DNG preview during sync",
 						slog.String("object_id", objectID),
 						slog.String("error", writeErr.Error()),
 					)
 				} else if closeErr := previewWriter.Close(); closeErr != nil {
-					slog.Warn("failed to close DNG preview writer during sync",
+					slog.Warn(
+						"failed to close DNG preview writer during sync",
 						slog.String("object_id", objectID),
 						slog.String("error", closeErr.Error()),
 					)
 				} else {
 					if dbErr := s.DB.Model(&photoObject).Update("thumbnail_object_id", previewObjectID).Error; dbErr != nil {
-						slog.Warn("failed to update thumbnail_object_id during sync",
+						slog.Warn(
+							"failed to update thumbnail_object_id during sync",
 							slog.String("object_id", objectID),
 							slog.String("error", dbErr.Error()),
 						)
 					} else {
 						previewData = generated
-						slog.Info("Generated DNG preview during sync",
+						slog.Info(
+							"Generated DNG preview during sync",
 							slog.String("object_id", objectID),
 							slog.String("preview_object_id", previewObjectID),
 						)
@@ -1046,7 +1129,8 @@ func (s *LibraryServer) updateObjectMetadata(ctx context.Context, objectID strin
 			} else if photoObject.ThumbnailObjectID != nil && *photoObject.ThumbnailObjectID != "" {
 				previewReader, err := bucket.Object(*photoObject.ThumbnailObjectID).NewReader(ctx)
 				if err != nil {
-					slog.Warn("failed to read DNG preview for WebP generation during sync",
+					slog.Warn(
+						"failed to read DNG preview for WebP generation during sync",
 						slog.String("object_id", objectID),
 						slog.String("error", err.Error()),
 					)
@@ -1054,7 +1138,8 @@ func (s *LibraryServer) updateObjectMetadata(ctx context.Context, objectID strin
 					srcData, err = io.ReadAll(previewReader)
 					_ = previewReader.Close()
 					if err != nil {
-						slog.Warn("failed to read DNG preview data for WebP generation during sync",
+						slog.Warn(
+							"failed to read DNG preview data for WebP generation during sync",
 							slog.String("object_id", objectID),
 							slog.String("error", err.Error()),
 						)
@@ -1071,7 +1156,8 @@ func (s *LibraryServer) updateObjectMetadata(ctx context.Context, objectID strin
 		}
 	}
 
-	slog.Info("Updated metadata for object",
+	slog.Info(
+		"Updated metadata for object",
 		slog.String("object_id", objectID),
 		slog.Bool("has_date_taken", photoMetadata.HasDateTaken),
 		slog.Bool("has_location", photoMetadata.HasLocation),
@@ -1156,7 +1242,8 @@ func (s *LibraryServer) UpdatePhotoMetadata(ctx context.Context, req *proto.Upda
 		IsVideo:     IsVideoContentType(photoObject.ContentType),
 	}
 
-	slog.Info("Updated photo metadata",
+	slog.Info(
+		"Updated photo metadata",
 		slog.String("object_id", objectID),
 		slog.String("content_type", contentType),
 		slog.Int("custom_metadata_count", len(customMetadata)),
@@ -1269,14 +1356,16 @@ func (s *LibraryServer) CreateMarkdown(ctx context.Context, req *proto.CreateMar
 	dir := ExtractDirectoryFromPath(objectID)
 	if dir != "" {
 		if err := database.CreateOrRestorePhotoDirectory(s.DB, dir); err != nil {
-			slog.Warn("failed to create photo directory for markdown",
+			slog.Warn(
+				"failed to create photo directory for markdown",
 				slog.String("path", dir),
 				slog.String("error", err.Error()),
 			)
 		}
 	}
 
-	slog.Info("Created markdown file",
+	slog.Info(
+		"Created markdown file",
 		slog.String("object_id", objectID),
 		slog.String("prefix", prefix),
 		slog.Uint64("user_id", uint64(userID)),
@@ -1330,7 +1419,8 @@ func (s *LibraryServer) GetMarkdown(ctx context.Context, req *proto.GetMarkdownR
 		return nil, status.Errorf(codes.Internal, "failed to read markdown content: %v", err)
 	}
 
-	slog.Info("Retrieved markdown file",
+	slog.Info(
+		"Retrieved markdown file",
 		slog.String("object_id", objectID),
 		slog.String("prefix", prefix),
 		slog.Uint64("user_id", uint64(userID)),
@@ -1392,7 +1482,8 @@ func (s *LibraryServer) UpdateMarkdown(ctx context.Context, req *proto.UpdateMar
 		return nil, status.Errorf(codes.Internal, "failed to close GCS writer: %v", err)
 	}
 
-	slog.Info("Updated markdown file",
+	slog.Info(
+		"Updated markdown file",
 		slog.String("object_id", objectID),
 		slog.String("prefix", prefix),
 		slog.Uint64("user_id", uint64(userID)),
@@ -1434,7 +1525,8 @@ func (s *LibraryServer) DeleteMarkdown(ctx context.Context, req *proto.DeleteMar
 
 	if err := obj.Delete(ctx); err != nil {
 		if err == storage.ErrObjectNotExist {
-			slog.Warn("markdown file not found in GCS, continuing with database deletion",
+			slog.Warn(
+				"markdown file not found in GCS, continuing with database deletion",
 				slog.String("object_id", objectID),
 			)
 		} else {
@@ -1442,7 +1534,8 @@ func (s *LibraryServer) DeleteMarkdown(ctx context.Context, req *proto.DeleteMar
 		}
 	}
 
-	slog.Info("Deleted markdown file",
+	slog.Info(
+		"Deleted markdown file",
 		slog.String("object_id", objectID),
 		slog.String("prefix", prefix),
 		slog.Uint64("user_id", uint64(userID)),
@@ -1498,7 +1591,8 @@ func (s *LibraryServer) GenerateVideoThumbnail(ctx context.Context, req *proto.G
 				return nil, status.Errorf(codes.Internal, "failed to generate signed URL for existing thumbnail: %v", err)
 			}
 
-			slog.Info("Returned existing video thumbnail",
+			slog.Info(
+				"Returned existing video thumbnail",
 				slog.String("object_id", objectID),
 				slog.String("thumbnail_object_id", *photoObject.ThumbnailObjectID),
 				slog.Uint64("user_id", uint64(userID)),
@@ -1568,7 +1662,8 @@ func (s *LibraryServer) GenerateVideoThumbnail(ctx context.Context, req *proto.G
 		return nil, status.Errorf(codes.Internal, "failed to generate signed URL: %v", err)
 	}
 
-	slog.Info("Generated video thumbnail",
+	slog.Info(
+		"Generated video thumbnail",
 		slog.String("object_id", objectID),
 		slog.String("thumbnail_object_id", thumbnailObjectID),
 		slog.Int64("time_offset_ms", timeOffsetMs),
@@ -1627,7 +1722,8 @@ func (s *LibraryServer) GenerateDNGPreview(ctx context.Context, req *proto.Gener
 				return nil, status.Errorf(codes.Internal, "failed to generate signed URL for existing preview: %v", err)
 			}
 
-			slog.Info("Returned existing DNG preview",
+			slog.Info(
+				"Returned existing DNG preview",
 				slog.String("object_id", objectID),
 				slog.String("thumbnail_object_id", *photoObject.ThumbnailObjectID),
 				slog.Uint64("user_id", uint64(userID)),
@@ -1695,7 +1791,8 @@ func (s *LibraryServer) GenerateDNGPreview(ctx context.Context, req *proto.Gener
 		return nil, status.Errorf(codes.Internal, "failed to generate signed URL: %v", err)
 	}
 
-	slog.Info("Generated DNG preview",
+	slog.Info(
+		"Generated DNG preview",
 		slog.String("object_id", objectID),
 		slog.String("thumbnail_object_id", previewObjectID),
 		slog.Uint64("user_id", uint64(userID)),
@@ -1709,12 +1806,14 @@ func (s *LibraryServer) GenerateDNGPreview(ctx context.Context, req *proto.Gener
 }
 
 // isDerivedObjectID reports whether the object ID belongs to a generated
-// derived asset (DNG JPEG preview or video thumbnail) rather than an original
-// upload.  WebP generation is skipped for these to avoid producing
-// WebP-of-preview artefacts.
+// derived asset (DNG JPEG preview, video thumbnail, or WebP rendition) rather
+// than an original upload.  Derived assets are skipped during database sync and
+// WebP generation to avoid producing artefacts from already-generated files.
 func isDerivedObjectID(objectID string) bool {
 	lower := strings.ToLower(objectID)
-	return strings.HasSuffix(lower, "_preview.jpg") || strings.HasSuffix(lower, "_thumb.jpg")
+	return strings.HasSuffix(lower, "_preview.jpg") ||
+		strings.HasSuffix(lower, "_thumb.jpg") ||
+		strings.HasSuffix(lower, ".webp")
 }
 
 // generateAndRecordWebPForSync generates a WebP from srcData, uploads it to
@@ -1731,7 +1830,8 @@ func (s *LibraryServer) generateAndRecordWebPForSync(
 
 	webpData, err := GenerateWebP(srcData, s.WebPQuality)
 	if err != nil {
-		slog.Warn("failed to generate WebP during sync",
+		slog.Warn(
+			"failed to generate WebP during sync",
 			slog.String("object_id", originalObjectID),
 			slog.String("error", err.Error()),
 		)
@@ -1743,7 +1843,8 @@ func (s *LibraryServer) generateAndRecordWebPForSync(
 
 	if _, err := webpWriter.Write(webpData); err != nil {
 		_ = webpWriter.Close()
-		slog.Warn("failed to write WebP to GCS during sync",
+		slog.Warn(
+			"failed to write WebP to GCS during sync",
 			slog.String("object_id", originalObjectID),
 			slog.String("error", err.Error()),
 		)
@@ -1751,7 +1852,8 @@ func (s *LibraryServer) generateAndRecordWebPForSync(
 	}
 
 	if err := webpWriter.Close(); err != nil {
-		slog.Warn("failed to close WebP writer during sync",
+		slog.Warn(
+			"failed to close WebP writer during sync",
 			slog.String("object_id", originalObjectID),
 			slog.String("error", err.Error()),
 		)
@@ -1759,14 +1861,16 @@ func (s *LibraryServer) generateAndRecordWebPForSync(
 	}
 
 	if err := s.DB.Model(photoObject).Update("webp_object_id", webpID).Error; err != nil {
-		slog.Warn("failed to update webp_object_id during sync",
+		slog.Warn(
+			"failed to update webp_object_id during sync",
 			slog.String("object_id", originalObjectID),
 			slog.String("error", err.Error()),
 		)
 		return
 	}
 
-	slog.Info("Generated WebP during sync",
+	slog.Info(
+		"Generated WebP during sync",
 		slog.String("object_id", originalObjectID),
 		slog.String("webp_object_id", webpID),
 	)

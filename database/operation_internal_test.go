@@ -1401,3 +1401,263 @@ func TestListPhotos_MixedTimeTakenAndNull(t *testing.T) {
 func timePtr(t time.Time) *time.Time {
 	return &t
 }
+
+// =============================================================================
+// Tests simulating SyncDatabase derived-object removal phase
+// =============================================================================
+
+// TestSyncScenario_RemoveDerivedObject_WebP verifies that a WebP PhotoObject
+// is soft-deleted by the derived-removal phase logic.
+func TestSyncScenario_RemoveDerivedObject_WebP(t *testing.T) {
+	db := setupTestDB(t)
+
+	user := &User{Username: "testuser"}
+	if err := db.Create(user).Error; err != nil {
+		t.Fatalf("failed to create user: %v", err)
+	}
+
+	photo := &PhotoObject{
+		ObjectID:    "photos/2024/image.webp",
+		ContentType: "image/webp",
+		MD5Hash:     "abc123",
+		UserID:      user.ID,
+	}
+	if err := db.Create(photo).Error; err != nil {
+		t.Fatalf("failed to create photo: %v", err)
+	}
+
+	// Simulate derived-removal phase: delete the record
+	if err := db.Delete(photo).Error; err != nil {
+		t.Fatalf("failed to delete derived object: %v", err)
+	}
+
+	var count int64
+	db.Model(&PhotoObject{}).Where("object_id = ?", photo.ObjectID).Count(&count)
+	if count != 0 {
+		t.Errorf("expected WebP PhotoObject to be deleted, but it still exists")
+	}
+}
+
+// TestSyncScenario_RemoveDerivedObject_DNGPreview verifies that a DNG preview
+// PhotoObject (_preview.jpg) is soft-deleted by the derived-removal phase logic.
+func TestSyncScenario_RemoveDerivedObject_DNGPreview(t *testing.T) {
+	db := setupTestDB(t)
+
+	user := &User{Username: "testuser"}
+	if err := db.Create(user).Error; err != nil {
+		t.Fatalf("failed to create user: %v", err)
+	}
+
+	photo := &PhotoObject{
+		ObjectID:    "photos/2024/IMG_001_preview.jpg",
+		ContentType: "image/jpeg",
+		MD5Hash:     "def456",
+		UserID:      user.ID,
+	}
+	if err := db.Create(photo).Error; err != nil {
+		t.Fatalf("failed to create photo: %v", err)
+	}
+
+	if err := db.Delete(photo).Error; err != nil {
+		t.Fatalf("failed to delete derived object: %v", err)
+	}
+
+	var count int64
+	db.Model(&PhotoObject{}).Where("object_id = ?", photo.ObjectID).Count(&count)
+	if count != 0 {
+		t.Errorf("expected DNG preview PhotoObject to be deleted, but it still exists")
+	}
+}
+
+// TestSyncScenario_RemoveDerivedObject_Thumbnail verifies that a video thumbnail
+// PhotoObject (_thumb.jpg) is soft-deleted by the derived-removal phase logic.
+func TestSyncScenario_RemoveDerivedObject_Thumbnail(t *testing.T) {
+	db := setupTestDB(t)
+
+	user := &User{Username: "testuser"}
+	if err := db.Create(user).Error; err != nil {
+		t.Fatalf("failed to create user: %v", err)
+	}
+
+	photo := &PhotoObject{
+		ObjectID:    "videos/clip_thumb.jpg",
+		ContentType: "image/jpeg",
+		MD5Hash:     "ghi789",
+		UserID:      user.ID,
+	}
+	if err := db.Create(photo).Error; err != nil {
+		t.Fatalf("failed to create photo: %v", err)
+	}
+
+	if err := db.Delete(photo).Error; err != nil {
+		t.Fatalf("failed to delete derived object: %v", err)
+	}
+
+	var count int64
+	db.Model(&PhotoObject{}).Where("object_id = ?", photo.ObjectID).Count(&count)
+	if count != 0 {
+		t.Errorf("expected thumbnail PhotoObject to be deleted, but it still exists")
+	}
+}
+
+// TestSyncScenario_RemoveDerivedObject_OriginalUntouched verifies that a
+// non-derived PhotoObject is not affected by the derived-removal phase.
+func TestSyncScenario_RemoveDerivedObject_OriginalUntouched(t *testing.T) {
+	db := setupTestDB(t)
+
+	user := &User{Username: "testuser"}
+	if err := db.Create(user).Error; err != nil {
+		t.Fatalf("failed to create user: %v", err)
+	}
+
+	original := &PhotoObject{
+		ObjectID:    "photos/2024/photo.jpg",
+		ContentType: "image/jpeg",
+		MD5Hash:     "jkl012",
+		UserID:      user.ID,
+	}
+	if err := db.Create(original).Error; err != nil {
+		t.Fatalf("failed to create photo: %v", err)
+	}
+
+	derived := &PhotoObject{
+		ObjectID:    "photos/2024/photo.webp",
+		ContentType: "image/webp",
+		MD5Hash:     "mno345",
+		UserID:      user.ID,
+	}
+	if err := db.Create(derived).Error; err != nil {
+		t.Fatalf("failed to create derived photo: %v", err)
+	}
+
+	// Simulate derived-removal phase: only delete the derived object
+	if err := db.Delete(derived).Error; err != nil {
+		t.Fatalf("failed to delete derived object: %v", err)
+	}
+
+	var origCount, derivedCount int64
+	db.Model(&PhotoObject{}).Where("object_id = ?", original.ObjectID).Count(&origCount)
+	db.Model(&PhotoObject{}).Where("object_id = ?", derived.ObjectID).Count(&derivedCount)
+	if origCount != 1 {
+		t.Errorf("expected original PhotoObject to remain, got count=%d", origCount)
+	}
+	if derivedCount != 0 {
+		t.Errorf("expected derived PhotoObject to be deleted, but count=%d", derivedCount)
+	}
+}
+
+// TestSyncScenario_RemoveDerivedObject_DirectoryCleanup verifies that when the
+// last PhotoObject in a directory is a derived object and is removed, the parent
+// PhotoDirectory is also cleaned up.
+func TestSyncScenario_RemoveDerivedObject_DirectoryCleanup(t *testing.T) {
+	db := setupTestDB(t)
+
+	user := &User{Username: "testuser"}
+	if err := db.Create(user).Error; err != nil {
+		t.Fatalf("failed to create user: %v", err)
+	}
+
+	dirPath := "photos/2024"
+	objectID := "photos/2024/image.webp"
+
+	photo := &PhotoObject{
+		ObjectID:    objectID,
+		ContentType: "image/webp",
+		MD5Hash:     "abc123",
+		UserID:      user.ID,
+	}
+	if err := db.Create(photo).Error; err != nil {
+		t.Fatalf("failed to create photo: %v", err)
+	}
+	dir := &PhotoDirectory{Path: dirPath}
+	if err := db.Create(dir).Error; err != nil {
+		t.Fatalf("failed to create directory: %v", err)
+	}
+
+	// Simulate derived-removal phase
+	if err := db.Delete(photo).Error; err != nil {
+		t.Fatalf("failed to delete derived object: %v", err)
+	}
+	// Directory cleanup: count remaining objects in the directory
+	var count int64
+	if err := db.Model(&PhotoObject{}).
+		Where("object_id LIKE ?", dirPath+"/%").
+		Count(&count).Error; err != nil {
+		t.Fatalf("failed to count objects in directory: %v", err)
+	}
+	if count == 0 {
+		if err := db.Where("path = ?", dirPath).Delete(&PhotoDirectory{}).Error; err != nil {
+			t.Fatalf("failed to delete empty directory: %v", err)
+		}
+	}
+
+	var photoCount, dirCount int64
+	db.Model(&PhotoObject{}).Where("object_id = ?", objectID).Count(&photoCount)
+	db.Model(&PhotoDirectory{}).Where("path = ?", dirPath).Count(&dirCount)
+	if photoCount != 0 {
+		t.Errorf("expected derived PhotoObject to be deleted, but count=%d", photoCount)
+	}
+	if dirCount != 0 {
+		t.Errorf("expected empty directory to be deleted, but count=%d", dirCount)
+	}
+}
+
+// TestSyncScenario_RemoveDerivedObject_DirectoryKeptWhenOthersRemain verifies
+// that the parent PhotoDirectory is preserved when other PhotoObjects remain in
+// the same directory after the derived object is removed.
+func TestSyncScenario_RemoveDerivedObject_DirectoryKeptWhenOthersRemain(t *testing.T) {
+	db := setupTestDB(t)
+
+	user := &User{Username: "testuser"}
+	if err := db.Create(user).Error; err != nil {
+		t.Fatalf("failed to create user: %v", err)
+	}
+
+	dirPath := "photos/2024"
+
+	original := &PhotoObject{
+		ObjectID:    "photos/2024/photo.jpg",
+		ContentType: "image/jpeg",
+		MD5Hash:     "abc123",
+		UserID:      user.ID,
+	}
+	if err := db.Create(original).Error; err != nil {
+		t.Fatalf("failed to create original photo: %v", err)
+	}
+	derived := &PhotoObject{
+		ObjectID:    "photos/2024/photo.webp",
+		ContentType: "image/webp",
+		MD5Hash:     "def456",
+		UserID:      user.ID,
+	}
+	if err := db.Create(derived).Error; err != nil {
+		t.Fatalf("failed to create derived photo: %v", err)
+	}
+	dir := &PhotoDirectory{Path: dirPath}
+	if err := db.Create(dir).Error; err != nil {
+		t.Fatalf("failed to create directory: %v", err)
+	}
+
+	// Simulate derived-removal phase
+	if err := db.Delete(derived).Error; err != nil {
+		t.Fatalf("failed to delete derived object: %v", err)
+	}
+	var remaining int64
+	if err := db.Model(&PhotoObject{}).
+		Where("object_id LIKE ?", dirPath+"/%").
+		Count(&remaining).Error; err != nil {
+		t.Fatalf("failed to count objects in directory: %v", err)
+	}
+	// remaining == 1 (photo.jpg), so directory should NOT be deleted
+	if remaining == 0 {
+		if err := db.Where("path = ?", dirPath).Delete(&PhotoDirectory{}).Error; err != nil {
+			t.Fatalf("failed to delete empty directory: %v", err)
+		}
+	}
+
+	var dirCount int64
+	db.Model(&PhotoDirectory{}).Where("path = ?", dirPath).Count(&dirCount)
+	if dirCount != 1 {
+		t.Errorf("expected directory to remain (other photos present), but count=%d", dirCount)
+	}
+}

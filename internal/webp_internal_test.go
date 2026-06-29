@@ -138,15 +138,19 @@ func TestIsDerivedObjectID(t *testing.T) {
 		{"clip_thumb.jpg", true},
 		{"a/b/clip_thumb.jpg", true},
 		{"A/B/CLIP_THUMB.JPG", true},
+		// WebP renditions
+		{"image.webp", true},
+		{"a/b/image.webp", true},
+		{"A/B/IMAGE.WEBP", true},
 		// original uploads — must not be treated as derived
 		{"photo.jpg", false},
 		{"a/b/image.jpeg", false},
 		{"a/b/image.png", false},
-		{"a/b/image.webp", false},
 		{"preview.jpg", false},          // "preview" without underscore prefix
 		{"thumb.jpg", false},            // "thumb" without underscore prefix
 		{"my_preview_shot.jpg", false},  // contains "_preview" but not as suffix
 		{"my_thumbnail.jpg", false},     // contains "thumb" mid-name but not _thumb.jpg suffix
+		{"my.webp.jpg", false},          // ".webp" not at suffix
 		{"", false},
 	}
 	for _, test := range tests {
