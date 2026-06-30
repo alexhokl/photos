@@ -858,9 +858,6 @@ func (s *LibraryServer) SyncDatabase(ctx context.Context, req *proto.SyncDatabas
 
 	// Add objects that exist in GCS but not in DB
 	for objectID, attrs := range gcsObjects {
-		if isDerivedObjectID(objectID) {
-			continue
-		}
 		if _, exists := dbObjectMap[objectID]; !exists {
 			md5Hash := ""
 			if len(attrs.MD5) > 0 {
@@ -1255,7 +1252,10 @@ func (s *LibraryServer) UpdatePhotoMetadata(ctx context.Context, req *proto.Upda
 	}, nil
 }
 
-// getGCSObjectsMap reads from the specified bucket and returns a map of object IDs to their attributes.
+// getGCSObjectsMap reads from the specified bucket and returns a map of object IDs
+// to their attributes. Derived assets (DNG JPEG previews, video thumbnails, and
+// WebP renditions identified by isDerivedObjectID) are excluded so callers can
+// treat every entry as an original upload.
 func getGCSObjectsMap(ctx context.Context, client *storage.Client, bucketName string) (map[string]*storage.ObjectAttrs, error) {
 	bucket := client.Bucket(bucketName)
 	it := bucket.Objects(ctx, nil)
@@ -1269,7 +1269,7 @@ func getGCSObjectsMap(ctx context.Context, client *storage.Client, bucketName st
 		if err != nil {
 			return nil, err
 		}
-		if attrs.Name != "" {
+		if attrs.Name != "" && !isDerivedObjectID(attrs.Name) {
 			objects[attrs.Name] = attrs
 		}
 	}
