@@ -862,6 +862,7 @@ func (s *LibraryServer) SyncDatabase(req *proto.SyncDatabaseRequest, stream grpc
 		"About to update database...",
 		slog.Int("gcs_objects", len(gcsObjects)),
 		slog.Int("db_objects", len(dbObjects)),
+		slog.Int("missing_webp", countMissingWebP(dbObjects)),
 	)
 
 	// Add objects that exist in GCS but not in DB
@@ -1929,4 +1930,14 @@ func getFileExtension(filename string) string {
 		return ""
 	}
 	return filename[lastDot+1:]
+}
+
+func countMissingWebP(dbObjects []database.PhotoObject) int {
+	count := 0
+	for _, obj := range dbObjects {
+		if obj.WebpObjectID == nil || *obj.WebpObjectID == "" {
+			count++
+		}
+	}
+	return count
 }
