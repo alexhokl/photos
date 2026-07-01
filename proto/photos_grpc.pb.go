@@ -11,7 +11,6 @@ import (
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
-	emptypb "google.golang.org/protobuf/types/known/emptypb"
 )
 
 // This is a compile-time assertion to ensure that this generated file
@@ -326,7 +325,7 @@ type LibraryServiceClient interface {
 	// ListDirectories lists virtual directories (common prefixes) in a bucket
 	ListDirectories(ctx context.Context, in *ListDirectoriesRequest, opts ...grpc.CallOption) (*ListDirectoriesResponse, error)
 	// SyncDatabase syncs the photo database with the storage backend
-	SyncDatabase(ctx context.Context, in *SyncDatabaseRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	SyncDatabase(ctx context.Context, in *SyncDatabaseRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[SyncDatabaseProgress], error)
 	// CreateMarkdown creates an index.md file in a specified prefix (directory)
 	CreateMarkdown(ctx context.Context, in *CreateMarkdownRequest, opts ...grpc.CallOption) (*CreateMarkdownResponse, error)
 	// GetMarkdown retrieves an index.md file from a specified prefix (directory)
@@ -439,15 +438,24 @@ func (c *libraryServiceClient) ListDirectories(ctx context.Context, in *ListDire
 	return out, nil
 }
 
-func (c *libraryServiceClient) SyncDatabase(ctx context.Context, in *SyncDatabaseRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (c *libraryServiceClient) SyncDatabase(ctx context.Context, in *SyncDatabaseRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[SyncDatabaseProgress], error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(emptypb.Empty)
-	err := c.cc.Invoke(ctx, LibraryService_SyncDatabase_FullMethodName, in, out, cOpts...)
+	stream, err := c.cc.NewStream(ctx, &LibraryService_ServiceDesc.Streams[0], LibraryService_SyncDatabase_FullMethodName, cOpts...)
 	if err != nil {
 		return nil, err
 	}
-	return out, nil
+	x := &grpc.GenericClientStream[SyncDatabaseRequest, SyncDatabaseProgress]{ClientStream: stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
 }
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type LibraryService_SyncDatabaseClient = grpc.ServerStreamingClient[SyncDatabaseProgress]
 
 func (c *libraryServiceClient) CreateMarkdown(ctx context.Context, in *CreateMarkdownRequest, opts ...grpc.CallOption) (*CreateMarkdownResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
@@ -532,7 +540,7 @@ type LibraryServiceServer interface {
 	// ListDirectories lists virtual directories (common prefixes) in a bucket
 	ListDirectories(context.Context, *ListDirectoriesRequest) (*ListDirectoriesResponse, error)
 	// SyncDatabase syncs the photo database with the storage backend
-	SyncDatabase(context.Context, *SyncDatabaseRequest) (*emptypb.Empty, error)
+	SyncDatabase(*SyncDatabaseRequest, grpc.ServerStreamingServer[SyncDatabaseProgress]) error
 	// CreateMarkdown creates an index.md file in a specified prefix (directory)
 	CreateMarkdown(context.Context, *CreateMarkdownRequest) (*CreateMarkdownResponse, error)
 	// GetMarkdown retrieves an index.md file from a specified prefix (directory)
@@ -582,8 +590,8 @@ func (UnimplementedLibraryServiceServer) PhotoExists(context.Context, *PhotoExis
 func (UnimplementedLibraryServiceServer) ListDirectories(context.Context, *ListDirectoriesRequest) (*ListDirectoriesResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListDirectories not implemented")
 }
-func (UnimplementedLibraryServiceServer) SyncDatabase(context.Context, *SyncDatabaseRequest) (*emptypb.Empty, error) {
-	return nil, status.Error(codes.Unimplemented, "method SyncDatabase not implemented")
+func (UnimplementedLibraryServiceServer) SyncDatabase(*SyncDatabaseRequest, grpc.ServerStreamingServer[SyncDatabaseProgress]) error {
+	return status.Error(codes.Unimplemented, "method SyncDatabase not implemented")
 }
 func (UnimplementedLibraryServiceServer) CreateMarkdown(context.Context, *CreateMarkdownRequest) (*CreateMarkdownResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method CreateMarkdown not implemented")
@@ -786,23 +794,16 @@ func _LibraryService_ListDirectories_Handler(srv interface{}, ctx context.Contex
 	return interceptor(ctx, in, info, handler)
 }
 
-func _LibraryService_SyncDatabase_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(SyncDatabaseRequest)
-	if err := dec(in); err != nil {
-		return nil, err
+func _LibraryService_SyncDatabase_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(SyncDatabaseRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
 	}
-	if interceptor == nil {
-		return srv.(LibraryServiceServer).SyncDatabase(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: LibraryService_SyncDatabase_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(LibraryServiceServer).SyncDatabase(ctx, req.(*SyncDatabaseRequest))
-	}
-	return interceptor(ctx, in, info, handler)
+	return srv.(LibraryServiceServer).SyncDatabase(m, &grpc.GenericServerStream[SyncDatabaseRequest, SyncDatabaseProgress]{ServerStream: stream})
 }
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type LibraryService_SyncDatabaseServer = grpc.ServerStreamingServer[SyncDatabaseProgress]
 
 func _LibraryService_CreateMarkdown_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(CreateMarkdownRequest)
@@ -956,10 +957,6 @@ var LibraryService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _LibraryService_ListDirectories_Handler,
 		},
 		{
-			MethodName: "SyncDatabase",
-			Handler:    _LibraryService_SyncDatabase_Handler,
-		},
-		{
 			MethodName: "CreateMarkdown",
 			Handler:    _LibraryService_CreateMarkdown_Handler,
 		},
@@ -984,6 +981,12 @@ var LibraryService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _LibraryService_GenerateDNGPreview_Handler,
 		},
 	},
-	Streams:  []grpc.StreamDesc{},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "SyncDatabase",
+			Handler:       _LibraryService_SyncDatabase_Handler,
+			ServerStreams: true,
+		},
+	},
 	Metadata: "proto/photos.proto",
 }

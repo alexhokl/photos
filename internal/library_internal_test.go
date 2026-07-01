@@ -8,6 +8,7 @@ import (
 
 	"github.com/alexhokl/photos/database"
 	"github.com/alexhokl/photos/proto"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"gorm.io/driver/sqlite"
@@ -645,6 +646,25 @@ func contextWithUserID(userID uint) context.Context {
 	return context.WithValue(context.Background(), contextKeyUser{}, userID)
 }
 
+// mockSyncDatabaseStream implements grpc.ServerStreamingServer[proto.SyncDatabaseProgress]
+// for testing SyncDatabase. Sent progress messages are collected in sent.
+type mockSyncDatabaseStream struct {
+	grpc.ServerStream
+	ctx  context.Context
+	sent []*proto.SyncDatabaseProgress
+}
+
+func newMockSyncDatabaseStream(ctx context.Context) *mockSyncDatabaseStream {
+	return &mockSyncDatabaseStream{ctx: ctx}
+}
+
+func (m *mockSyncDatabaseStream) Send(msg *proto.SyncDatabaseProgress) error {
+	m.sent = append(m.sent, msg)
+	return nil
+}
+
+func (m *mockSyncDatabaseStream) Context() context.Context { return m.ctx }
+
 // assertGRPCError checks that an error has the expected gRPC status code
 func assertGRPCError(t *testing.T, err error, expectedCode codes.Code) {
 	t.Helper()
@@ -736,9 +756,10 @@ func TestDeletePhoto_Unauthenticated(t *testing.T) {
 
 func TestSyncDatabase_Unauthenticated(t *testing.T) {
 	server := &LibraryServer{}
-	ctx := context.Background()
+	stream := newMockSyncDatabaseStream(context.Background())
 
-	_, err := server.SyncDatabase(ctx, &proto.SyncDatabaseRequest{})
+	err := server.SyncDatabase(&proto.SyncDatabaseRequest{}, stream)
+
 	assertGRPCError(t, err, codes.Unauthenticated)
 }
 

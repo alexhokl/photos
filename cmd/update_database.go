@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"io"
 
 	"github.com/alexhokl/photos/proto"
 	"github.com/spf13/cobra"
@@ -45,8 +46,9 @@ excluded from all insertion logic. The sync has three phases:
    WebP generation. This flag is expensive as it downloads every object.
 
 Per-object failures in all phases are logged and skipped; they do not abort the
-sync. Result counts (added, removed, metadata updated) are written to the server
-log only — the command prints a single success line on completion.`,
+sync. Progress is streamed from the server: one message per processed object,
+plus a final summary message with cumulative added/removed/metadata-updated
+counts.`,
 	RunE: runUpdateDatabase,
 }
 
@@ -73,12 +75,37 @@ func runUpdateDatabase(cmd *cobra.Command, args []string) error {
 		PauseBetweenObjectsSeconds: updateDatabaseOpts.pauseInSeconds,
 	}
 
-	_, err = client.SyncDatabase(cmd.Context(), req)
+	stream, err := client.SyncDatabase(cmd.Context(), req)
 	if err != nil {
 		return fmt.Errorf("failed to sync database: %w", err)
 	}
 
-	fmt.Println("Successfully synced database")
+	for {
+		progress, err := stream.Recv()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return fmt.Errorf("failed to receive sync progress: %w", err)
+		}
+
+		if progress.GetComplete() {
+			fmt.Printf(
+				"Sync complete: added=%d removed=%d metadata_updated=%d\n",
+				progress.GetAdded(),
+				progress.GetRemoved(),
+				progress.GetMetadataUpdated(),
+			)
+			break
+		}
+
+		fmt.Printf(
+			"phase=%s processed=%d/%d\n",
+			progress.GetPhase(),
+			progress.GetProcessed(),
+			progress.GetTotal(),
+		)
+	}
 
 	return nil
 }

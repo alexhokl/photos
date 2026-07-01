@@ -13,9 +13,10 @@ import (
 	"github.com/alexhokl/photos/database"
 	"github.com/alexhokl/photos/proto"
 	"google.golang.org/api/iterator"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"google.golang.org/protobuf/types/known/emptypb"
+
 	"gorm.io/gorm"
 )
 
@@ -827,10 +828,11 @@ func (s *LibraryServer) DeletePhoto(ctx context.Context, req *proto.DeletePhotoR
 //     (JPEG, PNG, GIF, DNG-preview) without a WebP rendition have one generated
 //     and stored (webp_object_id). Derived assets are skipped for WebP
 //     generation. This phase is expensive as it downloads every object.
-func (s *LibraryServer) SyncDatabase(ctx context.Context, req *proto.SyncDatabaseRequest) (*emptypb.Empty, error) {
+func (s *LibraryServer) SyncDatabase(req *proto.SyncDatabaseRequest, stream grpc.ServerStreamingServer[proto.SyncDatabaseProgress]) error {
+	ctx := stream.Context()
 	userID, ok := ctx.Value(contextKeyUser{}).(uint)
 	if !ok {
-		return nil, status.Errorf(codes.Unauthenticated, "authentication required")
+		return status.Errorf(codes.Unauthenticated, "authentication required")
 	}
 
 	updateMetadata := req.GetUpdateMetadata()
@@ -838,13 +840,13 @@ func (s *LibraryServer) SyncDatabase(ctx context.Context, req *proto.SyncDatabas
 	// Get all objects from GCS
 	gcsObjects, err := getGCSObjectsMap(ctx, s.GCSClient, s.BucketName)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "failed to list GCS objects: %v", err)
+		return status.Errorf(codes.Internal, "failed to list GCS objects: %v", err)
 	}
 
 	// Get all objects from database for this user
 	var dbObjects []database.PhotoObject
 	if err := s.DB.Where("user_id = ?", userID).Find(&dbObjects).Error; err != nil {
-		return nil, status.Errorf(codes.Internal, "failed to list database objects: %v", err)
+		return status.Errorf(codes.Internal, "failed to list database objects: %v", err)
 	}
 
 	// Create a map of database objects for quick lookup
@@ -856,8 +858,17 @@ func (s *LibraryServer) SyncDatabase(ctx context.Context, req *proto.SyncDatabas
 	// Track statistics
 	var added, removed, metadataUpdated int
 
+	slog.Info(
+		"About to update database...",
+		slog.Int("gcs_objects", len(gcsObjects)),
+		slog.Int("db_objects", len(dbObjects)),
+	)
+
 	// Add objects that exist in GCS but not in DB
+	totalAdd := uint32(len(gcsObjects))
+	var processedAdd uint32
 	for objectID, attrs := range gcsObjects {
+		processedAdd++
 		if _, exists := dbObjectMap[objectID]; !exists {
 			md5Hash := ""
 			if len(attrs.MD5) > 0 {
@@ -903,10 +914,21 @@ func (s *LibraryServer) SyncDatabase(ctx context.Context, req *proto.SyncDatabas
 
 			added++
 		}
+
+		if err := stream.Send(&proto.SyncDatabaseProgress{
+			Phase:     proto.SyncDatabaseProgress_PHASE_ADD,
+			Processed: processedAdd,
+			Total:     totalAdd,
+		}); err != nil {
+			return err
+		}
 	}
 
 	// Remove objects that exist in DB but not in GCS
+	totalRemove := uint32(len(dbObjectMap))
+	var processedRemove uint32
 	for objectID, photoObject := range dbObjectMap {
+		processedRemove++
 		if _, exists := gcsObjects[objectID]; !exists {
 			if err := s.DB.Delete(&photoObject).Error; err != nil {
 				slog.Warn(
@@ -936,10 +958,19 @@ func (s *LibraryServer) SyncDatabase(ctx context.Context, req *proto.SyncDatabas
 
 			removed++
 		}
+
+		if err := stream.Send(&proto.SyncDatabaseProgress{
+			Phase:     proto.SyncDatabaseProgress_PHASE_REMOVE,
+			Processed: processedRemove,
+			Total:     totalRemove,
+		}); err != nil {
+			return err
+		}
 	}
 
 	// Remove any derived objects (WebP renditions, DNG previews, video thumbnails)
 	// that exist in the database but should not be tracked as first-class photos.
+	// These are reported under the PHASE_REMOVE phase as part of the same pass.
 	for objectID, photoObject := range dbObjectMap {
 		if !isDerivedObjectID(objectID) {
 			continue
@@ -976,7 +1007,10 @@ func (s *LibraryServer) SyncDatabase(ctx context.Context, req *proto.SyncDatabas
 	// Update metadata for all objects if requested
 	if updateMetadata {
 		pause := time.Duration(req.GetPauseBetweenObjectsSeconds()) * time.Second
+		totalMetadata := uint32(len(gcsObjects))
+		var processedMetadata uint32
 		for objectID, attrs := range gcsObjects {
+			processedMetadata++
 			updated, err := s.updateObjectMetadata(ctx, objectID, attrs, userID)
 			if err != nil {
 				slog.Warn(
@@ -984,13 +1018,19 @@ func (s *LibraryServer) SyncDatabase(ctx context.Context, req *proto.SyncDatabas
 					slog.String("object_id", objectID),
 					slog.String("error", err.Error()),
 				)
-				continue
-			}
-			if updated {
+			} else if updated {
 				metadataUpdated++
 				if pause > 0 {
 					time.Sleep(pause)
 				}
+			}
+
+			if err := stream.Send(&proto.SyncDatabaseProgress{
+				Phase:     proto.SyncDatabaseProgress_PHASE_METADATA,
+				Processed: processedMetadata,
+				Total:     totalMetadata,
+			}); err != nil {
+				return err
 			}
 		}
 	}
@@ -1005,7 +1045,13 @@ func (s *LibraryServer) SyncDatabase(ctx context.Context, req *proto.SyncDatabas
 		slog.Uint64("user_id", uint64(userID)),
 	)
 
-	return &emptypb.Empty{}, nil
+	return stream.Send(&proto.SyncDatabaseProgress{
+		Phase:           proto.SyncDatabaseProgress_PHASE_UNSPECIFIED,
+		Added:           uint32(added),
+		Removed:         uint32(removed),
+		MetadataUpdated: uint32(metadataUpdated),
+		Complete:        true,
+	})
 }
 
 // updateObjectMetadata downloads a photo, extracts EXIF metadata, updates GCS

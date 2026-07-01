@@ -15,7 +15,6 @@ import 'dart:core' as $core;
 
 import 'package:grpc/service_api.dart' as $grpc;
 import 'package:protobuf/protobuf.dart' as $pb;
-import 'package:protobuf/well_known_types/google/protobuf/empty.pb.dart' as $1;
 
 import 'photos.pb.dart' as $0;
 
@@ -275,11 +274,13 @@ class LibraryServiceClient extends $grpc.Client {
   }
 
   /// SyncDatabase syncs the photo database with the storage backend
-  $grpc.ResponseFuture<$1.Empty> syncDatabase(
+  $grpc.ResponseStream<$0.SyncDatabaseProgress> syncDatabase(
     $0.SyncDatabaseRequest request, {
     $grpc.CallOptions? options,
   }) {
-    return $createUnaryCall(_$syncDatabase, request, options: options);
+    return $createStreamingCall(
+        _$syncDatabase, $async.Stream.fromIterable([request]),
+        options: options);
   }
 
   /// CreateMarkdown creates an index.md file in a specified prefix (directory)
@@ -380,10 +381,10 @@ class LibraryServiceClient extends $grpc.Client {
           ($0.ListDirectoriesRequest value) => value.writeToBuffer(),
           $0.ListDirectoriesResponse.fromBuffer);
   static final _$syncDatabase =
-      $grpc.ClientMethod<$0.SyncDatabaseRequest, $1.Empty>(
+      $grpc.ClientMethod<$0.SyncDatabaseRequest, $0.SyncDatabaseProgress>(
           '/photos.LibraryService/SyncDatabase',
           ($0.SyncDatabaseRequest value) => value.writeToBuffer(),
-          $1.Empty.fromBuffer);
+          $0.SyncDatabaseProgress.fromBuffer);
   static final _$createMarkdown =
       $grpc.ClientMethod<$0.CreateMarkdownRequest, $0.CreateMarkdownResponse>(
           '/photos.LibraryService/CreateMarkdown',
@@ -496,14 +497,15 @@ abstract class LibraryServiceBase extends $grpc.Service {
         ($core.List<$core.int> value) =>
             $0.ListDirectoriesRequest.fromBuffer(value),
         ($0.ListDirectoriesResponse value) => value.writeToBuffer()));
-    $addMethod($grpc.ServiceMethod<$0.SyncDatabaseRequest, $1.Empty>(
-        'SyncDatabase',
-        syncDatabase_Pre,
-        false,
-        false,
-        ($core.List<$core.int> value) =>
-            $0.SyncDatabaseRequest.fromBuffer(value),
-        ($1.Empty value) => value.writeToBuffer()));
+    $addMethod(
+        $grpc.ServiceMethod<$0.SyncDatabaseRequest, $0.SyncDatabaseProgress>(
+            'SyncDatabase',
+            syncDatabase_Pre,
+            false,
+            true,
+            ($core.List<$core.int> value) =>
+                $0.SyncDatabaseRequest.fromBuffer(value),
+            ($0.SyncDatabaseProgress value) => value.writeToBuffer()));
     $addMethod($grpc.ServiceMethod<$0.CreateMarkdownRequest,
             $0.CreateMarkdownResponse>(
         'CreateMarkdown',
@@ -635,12 +637,13 @@ abstract class LibraryServiceBase extends $grpc.Service {
   $async.Future<$0.ListDirectoriesResponse> listDirectories(
       $grpc.ServiceCall call, $0.ListDirectoriesRequest request);
 
-  $async.Future<$1.Empty> syncDatabase_Pre($grpc.ServiceCall $call,
-      $async.Future<$0.SyncDatabaseRequest> $request) async {
-    return syncDatabase($call, await $request);
+  $async.Stream<$0.SyncDatabaseProgress> syncDatabase_Pre(
+      $grpc.ServiceCall $call,
+      $async.Future<$0.SyncDatabaseRequest> $request) async* {
+    yield* syncDatabase($call, await $request);
   }
 
-  $async.Future<$1.Empty> syncDatabase(
+  $async.Stream<$0.SyncDatabaseProgress> syncDatabase(
       $grpc.ServiceCall call, $0.SyncDatabaseRequest request);
 
   $async.Future<$0.CreateMarkdownResponse> createMarkdown_Pre(

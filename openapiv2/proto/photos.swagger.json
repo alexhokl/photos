@@ -244,10 +244,18 @@
         "operationId": "LibraryService_SyncDatabase",
         "responses": {
           "200": {
-            "description": "A successful response.",
+            "description": "A successful response.(streaming responses)",
             "schema": {
               "type": "object",
-              "properties": {}
+              "properties": {
+                "result": {
+                  "$ref": "#/definitions/photosSyncDatabaseProgress"
+                },
+                "error": {
+                  "$ref": "#/definitions/rpcStatus"
+                }
+              },
+              "title": "Stream result of photosSyncDatabaseProgress"
             }
           },
           "default": {
@@ -753,6 +761,17 @@
       },
       "title": "UpdatePhotoMetadataRequest specifies metadata updates for a photo"
     },
+    "SyncDatabaseProgressPhase": {
+      "type": "string",
+      "enum": [
+        "PHASE_UNSPECIFIED",
+        "PHASE_ADD",
+        "PHASE_REMOVE",
+        "PHASE_METADATA"
+      ],
+      "default": "PHASE_UNSPECIFIED",
+      "description": "Phase identifies which stage of the sync produced this progress message."
+    },
     "photosBulkUploadFileResult": {
       "type": "object",
       "properties": {
@@ -1085,6 +1104,45 @@
         }
       },
       "title": "StreamingDownloadResponse is streamed back in chunks"
+    },
+    "photosSyncDatabaseProgress": {
+      "type": "object",
+      "properties": {
+        "phase": {
+          "$ref": "#/definitions/SyncDatabaseProgressPhase",
+          "description": "phase is the sync phase this message refers to."
+        },
+        "processed": {
+          "type": "integer",
+          "format": "int64",
+          "description": "processed is the number of database objects processed so far in this phase."
+        },
+        "total": {
+          "type": "integer",
+          "format": "int64",
+          "description": "total is the number of database objects to process in this phase."
+        },
+        "added": {
+          "type": "integer",
+          "format": "int64",
+          "description": "added is the cumulative count of newly inserted objects (populated on the\nfinal message)."
+        },
+        "removed": {
+          "type": "integer",
+          "format": "int64",
+          "description": "removed is the cumulative count of deleted objects (populated on the final\nmessage)."
+        },
+        "metadataUpdated": {
+          "type": "integer",
+          "format": "int64",
+          "description": "metadata_updated is the cumulative count of objects whose metadata was\nrefreshed (populated on the final message)."
+        },
+        "complete": {
+          "type": "boolean",
+          "description": "complete is set on the final summary message of the run."
+        }
+      },
+      "description": "SyncDatabaseProgress is streamed from SyncDatabase as it advances through\nits phases. A message is emitted per processed object, plus one final\nmessage with complete=true summarising the run."
     },
     "photosSyncDatabaseRequest": {
       "type": "object",

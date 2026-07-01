@@ -496,6 +496,49 @@ final $typed_data.Uint8List syncDatabaseRequestDescriptor = $convert.base64Decod
     'V0YWRhdGESQQodcGF1c2VfYmV0d2Vlbl9vYmplY3RzX3NlY29uZHMYAiABKA1SGnBhdXNlQmV0'
     'd2Vlbk9iamVjdHNTZWNvbmRz');
 
+@$core.Deprecated('Use syncDatabaseProgressDescriptor instead')
+const SyncDatabaseProgress$json = {
+  '1': 'SyncDatabaseProgress',
+  '2': [
+    {
+      '1': 'phase',
+      '3': 1,
+      '4': 1,
+      '5': 14,
+      '6': '.photos.SyncDatabaseProgress.Phase',
+      '10': 'phase'
+    },
+    {'1': 'processed', '3': 2, '4': 1, '5': 13, '10': 'processed'},
+    {'1': 'total', '3': 3, '4': 1, '5': 13, '10': 'total'},
+    {'1': 'added', '3': 4, '4': 1, '5': 13, '10': 'added'},
+    {'1': 'removed', '3': 5, '4': 1, '5': 13, '10': 'removed'},
+    {'1': 'metadata_updated', '3': 6, '4': 1, '5': 13, '10': 'metadataUpdated'},
+    {'1': 'complete', '3': 7, '4': 1, '5': 8, '10': 'complete'},
+  ],
+  '4': [SyncDatabaseProgress_Phase$json],
+};
+
+@$core.Deprecated('Use syncDatabaseProgressDescriptor instead')
+const SyncDatabaseProgress_Phase$json = {
+  '1': 'Phase',
+  '2': [
+    {'1': 'PHASE_UNSPECIFIED', '2': 0},
+    {'1': 'PHASE_ADD', '2': 1},
+    {'1': 'PHASE_REMOVE', '2': 2},
+    {'1': 'PHASE_METADATA', '2': 3},
+  ],
+};
+
+/// Descriptor for `SyncDatabaseProgress`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List syncDatabaseProgressDescriptor = $convert.base64Decode(
+    'ChRTeW5jRGF0YWJhc2VQcm9ncmVzcxI4CgVwaGFzZRgBIAEoDjIiLnBob3Rvcy5TeW5jRGF0YW'
+    'Jhc2VQcm9ncmVzcy5QaGFzZVIFcGhhc2USHAoJcHJvY2Vzc2VkGAIgASgNUglwcm9jZXNzZWQS'
+    'FAoFdG90YWwYAyABKA1SBXRvdGFsEhQKBWFkZGVkGAQgASgNUgVhZGRlZBIYCgdyZW1vdmVkGA'
+    'UgASgNUgdyZW1vdmVkEikKEG1ldGFkYXRhX3VwZGF0ZWQYBiABKA1SD21ldGFkYXRhVXBkYXRl'
+    'ZBIaCghjb21wbGV0ZRgHIAEoCFIIY29tcGxldGUiUwoFUGhhc2USFQoRUEhBU0VfVU5TUEVDSU'
+    'ZJRUQQABINCglQSEFTRV9BREQQARIQCgxQSEFTRV9SRU1PVkUQAhISCg5QSEFTRV9NRVRBREFU'
+    'QRAD');
+
 @$core.Deprecated('Use streamingUploadRequestDescriptor instead')
 const StreamingUploadRequest$json = {
   '1': 'StreamingUploadRequest',

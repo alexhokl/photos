@@ -191,6 +191,36 @@ message SyncDatabaseRequest {
   uint32 pause_between_objects_seconds = 2;
 }
 
+// SyncDatabaseProgress is streamed from SyncDatabase as it advances through
+// its phases. A message is emitted per processed object, plus one final
+// message with complete=true summarising the run.
+message SyncDatabaseProgress {
+  // Phase identifies which stage of the sync produced this progress message.
+  enum Phase {
+    PHASE_UNSPECIFIED = 0;
+    PHASE_ADD = 1;
+    PHASE_REMOVE = 2;
+    PHASE_METADATA = 3;
+  }
+  // phase is the sync phase this message refers to.
+  Phase phase = 1;
+  // processed is the number of database objects processed so far in this phase.
+  uint32 processed = 2;
+  // total is the number of database objects to process in this phase.
+  uint32 total = 3;
+  // added is the cumulative count of newly inserted objects (populated on the
+  // final message).
+  uint32 added = 4;
+  // removed is the cumulative count of deleted objects (populated on the final
+  // message).
+  uint32 removed = 5;
+  // metadata_updated is the cumulative count of objects whose metadata was
+  // refreshed (populated on the final message).
+  uint32 metadata_updated = 6;
+  // complete is set on the final summary message of the run.
+  bool complete = 7;
+}
+
 // StreamingUploadRequest is sent as a stream of chunks for large uploads
 message StreamingUploadRequest {
   oneof data {
@@ -425,7 +455,7 @@ service LibraryService {
   }
 
   // SyncDatabase syncs the photo database with the storage backend
-  rpc SyncDatabase(SyncDatabaseRequest) returns (google.protobuf.Empty) {
+  rpc SyncDatabase(SyncDatabaseRequest) returns (stream SyncDatabaseProgress) {
     option (google.api.http) = {
       post: "/v1/photos/sync"
       body: "*"

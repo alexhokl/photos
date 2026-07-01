@@ -15,7 +15,11 @@ import 'dart:core' as $core;
 import 'package:fixnum/fixnum.dart' as $fixnum;
 import 'package:protobuf/protobuf.dart' as $pb;
 
+import 'photos.pbenum.dart';
+
 export 'package:protobuf/protobuf.dart' show GeneratedMessageGenericExtensions;
+
+export 'photos.pbenum.dart';
 
 /// Photo represents a stored photo with metadata
 class Photo extends $pb.GeneratedMessage {
@@ -1886,6 +1890,147 @@ class SyncDatabaseRequest extends $pb.GeneratedMessage {
   $core.bool hasPauseBetweenObjectsSeconds() => $_has(1);
   @$pb.TagNumber(2)
   void clearPauseBetweenObjectsSeconds() => $_clearField(2);
+}
+
+/// SyncDatabaseProgress is streamed from SyncDatabase as it advances through
+/// its phases. A message is emitted per processed object, plus one final
+/// message with complete=true summarising the run.
+class SyncDatabaseProgress extends $pb.GeneratedMessage {
+  factory SyncDatabaseProgress({
+    SyncDatabaseProgress_Phase? phase,
+    $core.int? processed,
+    $core.int? total,
+    $core.int? added,
+    $core.int? removed,
+    $core.int? metadataUpdated,
+    $core.bool? complete,
+  }) {
+    final result = create();
+    if (phase != null) result.phase = phase;
+    if (processed != null) result.processed = processed;
+    if (total != null) result.total = total;
+    if (added != null) result.added = added;
+    if (removed != null) result.removed = removed;
+    if (metadataUpdated != null) result.metadataUpdated = metadataUpdated;
+    if (complete != null) result.complete = complete;
+    return result;
+  }
+
+  SyncDatabaseProgress._();
+
+  factory SyncDatabaseProgress.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory SyncDatabaseProgress.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'SyncDatabaseProgress',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'photos'),
+      createEmptyInstance: create)
+    ..aE<SyncDatabaseProgress_Phase>(1, _omitFieldNames ? '' : 'phase',
+        enumValues: SyncDatabaseProgress_Phase.values)
+    ..aI(2, _omitFieldNames ? '' : 'processed', fieldType: $pb.PbFieldType.OU3)
+    ..aI(3, _omitFieldNames ? '' : 'total', fieldType: $pb.PbFieldType.OU3)
+    ..aI(4, _omitFieldNames ? '' : 'added', fieldType: $pb.PbFieldType.OU3)
+    ..aI(5, _omitFieldNames ? '' : 'removed', fieldType: $pb.PbFieldType.OU3)
+    ..aI(6, _omitFieldNames ? '' : 'metadataUpdated',
+        fieldType: $pb.PbFieldType.OU3)
+    ..aOB(7, _omitFieldNames ? '' : 'complete')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SyncDatabaseProgress clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SyncDatabaseProgress copyWith(void Function(SyncDatabaseProgress) updates) =>
+      super.copyWith((message) => updates(message as SyncDatabaseProgress))
+          as SyncDatabaseProgress;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static SyncDatabaseProgress create() => SyncDatabaseProgress._();
+  @$core.override
+  SyncDatabaseProgress createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static SyncDatabaseProgress getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<SyncDatabaseProgress>(create);
+  static SyncDatabaseProgress? _defaultInstance;
+
+  /// phase is the sync phase this message refers to.
+  @$pb.TagNumber(1)
+  SyncDatabaseProgress_Phase get phase => $_getN(0);
+  @$pb.TagNumber(1)
+  set phase(SyncDatabaseProgress_Phase value) => $_setField(1, value);
+  @$pb.TagNumber(1)
+  $core.bool hasPhase() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearPhase() => $_clearField(1);
+
+  /// processed is the number of database objects processed so far in this phase.
+  @$pb.TagNumber(2)
+  $core.int get processed => $_getIZ(1);
+  @$pb.TagNumber(2)
+  set processed($core.int value) => $_setUnsignedInt32(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasProcessed() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearProcessed() => $_clearField(2);
+
+  /// total is the number of database objects to process in this phase.
+  @$pb.TagNumber(3)
+  $core.int get total => $_getIZ(2);
+  @$pb.TagNumber(3)
+  set total($core.int value) => $_setUnsignedInt32(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasTotal() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearTotal() => $_clearField(3);
+
+  /// added is the cumulative count of newly inserted objects (populated on the
+  /// final message).
+  @$pb.TagNumber(4)
+  $core.int get added => $_getIZ(3);
+  @$pb.TagNumber(4)
+  set added($core.int value) => $_setUnsignedInt32(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasAdded() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearAdded() => $_clearField(4);
+
+  /// removed is the cumulative count of deleted objects (populated on the final
+  /// message).
+  @$pb.TagNumber(5)
+  $core.int get removed => $_getIZ(4);
+  @$pb.TagNumber(5)
+  set removed($core.int value) => $_setUnsignedInt32(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasRemoved() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearRemoved() => $_clearField(5);
+
+  /// metadata_updated is the cumulative count of objects whose metadata was
+  /// refreshed (populated on the final message).
+  @$pb.TagNumber(6)
+  $core.int get metadataUpdated => $_getIZ(5);
+  @$pb.TagNumber(6)
+  set metadataUpdated($core.int value) => $_setUnsignedInt32(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasMetadataUpdated() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearMetadataUpdated() => $_clearField(6);
+
+  /// complete is set on the final summary message of the run.
+  @$pb.TagNumber(7)
+  $core.bool get complete => $_getBF(6);
+  @$pb.TagNumber(7)
+  set complete($core.bool value) => $_setBool(6, value);
+  @$pb.TagNumber(7)
+  $core.bool hasComplete() => $_has(6);
+  @$pb.TagNumber(7)
+  void clearComplete() => $_clearField(7);
 }
 
 enum StreamingUploadRequest_Data { metadata, chunk, endOfFile, notSet }
