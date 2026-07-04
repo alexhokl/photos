@@ -3,6 +3,7 @@ package internal
 import (
 	"context"
 	"encoding/base64"
+	"fmt"
 	"io"
 	"log/slog"
 	"strconv"
@@ -1055,6 +1056,352 @@ func (s *LibraryServer) SyncDatabase(req *proto.SyncDatabaseRequest, stream grpc
 	})
 }
 
+// UpdateWebp generates missing WebP renditions for all eligible PhotoObject
+// rows belonging to the authenticated user that do not yet have a
+// webp_object_id set.
+//
+// Eligibility:
+//   - The row's webp_object_id is NULL or empty.
+//   - The row's object_id is not a derived asset (.webp, _preview.jpg,
+//     _thumb.jpg); derived assets are skipped to avoid producing artefacts of
+//     already-generated files.
+//
+// For each eligible row the original object is downloaded from GCS and a WebP
+// rendition is generated and stored alongside the original; the new object ID
+// is persisted to webp_object_id. DNG files are handled via their JPEG preview
+// (thumbnail_object_id): if a preview does not yet exist one is generated
+// first, then the WebP is derived from the preview. JPEG/PNG/GIF files use the
+// original object as the WebP source. All other content types are skipped.
+//
+// Per-object failures are logged and counted as failed; they do not abort the
+// run. Progress is streamed: one message per processed object plus a final
+// summary message with complete=true.
+func (s *LibraryServer) UpdateWebp(req *proto.UpdateWebpRequest, stream grpc.ServerStreamingServer[proto.UpdateWebpProgress]) error {
+	ctx := stream.Context()
+	userID, ok := ctx.Value(contextKeyUser{}).(uint)
+	if !ok {
+		return status.Errorf(codes.Unauthenticated, "authentication required")
+	}
+
+	var objects []database.PhotoObject
+	if err := s.DB.Where("user_id = ?", userID).Find(&objects).Error; err != nil {
+		return status.Errorf(codes.Internal, "failed to list database objects: %v", err)
+	}
+
+	// Filter to eligible rows: missing webp_object_id and not a derived asset.
+	eligible := make([]database.PhotoObject, 0, len(objects))
+	for _, obj := range objects {
+		if isDerivedObjectID(obj.ObjectID) {
+			continue
+		}
+		if obj.WebpObjectID != nil && *obj.WebpObjectID != "" {
+			continue
+		}
+		eligible = append(eligible, obj)
+	}
+
+	pause := time.Duration(req.GetPauseBetweenObjectsSeconds()) * time.Second
+
+	var generated, skipped, failed int
+	total := uint32(len(eligible))
+
+	slog.Info(
+		"Starting WebP generation pass",
+		slog.Int("eligible", len(eligible)),
+		slog.Int("total_db", len(objects)),
+		slog.Uint64("user_id", uint64(userID)),
+	)
+
+	// Only obtain a bucket handle when there is work to do and a GCS client is
+	// configured; this avoids a nil pointer dereference on the GCS client when
+	// the database has no eligible rows or the server is misconfigured.
+	var bucket *storage.BucketHandle
+	if len(eligible) > 0 && s.GCSClient != nil {
+		bucket = s.GCSClient.Bucket(s.BucketName)
+	}
+
+	for i := range eligible {
+		processed := uint32(i + 1)
+		photoObject := &eligible[i]
+		objectID := photoObject.ObjectID
+
+		status := s.generateWebpForObject(ctx, bucket, photoObject, objectID)
+		switch status {
+		case webpStatusGenerated:
+			generated++
+		case webpStatusSkipped:
+			skipped++
+		case webpStatusFailed:
+			failed++
+		}
+
+		if pause > 0 && status == webpStatusGenerated {
+			time.Sleep(pause)
+		}
+
+		if err := stream.Send(&proto.UpdateWebpProgress{
+			Processed: processed,
+			Total:     total,
+			Generated: uint32(generated),
+			Skipped:   uint32(skipped),
+			Failed:    uint32(failed),
+		}); err != nil {
+			return err
+		}
+	}
+
+	slog.Info(
+		"WebP generation pass completed",
+		slog.Int("generated", generated),
+		slog.Int("skipped", skipped),
+		slog.Int("failed", failed),
+		slog.Int("eligible", len(eligible)),
+		slog.Uint64("user_id", uint64(userID)),
+	)
+
+	return stream.Send(&proto.UpdateWebpProgress{
+		Processed: total,
+		Total:     total,
+		Generated: uint32(generated),
+		Skipped:   uint32(skipped),
+		Failed:    uint32(failed),
+		Complete:  true,
+	})
+}
+
+// webpStatus is the outcome of a single-object WebP generation attempt.
+type webpStatus int
+
+const (
+	webpStatusSkipped webpStatus = iota
+	webpStatusGenerated
+	webpStatusFailed
+)
+
+// generateWebpForObject downloads the original object (or its DNG preview) from
+// GCS and generates a WebP rendition, recording the new object ID in the
+// database. It mirrors the WebP generation logic of updateObjectMetadata but
+// performs no EXIF/metadata refresh. The returned webpStatus classifies the
+// outcome for progress accounting.
+func (s *LibraryServer) generateWebpForObject(
+	ctx context.Context,
+	bucket *storage.BucketHandle,
+	photoObject *database.PhotoObject,
+	objectID string,
+) webpStatus {
+	if bucket == nil {
+		slog.Warn(
+			"no storage bucket available for WebP generation",
+			slog.String("object_id", objectID),
+		)
+		return webpStatusFailed
+	}
+
+	// Reload attributes to obtain the current content type without relying on
+	// stale database state.
+	attrs, err := bucket.Object(objectID).Attrs(ctx)
+	if err != nil {
+		slog.Warn(
+			"failed to get object attrs during WebP generation",
+			slog.String("object_id", objectID),
+			slog.String("error", err.Error()),
+		)
+		return webpStatusFailed
+	}
+
+	switch {
+	case IsDNGContentType(attrs.ContentType):
+		// For DNG files, the WebP is derived from the JPEG preview. Ensure a
+		// preview exists; generate one if none is recorded.
+		var srcData []byte
+		if photoObject.ThumbnailObjectID == nil || *photoObject.ThumbnailObjectID == "" {
+			generated, genErr := s.generateAndStoreDNGPreview(ctx, bucket, photoObject, objectID, attrs.ContentType)
+			if genErr != nil {
+				slog.Warn(
+					"failed to generate DNG preview for WebP",
+					slog.String("object_id", objectID),
+					slog.String("error", genErr.Error()),
+				)
+				return webpStatusFailed
+			}
+			srcData = generated
+		} else {
+			previewReader, rErr := bucket.Object(*photoObject.ThumbnailObjectID).NewReader(ctx)
+			if rErr != nil {
+				slog.Warn(
+					"failed to read DNG preview for WebP",
+					slog.String("object_id", objectID),
+					slog.String("error", rErr.Error()),
+				)
+				return webpStatusFailed
+			}
+			srcData, err = io.ReadAll(previewReader)
+			_ = previewReader.Close()
+			if err != nil {
+				slog.Warn(
+					"failed to read DNG preview data for WebP",
+					slog.String("object_id", objectID),
+					slog.String("error", err.Error()),
+				)
+				return webpStatusFailed
+			}
+		}
+		if len(srcData) == 0 {
+			slog.Warn(
+				"no source data for DNG WebP generation",
+				slog.String("object_id", objectID),
+			)
+			return webpStatusSkipped
+		}
+		if s.generateAndRecordWebP(ctx, bucket, photoObject, objectID, srcData) {
+			return webpStatusGenerated
+		}
+		return webpStatusFailed
+
+	case IsWebPConvertibleContentType(attrs.ContentType):
+		reader, rErr := bucket.Object(objectID).NewReader(ctx)
+		if rErr != nil {
+			slog.Warn(
+				"failed to read object for WebP generation",
+				slog.String("object_id", objectID),
+				slog.String("error", rErr.Error()),
+			)
+			return webpStatusFailed
+		}
+		data, rErr := io.ReadAll(reader)
+		_ = reader.Close()
+		if rErr != nil {
+			slog.Warn(
+				"failed to read object data for WebP generation",
+				slog.String("object_id", objectID),
+				slog.String("error", rErr.Error()),
+			)
+			return webpStatusFailed
+		}
+		if s.generateAndRecordWebP(ctx, bucket, photoObject, objectID, data) {
+			return webpStatusGenerated
+		}
+		return webpStatusFailed
+
+	default:
+		// Unsupported content type (video, heic, etc.) - skip.
+		return webpStatusSkipped
+	}
+}
+
+// generateAndStoreDNGPreview generates a JPEG preview for a DNG file, uploads
+// it to GCS under the DNG preview object ID, persists the ID to
+// thumbnail_object_id, and returns the generated bytes. It is a refactored
+// extraction of the DNG-preview block in updateObjectMetadata so that the
+// standalone WebP pass can reuse it without performing a full metadata sync.
+func (s *LibraryServer) generateAndStoreDNGPreview(
+	ctx context.Context,
+	bucket *storage.BucketHandle,
+	photoObject *database.PhotoObject,
+	objectID string,
+	contentType string,
+) ([]byte, error) {
+	// Download the DNG once to derive the preview.
+	reader, err := bucket.Object(objectID).NewReader(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read DNG for preview: %w", err)
+	}
+	data, err := io.ReadAll(reader)
+	_ = reader.Close()
+	if err != nil {
+		return nil, fmt.Errorf("failed to read DNG data for preview: %w", err)
+	}
+
+	generated, err := GenerateDNGPreview(data)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate DNG preview: %w", err)
+	}
+
+	previewObjectID := dngPreviewObjectID(objectID)
+	previewWriter := bucket.Object(previewObjectID).NewWriter(ctx)
+	previewWriter.ContentType = "image/jpeg"
+	if _, wErr := previewWriter.Write(generated); wErr != nil {
+		_ = previewWriter.Close()
+		return nil, fmt.Errorf("failed to write DNG preview: %w", wErr)
+	}
+	if cErr := previewWriter.Close(); cErr != nil {
+		return nil, fmt.Errorf("failed to close DNG preview writer: %w", cErr)
+	}
+
+	if dbErr := s.DB.Model(photoObject).Update("thumbnail_object_id", previewObjectID).Error; dbErr != nil {
+		return nil, fmt.Errorf("failed to update thumbnail_object_id: %w", dbErr)
+	}
+
+	slog.Info(
+		"Generated DNG preview during WebP pass",
+		slog.String("object_id", objectID),
+		slog.String("preview_object_id", previewObjectID),
+	)
+	return generated, nil
+}
+
+// generateAndRecordWebP generates a WebP from srcData, uploads it to GCS under
+// webpObjectID(originalObjectID), and persists the new object ID to the
+// database.  All failures are logged as warnings and do not abort the caller.
+// Returns true on success, false on failure.
+func (s *LibraryServer) generateAndRecordWebP(
+	ctx context.Context,
+	bucket *storage.BucketHandle,
+	photoObject *database.PhotoObject,
+	originalObjectID string,
+	srcData []byte,
+) bool {
+	webpID := webpObjectID(originalObjectID)
+
+	webpData, err := GenerateWebP(srcData, s.WebPQuality)
+	if err != nil {
+		slog.Warn(
+			"failed to generate WebP",
+			slog.String("object_id", originalObjectID),
+			slog.String("error", err.Error()),
+		)
+		return false
+	}
+
+	webpWriter := bucket.Object(webpID).NewWriter(ctx)
+	webpWriter.ContentType = "image/webp"
+
+	if _, err := webpWriter.Write(webpData); err != nil {
+		_ = webpWriter.Close()
+		slog.Warn(
+			"failed to write WebP to GCS",
+			slog.String("object_id", originalObjectID),
+			slog.String("error", err.Error()),
+		)
+		return false
+	}
+
+	if err := webpWriter.Close(); err != nil {
+		slog.Warn(
+			"failed to close WebP writer",
+			slog.String("object_id", originalObjectID),
+			slog.String("error", err.Error()),
+		)
+		return false
+	}
+
+	if err := s.DB.Model(photoObject).Update("webp_object_id", webpID).Error; err != nil {
+		slog.Warn(
+			"failed to update webp_object_id",
+			slog.String("object_id", originalObjectID),
+			slog.String("error", err.Error()),
+		)
+		return false
+	}
+
+	slog.Info(
+		"Generated WebP",
+		slog.String("object_id", originalObjectID),
+		slog.String("webp_object_id", webpID),
+	)
+	return true
+}
+
 // updateObjectMetadata downloads a photo, extracts EXIF metadata, updates GCS
 // object metadata, and updates the time_taken field in the database.
 // For DNG files it also generates a JPEG preview if one does not already exist.
@@ -1863,9 +2210,9 @@ func isDerivedObjectID(objectID string) bool {
 		strings.HasSuffix(lower, ".webp")
 }
 
-// generateAndRecordWebPForSync generates a WebP from srcData, uploads it to
-// GCS under webpObjectID(originalObjectID), and persists the new object ID to
-// the database.  All failures are logged as warnings and do not abort the sync.
+// generateAndRecordWebPForSync is retained as a thin wrapper over
+// generateAndRecordWebP for the SyncDatabase metadata phase. The shared helper
+// is also used by the standalone UpdateWebp pass.
 func (s *LibraryServer) generateAndRecordWebPForSync(
 	ctx context.Context,
 	bucket *storage.BucketHandle,
@@ -1873,54 +2220,7 @@ func (s *LibraryServer) generateAndRecordWebPForSync(
 	originalObjectID string,
 	srcData []byte,
 ) {
-	webpID := webpObjectID(originalObjectID)
-
-	webpData, err := GenerateWebP(srcData, s.WebPQuality)
-	if err != nil {
-		slog.Warn(
-			"failed to generate WebP during sync",
-			slog.String("object_id", originalObjectID),
-			slog.String("error", err.Error()),
-		)
-		return
-	}
-
-	webpWriter := bucket.Object(webpID).NewWriter(ctx)
-	webpWriter.ContentType = "image/webp"
-
-	if _, err := webpWriter.Write(webpData); err != nil {
-		_ = webpWriter.Close()
-		slog.Warn(
-			"failed to write WebP to GCS during sync",
-			slog.String("object_id", originalObjectID),
-			slog.String("error", err.Error()),
-		)
-		return
-	}
-
-	if err := webpWriter.Close(); err != nil {
-		slog.Warn(
-			"failed to close WebP writer during sync",
-			slog.String("object_id", originalObjectID),
-			slog.String("error", err.Error()),
-		)
-		return
-	}
-
-	if err := s.DB.Model(photoObject).Update("webp_object_id", webpID).Error; err != nil {
-		slog.Warn(
-			"failed to update webp_object_id during sync",
-			slog.String("object_id", originalObjectID),
-			slog.String("error", err.Error()),
-		)
-		return
-	}
-
-	slog.Info(
-		"Generated WebP during sync",
-		slog.String("object_id", originalObjectID),
-		slog.String("webp_object_id", webpID),
-	)
+	s.generateAndRecordWebP(ctx, bucket, photoObject, originalObjectID, srcData)
 }
 
 // getFileExtension returns the file extension without the dot

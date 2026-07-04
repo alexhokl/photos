@@ -221,6 +221,32 @@ message SyncDatabaseProgress {
   bool complete = 7;
 }
 
+// UpdateWebpRequest specifies options for generating missing WebP renditions.
+message UpdateWebpRequest {
+  // Seconds to sleep between per-object WebP generations. Used to reduce CPU
+  // pressure on the server during large runs.
+  uint32 pause_between_objects_seconds = 1;
+}
+
+// UpdateWebpProgress is streamed from UpdateWebp as it advances. A message is
+// emitted per processed object, plus one final message with complete=true
+// summarising the run.
+message UpdateWebpProgress {
+  // processed is the number of eligible database objects processed so far.
+  uint32 processed = 1;
+  // total is the number of eligible database objects to process.
+  uint32 total = 2;
+  // generated is the cumulative count of WebP renditions successfully created.
+  uint32 generated = 3;
+  // skipped is the cumulative count of objects skipped (e.g. unsupported
+  // content type or missing source data).
+  uint32 skipped = 4;
+  // failed is the cumulative count of objects whose WebP generation failed.
+  uint32 failed = 5;
+  // complete is set on the final summary message of the run.
+  bool complete = 6;
+}
+
 // StreamingUploadRequest is sent as a stream of chunks for large uploads
 message StreamingUploadRequest {
   oneof data {
@@ -458,6 +484,15 @@ service LibraryService {
   rpc SyncDatabase(SyncDatabaseRequest) returns (stream SyncDatabaseProgress) {
     option (google.api.http) = {
       post: "/v1/photos/sync"
+      body: "*"
+    };
+  }
+
+  // UpdateWebp generates missing WebP renditions for all eligible PhotoObject
+  // rows that do not yet have a webp_object_id set.
+  rpc UpdateWebp(UpdateWebpRequest) returns (stream UpdateWebpProgress) {
+    option (google.api.http) = {
+      post: "/v1/photos:update-webp"
       body: "*"
     };
   }

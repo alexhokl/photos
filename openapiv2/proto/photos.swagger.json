@@ -677,6 +677,49 @@
           "LibraryService"
         ]
       }
+    },
+    "/v1/photos:update-webp": {
+      "post": {
+        "summary": "UpdateWebp generates missing WebP renditions for all eligible PhotoObject\nrows that do not yet have a webp_object_id set.",
+        "operationId": "LibraryService_UpdateWebp",
+        "responses": {
+          "200": {
+            "description": "A successful response.(streaming responses)",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "result": {
+                  "$ref": "#/definitions/photosUpdateWebpProgress"
+                },
+                "error": {
+                  "$ref": "#/definitions/rpcStatus"
+                }
+              },
+              "title": "Stream result of photosUpdateWebpProgress"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "description": "UpdateWebpRequest specifies options for generating missing WebP renditions.",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/photosUpdateWebpRequest"
+            }
+          }
+        ],
+        "tags": [
+          "LibraryService"
+        ]
+      }
     }
   },
   "definitions": {
@@ -1177,6 +1220,52 @@
         }
       },
       "title": "UpdatePhotoMetadataResponse returns the updated photo metadata"
+    },
+    "photosUpdateWebpProgress": {
+      "type": "object",
+      "properties": {
+        "processed": {
+          "type": "integer",
+          "format": "int64",
+          "description": "processed is the number of eligible database objects processed so far."
+        },
+        "total": {
+          "type": "integer",
+          "format": "int64",
+          "description": "total is the number of eligible database objects to process."
+        },
+        "generated": {
+          "type": "integer",
+          "format": "int64",
+          "description": "generated is the cumulative count of WebP renditions successfully created."
+        },
+        "skipped": {
+          "type": "integer",
+          "format": "int64",
+          "description": "skipped is the cumulative count of objects skipped (e.g. unsupported\ncontent type or missing source data)."
+        },
+        "failed": {
+          "type": "integer",
+          "format": "int64",
+          "description": "failed is the cumulative count of objects whose WebP generation failed."
+        },
+        "complete": {
+          "type": "boolean",
+          "description": "complete is set on the final summary message of the run."
+        }
+      },
+      "description": "UpdateWebpProgress is streamed from UpdateWebp as it advances. A message is\nemitted per processed object, plus one final message with complete=true\nsummarising the run."
+    },
+    "photosUpdateWebpRequest": {
+      "type": "object",
+      "properties": {
+        "pauseBetweenObjectsSeconds": {
+          "type": "integer",
+          "format": "int64",
+          "description": "Seconds to sleep between per-object WebP generations. Used to reduce CPU\npressure on the server during large runs."
+        }
+      },
+      "description": "UpdateWebpRequest specifies options for generating missing WebP renditions."
     },
     "photosUploadRequest": {
       "type": "object",

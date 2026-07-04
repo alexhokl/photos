@@ -2033,6 +2033,190 @@ class SyncDatabaseProgress extends $pb.GeneratedMessage {
   void clearComplete() => $_clearField(7);
 }
 
+/// UpdateWebpRequest specifies options for generating missing WebP renditions.
+class UpdateWebpRequest extends $pb.GeneratedMessage {
+  factory UpdateWebpRequest({
+    $core.int? pauseBetweenObjectsSeconds,
+  }) {
+    final result = create();
+    if (pauseBetweenObjectsSeconds != null)
+      result.pauseBetweenObjectsSeconds = pauseBetweenObjectsSeconds;
+    return result;
+  }
+
+  UpdateWebpRequest._();
+
+  factory UpdateWebpRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory UpdateWebpRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'UpdateWebpRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'photos'),
+      createEmptyInstance: create)
+    ..aI(1, _omitFieldNames ? '' : 'pauseBetweenObjectsSeconds',
+        fieldType: $pb.PbFieldType.OU3)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  UpdateWebpRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  UpdateWebpRequest copyWith(void Function(UpdateWebpRequest) updates) =>
+      super.copyWith((message) => updates(message as UpdateWebpRequest))
+          as UpdateWebpRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static UpdateWebpRequest create() => UpdateWebpRequest._();
+  @$core.override
+  UpdateWebpRequest createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static UpdateWebpRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<UpdateWebpRequest>(create);
+  static UpdateWebpRequest? _defaultInstance;
+
+  /// Seconds to sleep between per-object WebP generations. Used to reduce CPU
+  /// pressure on the server during large runs.
+  @$pb.TagNumber(1)
+  $core.int get pauseBetweenObjectsSeconds => $_getIZ(0);
+  @$pb.TagNumber(1)
+  set pauseBetweenObjectsSeconds($core.int value) =>
+      $_setUnsignedInt32(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasPauseBetweenObjectsSeconds() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearPauseBetweenObjectsSeconds() => $_clearField(1);
+}
+
+/// UpdateWebpProgress is streamed from UpdateWebp as it advances. A message is
+/// emitted per processed object, plus one final message with complete=true
+/// summarising the run.
+class UpdateWebpProgress extends $pb.GeneratedMessage {
+  factory UpdateWebpProgress({
+    $core.int? processed,
+    $core.int? total,
+    $core.int? generated,
+    $core.int? skipped,
+    $core.int? failed,
+    $core.bool? complete,
+  }) {
+    final result = create();
+    if (processed != null) result.processed = processed;
+    if (total != null) result.total = total;
+    if (generated != null) result.generated = generated;
+    if (skipped != null) result.skipped = skipped;
+    if (failed != null) result.failed = failed;
+    if (complete != null) result.complete = complete;
+    return result;
+  }
+
+  UpdateWebpProgress._();
+
+  factory UpdateWebpProgress.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory UpdateWebpProgress.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'UpdateWebpProgress',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'photos'),
+      createEmptyInstance: create)
+    ..aI(1, _omitFieldNames ? '' : 'processed', fieldType: $pb.PbFieldType.OU3)
+    ..aI(2, _omitFieldNames ? '' : 'total', fieldType: $pb.PbFieldType.OU3)
+    ..aI(3, _omitFieldNames ? '' : 'generated', fieldType: $pb.PbFieldType.OU3)
+    ..aI(4, _omitFieldNames ? '' : 'skipped', fieldType: $pb.PbFieldType.OU3)
+    ..aI(5, _omitFieldNames ? '' : 'failed', fieldType: $pb.PbFieldType.OU3)
+    ..aOB(6, _omitFieldNames ? '' : 'complete')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  UpdateWebpProgress clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  UpdateWebpProgress copyWith(void Function(UpdateWebpProgress) updates) =>
+      super.copyWith((message) => updates(message as UpdateWebpProgress))
+          as UpdateWebpProgress;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static UpdateWebpProgress create() => UpdateWebpProgress._();
+  @$core.override
+  UpdateWebpProgress createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static UpdateWebpProgress getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<UpdateWebpProgress>(create);
+  static UpdateWebpProgress? _defaultInstance;
+
+  /// processed is the number of eligible database objects processed so far.
+  @$pb.TagNumber(1)
+  $core.int get processed => $_getIZ(0);
+  @$pb.TagNumber(1)
+  set processed($core.int value) => $_setUnsignedInt32(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasProcessed() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearProcessed() => $_clearField(1);
+
+  /// total is the number of eligible database objects to process.
+  @$pb.TagNumber(2)
+  $core.int get total => $_getIZ(1);
+  @$pb.TagNumber(2)
+  set total($core.int value) => $_setUnsignedInt32(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasTotal() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearTotal() => $_clearField(2);
+
+  /// generated is the cumulative count of WebP renditions successfully created.
+  @$pb.TagNumber(3)
+  $core.int get generated => $_getIZ(2);
+  @$pb.TagNumber(3)
+  set generated($core.int value) => $_setUnsignedInt32(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasGenerated() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearGenerated() => $_clearField(3);
+
+  /// skipped is the cumulative count of objects skipped (e.g. unsupported
+  /// content type or missing source data).
+  @$pb.TagNumber(4)
+  $core.int get skipped => $_getIZ(3);
+  @$pb.TagNumber(4)
+  set skipped($core.int value) => $_setUnsignedInt32(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasSkipped() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearSkipped() => $_clearField(4);
+
+  /// failed is the cumulative count of objects whose WebP generation failed.
+  @$pb.TagNumber(5)
+  $core.int get failed => $_getIZ(4);
+  @$pb.TagNumber(5)
+  set failed($core.int value) => $_setUnsignedInt32(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasFailed() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearFailed() => $_clearField(5);
+
+  /// complete is set on the final summary message of the run.
+  @$pb.TagNumber(6)
+  $core.bool get complete => $_getBF(5);
+  @$pb.TagNumber(6)
+  set complete($core.bool value) => $_setBool(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasComplete() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearComplete() => $_clearField(6);
+}
+
 enum StreamingUploadRequest_Data { metadata, chunk, endOfFile, notSet }
 
 /// StreamingUploadRequest is sent as a stream of chunks for large uploads

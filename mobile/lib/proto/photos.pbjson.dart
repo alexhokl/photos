@@ -539,6 +539,45 @@ final $typed_data.Uint8List syncDatabaseProgressDescriptor = $convert.base64Deco
     'ZJRUQQABINCglQSEFTRV9BREQQARIQCgxQSEFTRV9SRU1PVkUQAhISCg5QSEFTRV9NRVRBREFU'
     'QRAD');
 
+@$core.Deprecated('Use updateWebpRequestDescriptor instead')
+const UpdateWebpRequest$json = {
+  '1': 'UpdateWebpRequest',
+  '2': [
+    {
+      '1': 'pause_between_objects_seconds',
+      '3': 1,
+      '4': 1,
+      '5': 13,
+      '10': 'pauseBetweenObjectsSeconds'
+    },
+  ],
+};
+
+/// Descriptor for `UpdateWebpRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List updateWebpRequestDescriptor = $convert.base64Decode(
+    'ChFVcGRhdGVXZWJwUmVxdWVzdBJBCh1wYXVzZV9iZXR3ZWVuX29iamVjdHNfc2Vjb25kcxgBIA'
+    'EoDVIacGF1c2VCZXR3ZWVuT2JqZWN0c1NlY29uZHM=');
+
+@$core.Deprecated('Use updateWebpProgressDescriptor instead')
+const UpdateWebpProgress$json = {
+  '1': 'UpdateWebpProgress',
+  '2': [
+    {'1': 'processed', '3': 1, '4': 1, '5': 13, '10': 'processed'},
+    {'1': 'total', '3': 2, '4': 1, '5': 13, '10': 'total'},
+    {'1': 'generated', '3': 3, '4': 1, '5': 13, '10': 'generated'},
+    {'1': 'skipped', '3': 4, '4': 1, '5': 13, '10': 'skipped'},
+    {'1': 'failed', '3': 5, '4': 1, '5': 13, '10': 'failed'},
+    {'1': 'complete', '3': 6, '4': 1, '5': 8, '10': 'complete'},
+  ],
+};
+
+/// Descriptor for `UpdateWebpProgress`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List updateWebpProgressDescriptor = $convert.base64Decode(
+    'ChJVcGRhdGVXZWJwUHJvZ3Jlc3MSHAoJcHJvY2Vzc2VkGAEgASgNUglwcm9jZXNzZWQSFAoFdG'
+    '90YWwYAiABKA1SBXRvdGFsEhwKCWdlbmVyYXRlZBgDIAEoDVIJZ2VuZXJhdGVkEhgKB3NraXBw'
+    'ZWQYBCABKA1SB3NraXBwZWQSFgoGZmFpbGVkGAUgASgNUgZmYWlsZWQSGgoIY29tcGxldGUYBi'
+    'ABKAhSCGNvbXBsZXRl');
+
 @$core.Deprecated('Use streamingUploadRequestDescriptor instead')
 const StreamingUploadRequest$json = {
   '1': 'StreamingUploadRequest',

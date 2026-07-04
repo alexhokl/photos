@@ -2094,3 +2094,170 @@ func TestGetDirectoryConfiguration_EmptyBucketName(t *testing.T) {
 		t.Error("expected nil config when bucket name is empty")
 	}
 }
+
+// mockUpdateWebpStream implements grpc.ServerStreamingServer[proto.UpdateWebpProgress]
+// for testing UpdateWebp. Sent progress messages are collected in sent.
+type mockUpdateWebpStream struct {
+	grpc.ServerStream
+	ctx  context.Context
+	sent []*proto.UpdateWebpProgress
+}
+
+func newMockUpdateWebpStream(ctx context.Context) *mockUpdateWebpStream {
+	return &mockUpdateWebpStream{ctx: ctx}
+}
+
+func (m *mockUpdateWebpStream) Send(msg *proto.UpdateWebpProgress) error {
+	m.sent = append(m.sent, msg)
+	return nil
+}
+
+func (m *mockUpdateWebpStream) Context() context.Context { return m.ctx }
+
+func TestUpdateWebp_Unauthenticated(t *testing.T) {
+	server := &LibraryServer{}
+	stream := newMockUpdateWebpStream(context.Background())
+
+	err := server.UpdateWebp(&proto.UpdateWebpRequest{}, stream)
+
+	assertGRPCError(t, err, codes.Unauthenticated)
+}
+
+// TestUpdateWebp_NoEligibleObjects verifies that when the database contains no
+// eligible PhotoObject rows (all have webp_object_id set or are derived
+// assets), UpdateWebp streams a single complete summary message with zero
+// counts and no per-object messages.
+func TestUpdateWebp_NoEligibleObjects(t *testing.T) {
+	db := setupLibraryTestDB(t)
+
+	webpID := "photos/img.webp"
+	existing := []database.PhotoObject{
+		{
+			ObjectID:     "photos/has_webp.jpg",
+			ContentType:  "image/jpeg",
+			MD5Hash:      "hash1",
+			UserID:       1,
+			WebpObjectID: &webpID,
+		},
+		{
+			ObjectID:    "photos/derived.webp",
+			ContentType: "image/webp",
+			MD5Hash:     "hash2",
+			UserID:      1,
+		},
+	}
+	for _, obj := range existing {
+		if err := db.Create(&obj).Error; err != nil {
+			t.Fatalf("failed to seed photo object: %v", err)
+		}
+	}
+
+	server := &LibraryServer{DB: db, BucketName: "test-bucket"}
+	stream := newMockUpdateWebpStream(contextWithUserID(1))
+
+	if err := server.UpdateWebp(&proto.UpdateWebpRequest{}, stream); err != nil {
+		t.Fatalf("UpdateWebp returned error: %v", err)
+	}
+
+	if len(stream.sent) != 1 {
+		t.Fatalf("expected 1 summary message, got %d", len(stream.sent))
+	}
+
+	summary := stream.sent[0]
+	if !summary.GetComplete() {
+		t.Errorf("expected complete=true, got false")
+	}
+	if summary.GetGenerated() != 0 || summary.GetSkipped() != 0 || summary.GetFailed() != 0 {
+		t.Errorf(
+			"expected zero counts, got generated=%d skipped=%d failed=%d",
+			summary.GetGenerated(),
+			summary.GetSkipped(),
+			summary.GetFailed(),
+		)
+	}
+	if summary.GetTotal() != 0 {
+		t.Errorf("expected total=0, got %d", summary.GetTotal())
+	}
+}
+
+// TestUpdateWebp_EligibilityFilter verifies that only rows with an empty
+// webp_object_id and a non-derived object_id are processed. With a nil GCS
+// client the per-object generation will fail, so the test asserts that exactly
+// the eligible rows produce per-object progress messages and that the final
+// summary reports the expected failed count.
+func TestUpdateWebp_EligibilityFilter(t *testing.T) {
+	db := setupLibraryTestDB(t)
+
+	webpID := "photos/already.webp"
+	objects := []database.PhotoObject{
+		{
+			ObjectID:     "photos/already_has_webp.jpg",
+			ContentType:  "image/jpeg",
+			MD5Hash:      "h1",
+			UserID:       1,
+			WebpObjectID: &webpID,
+		},
+		{
+			ObjectID:    "photos/derived.webp",
+			ContentType: "image/webp",
+			MD5Hash:     "h2",
+			UserID:      1,
+		},
+		{
+			ObjectID:    "photos/eligible.jpg",
+			ContentType: "image/jpeg",
+			MD5Hash:     "h3",
+			UserID:      1,
+		},
+		{
+			ObjectID:    "photos/another.png",
+			ContentType: "image/png",
+			MD5Hash:     "h4",
+			UserID:      1,
+		},
+	}
+	for _, obj := range objects {
+		if err := db.Create(&obj).Error; err != nil {
+			t.Fatalf("failed to seed photo object: %v", err)
+		}
+	}
+
+	// Nil GCSClient: bucket.Attrs / NewReader will fail, so eligible objects
+	// are counted as failed rather than generated. This still exercises the
+	// eligibility filter and the streaming contract.
+	server := &LibraryServer{DB: db, BucketName: "test-bucket"}
+	stream := newMockUpdateWebpStream(contextWithUserID(1))
+
+	if err := server.UpdateWebp(&proto.UpdateWebpRequest{}, stream); err != nil {
+		t.Fatalf("UpdateWebp returned error: %v", err)
+	}
+
+	// Expect 2 per-object messages (the 2 eligible rows) + 1 final summary.
+	if len(stream.sent) != 3 {
+		t.Fatalf("expected 3 progress messages (2 per-object + 1 summary), got %d", len(stream.sent))
+	}
+
+	if stream.sent[0].GetProcessed() != 1 || stream.sent[0].GetTotal() != 2 {
+		t.Errorf("first progress: processed=%d total=%d, want 1/2",
+			stream.sent[0].GetProcessed(), stream.sent[0].GetTotal())
+	}
+	if stream.sent[1].GetProcessed() != 2 || stream.sent[1].GetTotal() != 2 {
+		t.Errorf("second progress: processed=%d total=%d, want 2/2",
+			stream.sent[1].GetProcessed(), stream.sent[1].GetTotal())
+	}
+
+	summary := stream.sent[2]
+	if !summary.GetComplete() {
+		t.Errorf("expected final message complete=true")
+	}
+	if summary.GetTotal() != 2 {
+		t.Errorf("summary total=%d, want 2", summary.GetTotal())
+	}
+	if summary.GetFailed() != 2 {
+		t.Errorf("summary failed=%d, want 2 (nil GCS client)", summary.GetFailed())
+	}
+	if summary.GetGenerated() != 0 || summary.GetSkipped() != 0 {
+		t.Errorf("summary generated=%d skipped=%d, want 0/0",
+			summary.GetGenerated(), summary.GetSkipped())
+	}
+}

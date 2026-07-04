@@ -283,6 +283,17 @@ class LibraryServiceClient extends $grpc.Client {
         options: options);
   }
 
+  /// UpdateWebp generates missing WebP renditions for all eligible PhotoObject
+  /// rows that do not yet have a webp_object_id set.
+  $grpc.ResponseStream<$0.UpdateWebpProgress> updateWebp(
+    $0.UpdateWebpRequest request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createStreamingCall(
+        _$updateWebp, $async.Stream.fromIterable([request]),
+        options: options);
+  }
+
   /// CreateMarkdown creates an index.md file in a specified prefix (directory)
   $grpc.ResponseFuture<$0.CreateMarkdownResponse> createMarkdown(
     $0.CreateMarkdownRequest request, {
@@ -385,6 +396,11 @@ class LibraryServiceClient extends $grpc.Client {
           '/photos.LibraryService/SyncDatabase',
           ($0.SyncDatabaseRequest value) => value.writeToBuffer(),
           $0.SyncDatabaseProgress.fromBuffer);
+  static final _$updateWebp =
+      $grpc.ClientMethod<$0.UpdateWebpRequest, $0.UpdateWebpProgress>(
+          '/photos.LibraryService/UpdateWebp',
+          ($0.UpdateWebpRequest value) => value.writeToBuffer(),
+          $0.UpdateWebpProgress.fromBuffer);
   static final _$createMarkdown =
       $grpc.ClientMethod<$0.CreateMarkdownRequest, $0.CreateMarkdownResponse>(
           '/photos.LibraryService/CreateMarkdown',
@@ -506,6 +522,13 @@ abstract class LibraryServiceBase extends $grpc.Service {
             ($core.List<$core.int> value) =>
                 $0.SyncDatabaseRequest.fromBuffer(value),
             ($0.SyncDatabaseProgress value) => value.writeToBuffer()));
+    $addMethod($grpc.ServiceMethod<$0.UpdateWebpRequest, $0.UpdateWebpProgress>(
+        'UpdateWebp',
+        updateWebp_Pre,
+        false,
+        true,
+        ($core.List<$core.int> value) => $0.UpdateWebpRequest.fromBuffer(value),
+        ($0.UpdateWebpProgress value) => value.writeToBuffer()));
     $addMethod($grpc.ServiceMethod<$0.CreateMarkdownRequest,
             $0.CreateMarkdownResponse>(
         'CreateMarkdown',
@@ -645,6 +668,14 @@ abstract class LibraryServiceBase extends $grpc.Service {
 
   $async.Stream<$0.SyncDatabaseProgress> syncDatabase(
       $grpc.ServiceCall call, $0.SyncDatabaseRequest request);
+
+  $async.Stream<$0.UpdateWebpProgress> updateWebp_Pre($grpc.ServiceCall $call,
+      $async.Future<$0.UpdateWebpRequest> $request) async* {
+    yield* updateWebp($call, await $request);
+  }
+
+  $async.Stream<$0.UpdateWebpProgress> updateWebp(
+      $grpc.ServiceCall call, $0.UpdateWebpRequest request);
 
   $async.Future<$0.CreateMarkdownResponse> createMarkdown_Pre(
       $grpc.ServiceCall $call,

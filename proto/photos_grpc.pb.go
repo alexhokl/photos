@@ -294,6 +294,7 @@ const (
 	LibraryService_PhotoExists_FullMethodName            = "/photos.LibraryService/PhotoExists"
 	LibraryService_ListDirectories_FullMethodName        = "/photos.LibraryService/ListDirectories"
 	LibraryService_SyncDatabase_FullMethodName           = "/photos.LibraryService/SyncDatabase"
+	LibraryService_UpdateWebp_FullMethodName             = "/photos.LibraryService/UpdateWebp"
 	LibraryService_CreateMarkdown_FullMethodName         = "/photos.LibraryService/CreateMarkdown"
 	LibraryService_GetMarkdown_FullMethodName            = "/photos.LibraryService/GetMarkdown"
 	LibraryService_UpdateMarkdown_FullMethodName         = "/photos.LibraryService/UpdateMarkdown"
@@ -326,6 +327,9 @@ type LibraryServiceClient interface {
 	ListDirectories(ctx context.Context, in *ListDirectoriesRequest, opts ...grpc.CallOption) (*ListDirectoriesResponse, error)
 	// SyncDatabase syncs the photo database with the storage backend
 	SyncDatabase(ctx context.Context, in *SyncDatabaseRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[SyncDatabaseProgress], error)
+	// UpdateWebp generates missing WebP renditions for all eligible PhotoObject
+	// rows that do not yet have a webp_object_id set.
+	UpdateWebp(ctx context.Context, in *UpdateWebpRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[UpdateWebpProgress], error)
 	// CreateMarkdown creates an index.md file in a specified prefix (directory)
 	CreateMarkdown(ctx context.Context, in *CreateMarkdownRequest, opts ...grpc.CallOption) (*CreateMarkdownResponse, error)
 	// GetMarkdown retrieves an index.md file from a specified prefix (directory)
@@ -457,6 +461,25 @@ func (c *libraryServiceClient) SyncDatabase(ctx context.Context, in *SyncDatabas
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type LibraryService_SyncDatabaseClient = grpc.ServerStreamingClient[SyncDatabaseProgress]
 
+func (c *libraryServiceClient) UpdateWebp(ctx context.Context, in *UpdateWebpRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[UpdateWebpProgress], error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &LibraryService_ServiceDesc.Streams[1], LibraryService_UpdateWebp_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &grpc.GenericClientStream[UpdateWebpRequest, UpdateWebpProgress]{ClientStream: stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type LibraryService_UpdateWebpClient = grpc.ServerStreamingClient[UpdateWebpProgress]
+
 func (c *libraryServiceClient) CreateMarkdown(ctx context.Context, in *CreateMarkdownRequest, opts ...grpc.CallOption) (*CreateMarkdownResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(CreateMarkdownResponse)
@@ -541,6 +564,9 @@ type LibraryServiceServer interface {
 	ListDirectories(context.Context, *ListDirectoriesRequest) (*ListDirectoriesResponse, error)
 	// SyncDatabase syncs the photo database with the storage backend
 	SyncDatabase(*SyncDatabaseRequest, grpc.ServerStreamingServer[SyncDatabaseProgress]) error
+	// UpdateWebp generates missing WebP renditions for all eligible PhotoObject
+	// rows that do not yet have a webp_object_id set.
+	UpdateWebp(*UpdateWebpRequest, grpc.ServerStreamingServer[UpdateWebpProgress]) error
 	// CreateMarkdown creates an index.md file in a specified prefix (directory)
 	CreateMarkdown(context.Context, *CreateMarkdownRequest) (*CreateMarkdownResponse, error)
 	// GetMarkdown retrieves an index.md file from a specified prefix (directory)
@@ -592,6 +618,9 @@ func (UnimplementedLibraryServiceServer) ListDirectories(context.Context, *ListD
 }
 func (UnimplementedLibraryServiceServer) SyncDatabase(*SyncDatabaseRequest, grpc.ServerStreamingServer[SyncDatabaseProgress]) error {
 	return status.Error(codes.Unimplemented, "method SyncDatabase not implemented")
+}
+func (UnimplementedLibraryServiceServer) UpdateWebp(*UpdateWebpRequest, grpc.ServerStreamingServer[UpdateWebpProgress]) error {
+	return status.Error(codes.Unimplemented, "method UpdateWebp not implemented")
 }
 func (UnimplementedLibraryServiceServer) CreateMarkdown(context.Context, *CreateMarkdownRequest) (*CreateMarkdownResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method CreateMarkdown not implemented")
@@ -805,6 +834,17 @@ func _LibraryService_SyncDatabase_Handler(srv interface{}, stream grpc.ServerStr
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type LibraryService_SyncDatabaseServer = grpc.ServerStreamingServer[SyncDatabaseProgress]
 
+func _LibraryService_UpdateWebp_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(UpdateWebpRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(LibraryServiceServer).UpdateWebp(m, &grpc.GenericServerStream[UpdateWebpRequest, UpdateWebpProgress]{ServerStream: stream})
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type LibraryService_UpdateWebpServer = grpc.ServerStreamingServer[UpdateWebpProgress]
+
 func _LibraryService_CreateMarkdown_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(CreateMarkdownRequest)
 	if err := dec(in); err != nil {
@@ -985,6 +1025,11 @@ var LibraryService_ServiceDesc = grpc.ServiceDesc{
 		{
 			StreamName:    "SyncDatabase",
 			Handler:       _LibraryService_SyncDatabase_Handler,
+			ServerStreams: true,
+		},
+		{
+			StreamName:    "UpdateWebp",
+			Handler:       _LibraryService_UpdateWebp_Handler,
 			ServerStreams: true,
 		},
 	},
