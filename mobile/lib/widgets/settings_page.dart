@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 class BackendConfig {
   final String host;
   final int port;
+  final String scheme;
   final String defaultDirectory;
   final bool deleteAfterUpload;
   final int uploadTimeoutSeconds;
@@ -16,6 +17,7 @@ class BackendConfig {
   const BackendConfig({
     required this.host,
     required this.port,
+    this.scheme = 'https',
     this.defaultDirectory = '',
     this.deleteAfterUpload = false,
     this.uploadTimeoutSeconds = SettingsPage.defaultUploadTimeoutSeconds,
@@ -35,18 +37,20 @@ class BackendConfig {
   }) {
     final uri = Uri.parse(url);
     final host = uri.host;
+    final scheme = uri.scheme.isEmpty ? 'https' : uri.scheme;
     int port;
 
     if (uri.hasPort) {
       port = uri.port;
     } else {
       // Default ports based on scheme
-      port = uri.scheme == 'https' ? 443 : 80;
+      port = scheme == 'https' ? 443 : 80;
     }
 
     return BackendConfig(
       host: host,
       port: port,
+      scheme: scheme,
       defaultDirectory: defaultDirectory,
       deleteAfterUpload: deleteAfterUpload,
       uploadTimeoutSeconds: uploadTimeoutSeconds,

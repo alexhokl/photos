@@ -12,6 +12,13 @@ void main() {
       );
     });
 
+    test('has share value', () {
+      expect(
+        CloudPhotoViewerAction.values,
+        contains(CloudPhotoViewerAction.share),
+      );
+    });
+
     test('has delete value', () {
       expect(
         CloudPhotoViewerAction.values,
@@ -47,32 +54,36 @@ void main() {
       );
     });
 
-    test('has exactly 6 values', () {
-      expect(CloudPhotoViewerAction.values.length, equals(6));
+    test('has exactly 7 values', () {
+      expect(CloudPhotoViewerAction.values.length, equals(7));
     });
 
     test('info has index 0', () {
       expect(CloudPhotoViewerAction.info.index, equals(0));
     });
 
-    test('delete has index 1', () {
-      expect(CloudPhotoViewerAction.delete.index, equals(1));
+    test('share has index 1', () {
+      expect(CloudPhotoViewerAction.share.index, equals(1));
     });
 
-    test('download has index 2', () {
-      expect(CloudPhotoViewerAction.download.index, equals(2));
+    test('delete has index 2', () {
+      expect(CloudPhotoViewerAction.delete.index, equals(2));
     });
 
-    test('copy has index 3', () {
-      expect(CloudPhotoViewerAction.copy.index, equals(3));
+    test('download has index 3', () {
+      expect(CloudPhotoViewerAction.download.index, equals(3));
     });
 
-    test('move has index 4', () {
-      expect(CloudPhotoViewerAction.move.index, equals(4));
+    test('copy has index 4', () {
+      expect(CloudPhotoViewerAction.copy.index, equals(4));
     });
 
-    test('rename has index 5', () {
-      expect(CloudPhotoViewerAction.rename.index, equals(5));
+    test('move has index 5', () {
+      expect(CloudPhotoViewerAction.move.index, equals(5));
+    });
+
+    test('rename has index 6', () {
+      expect(CloudPhotoViewerAction.rename.index, equals(6));
     });
   });
 
@@ -303,7 +314,7 @@ void main() {
   });
 
   group('CloudPhotoViewer context menu', () {
-    testWidgets('context menu contains all six options', (tester) async {
+    testWidgets('context menu contains all seven options', (tester) async {
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
@@ -317,6 +328,14 @@ void main() {
                       child: ListTile(
                         leading: Icon(Icons.info_outline),
                         title: Text('Info'),
+                        contentPadding: EdgeInsets.zero,
+                      ),
+                    ),
+                    PopupMenuItem(
+                      value: CloudPhotoViewerAction.share,
+                      child: ListTile(
+                        leading: Icon(Icons.share),
+                        title: Text('Share link'),
                         contentPadding: EdgeInsets.zero,
                       ),
                     ),
@@ -373,12 +392,14 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Info'), findsOneWidget);
+      expect(find.text('Share link'), findsOneWidget);
       expect(find.text('Rename'), findsOneWidget);
       expect(find.text('Save to Device'), findsOneWidget);
       expect(find.text('Copy to...'), findsOneWidget);
       expect(find.text('Move to...'), findsOneWidget);
       expect(find.text('Delete'), findsOneWidget);
       expect(find.byIcon(Icons.info_outline), findsOneWidget);
+      expect(find.byIcon(Icons.share), findsOneWidget);
       expect(find.byIcon(Icons.edit), findsOneWidget);
       expect(find.byIcon(Icons.download), findsOneWidget);
       expect(find.byIcon(Icons.copy), findsOneWidget);

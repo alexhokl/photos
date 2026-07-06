@@ -68,6 +68,9 @@ dependencies:
   # Video playback
   video_player: ^2.9.2
 
+  # For sharing content via the OS share sheet
+  share_plus: ^13.2.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

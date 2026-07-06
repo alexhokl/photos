@@ -11,8 +11,9 @@ import 'package:photos/services/photo_cache_manager.dart';
 import 'package:photos/widgets/cloud_photo_info_view.dart';
 import 'package:photos/widgets/cloud_video_player.dart';
 import 'package:photos/widgets/settings_page.dart';
+import 'package:share_plus/share_plus.dart';
 
-enum CloudPhotoViewerAction { info, delete, download, copy, move, rename }
+enum CloudPhotoViewerAction { info, share, delete, download, copy, move, rename }
 
 /// Result returned from CloudPhotoViewer when navigating back.
 /// Used to indicate what action was taken on the photo.
@@ -351,6 +352,21 @@ class _CloudPhotoViewerState extends State<CloudPhotoViewer> {
     }
   }
 
+  Future<void> _shareLink() async {
+    final config = await BackendConfig.load();
+    final scheme = config.scheme;
+    final portPart = (scheme == 'https' && config.port == 443) ||
+            (scheme == 'http' && config.port == 80)
+        ? ''
+        : ':${config.port}';
+    final encoded = _currentPhoto.objectId
+        .split('/')
+        .map(Uri.encodeComponent)
+        .join('/');
+    final url = '$scheme://${config.host}$portPart/v1/photos/$encoded/download';
+    await SharePlus.instance.share(ShareParams(uri: Uri.parse(url)));
+  }
+
   void _onMenuAction(CloudPhotoViewerAction action) {
     switch (action) {
       case CloudPhotoViewerAction.info:
@@ -360,6 +376,9 @@ class _CloudPhotoViewerState extends State<CloudPhotoViewer> {
             builder: (context) => CloudPhotoInfoView(photo: _currentPhoto),
           ),
         );
+        break;
+      case CloudPhotoViewerAction.share:
+        _shareLink();
         break;
       case CloudPhotoViewerAction.delete:
         _deletePhoto();
@@ -437,6 +456,14 @@ class _CloudPhotoViewerState extends State<CloudPhotoViewer> {
                 child: ListTile(
                   leading: Icon(Icons.info_outline),
                   title: Text('Info'),
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+              const PopupMenuItem(
+                value: CloudPhotoViewerAction.share,
+                child: ListTile(
+                  leading: Icon(Icons.share),
+                  title: Text('Share link'),
                   contentPadding: EdgeInsets.zero,
                 ),
               ),
