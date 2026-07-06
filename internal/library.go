@@ -132,6 +132,12 @@ func (s *LibraryServer) GetPhoto(ctx context.Context, req *proto.GetPhotoRequest
 		thumbnailObjectID = *photoObject.ThumbnailObjectID
 	}
 
+	// Get webp object ID if available
+	var webpObjectID string
+	if photoObject.WebpObjectID != nil {
+		webpObjectID = *photoObject.WebpObjectID
+	}
+
 	photo := &proto.Photo{
 		ObjectId:          photoObject.ObjectID,
 		Filename:          photoObject.ObjectID,
@@ -159,6 +165,7 @@ func (s *LibraryServer) GetPhoto(ctx context.Context, req *proto.GetPhotoRequest
 		DurationSeconds:   durationSeconds,
 		IsVideo:           isVideo,
 		ThumbnailObjectId: thumbnailObjectID,
+		WebpObjectId:      webpObjectID,
 	}
 
 	slog.Info(
@@ -676,6 +683,12 @@ func (s *LibraryServer) ListPhotos(ctx context.Context, req *proto.ListPhotosReq
 			thumbnailObjectID = *obj.ThumbnailObjectID
 		}
 
+		// Get webp object ID if available
+		var webpObjectID string
+		if obj.WebpObjectID != nil {
+			webpObjectID = *obj.WebpObjectID
+		}
+
 		// Get duration if available
 		var durationSeconds float64
 		if obj.DurationSeconds != nil {
@@ -691,6 +704,7 @@ func (s *LibraryServer) ListPhotos(ctx context.Context, req *proto.ListPhotosReq
 			UpdatedAt:         obj.UpdatedAt.Format(time.RFC3339),
 			IsVideo:           isVideo,
 			ThumbnailObjectId: thumbnailObjectID,
+			WebpObjectId:      webpObjectID,
 			DurationSeconds:   durationSeconds,
 		}
 		if obj.TimeTaken != nil {

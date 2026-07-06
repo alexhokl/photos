@@ -72,6 +72,12 @@ func runGetPhoto(cmd *cobra.Command, args []string) error {
 	if photo.GetOriginalFilename() != "" {
 		fmt.Printf("  Original Filename: %s\n", photo.GetOriginalFilename())
 	}
+	if photo.GetThumbnailObjectId() != "" {
+		fmt.Printf("  Thumbnail ID:      %s\n", photo.GetThumbnailObjectId())
+	}
+	if photo.GetWebpObjectId() != "" {
+		fmt.Printf("  WebP ID:           %s\n", photo.GetWebpObjectId())
+	}
 	fmt.Printf("  Content Type:      %s\n", photo.GetContentType())
 	fmt.Printf("  Size:              %d bytes\n", photo.GetSizeBytes())
 	if photo.GetHasDimensions() {
@@ -124,9 +130,6 @@ func runGetPhoto(cmd *cobra.Command, args []string) error {
 		fmt.Printf("\nVideo\n")
 		if photo.GetDurationSeconds() > 0 {
 			fmt.Printf("  Duration:          %s\n", formatDuration(photo.GetDurationSeconds()))
-		}
-		if photo.GetThumbnailObjectId() != "" {
-			fmt.Printf("  Thumbnail ID:      %s\n", photo.GetThumbnailObjectId())
 		}
 	}
 
