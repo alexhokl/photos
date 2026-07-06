@@ -80,7 +80,8 @@
             "description": "The prefix (directory path) where index.md is located",
             "in": "path",
             "required": true,
-            "type": "string"
+            "type": "string",
+            "pattern": ".+"
           }
         ],
         "tags": [
@@ -110,7 +111,8 @@
             "description": "The prefix (directory path) where index.md is located",
             "in": "path",
             "required": true,
-            "type": "string"
+            "type": "string",
+            "pattern": ".+"
           }
         ],
         "tags": [
@@ -140,7 +142,8 @@
             "description": "The prefix (directory path) where index.md will be created",
             "in": "path",
             "required": true,
-            "type": "string"
+            "type": "string",
+            "pattern": ".+"
           },
           {
             "name": "body",
@@ -178,7 +181,8 @@
             "description": "The prefix (directory path) where index.md is located",
             "in": "path",
             "required": true,
-            "type": "string"
+            "type": "string",
+            "pattern": ".+"
           },
           {
             "name": "body",
@@ -336,7 +340,8 @@
             "name": "objectId",
             "in": "path",
             "required": true,
-            "type": "string"
+            "type": "string",
+            "pattern": ".+"
           }
         ],
         "tags": [
@@ -365,7 +370,8 @@
             "name": "objectId",
             "in": "path",
             "required": true,
-            "type": "string"
+            "type": "string",
+            "pattern": ".+"
           }
         ],
         "tags": [
@@ -397,7 +403,8 @@
             "description": "The object ID of the DNG photo",
             "in": "path",
             "required": true,
-            "type": "string"
+            "type": "string",
+            "pattern": ".+"
           },
           {
             "name": "body",
@@ -436,7 +443,8 @@
             "name": "objectId",
             "in": "path",
             "required": true,
-            "type": "string"
+            "type": "string",
+            "pattern": ".+"
           },
           {
             "name": "stripLocation",
@@ -474,7 +482,8 @@
             "name": "objectId",
             "in": "path",
             "required": true,
-            "type": "string"
+            "type": "string",
+            "pattern": ".+"
           }
         ],
         "tags": [
@@ -505,7 +514,8 @@
             "name": "objectId",
             "in": "path",
             "required": true,
-            "type": "string"
+            "type": "string",
+            "pattern": ".+"
           },
           {
             "name": "body",
@@ -544,7 +554,8 @@
             "name": "objectId",
             "in": "path",
             "required": true,
-            "type": "string"
+            "type": "string",
+            "pattern": ".+"
           },
           {
             "name": "body",
@@ -584,7 +595,8 @@
             "description": "The object ID of the video",
             "in": "path",
             "required": true,
-            "type": "string"
+            "type": "string",
+            "pattern": ".+"
           },
           {
             "name": "body",
@@ -623,7 +635,8 @@
             "name": "sourceObjectId",
             "in": "path",
             "required": true,
-            "type": "string"
+            "type": "string",
+            "pattern": ".+"
           },
           {
             "name": "body",
@@ -662,7 +675,8 @@
             "name": "sourceObjectId",
             "in": "path",
             "required": true,
-            "type": "string"
+            "type": "string",
+            "pattern": ".+"
           },
           {
             "name": "body",

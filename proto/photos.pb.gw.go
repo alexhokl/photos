@@ -818,7 +818,7 @@ func RegisterByteServiceHandlerServer(ctx context.Context, mux *runtime.ServeMux
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/photos.ByteService/Download", runtime.WithHTTPPathPattern("/v1/photos/{object_id}/download"))
+		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/photos.ByteService/Download", runtime.WithHTTPPathPattern("/v1/photos/{object_id=**}/download"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -848,7 +848,7 @@ func RegisterLibraryServiceHandlerServer(ctx context.Context, mux *runtime.Serve
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/photos.LibraryService/DeletePhoto", runtime.WithHTTPPathPattern("/v1/photos/{object_id}"))
+		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/photos.LibraryService/DeletePhoto", runtime.WithHTTPPathPattern("/v1/photos/{object_id=**}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -868,7 +868,7 @@ func RegisterLibraryServiceHandlerServer(ctx context.Context, mux *runtime.Serve
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/photos.LibraryService/GetPhoto", runtime.WithHTTPPathPattern("/v1/photos/{object_id}"))
+		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/photos.LibraryService/GetPhoto", runtime.WithHTTPPathPattern("/v1/photos/{object_id=**}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -908,7 +908,7 @@ func RegisterLibraryServiceHandlerServer(ctx context.Context, mux *runtime.Serve
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/photos.LibraryService/CopyPhoto", runtime.WithHTTPPathPattern("/v1/photos/{source_object_id}/copy"))
+		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/photos.LibraryService/CopyPhoto", runtime.WithHTTPPathPattern("/v1/photos/{source_object_id=**}/copy"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -928,7 +928,7 @@ func RegisterLibraryServiceHandlerServer(ctx context.Context, mux *runtime.Serve
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/photos.LibraryService/RenamePhoto", runtime.WithHTTPPathPattern("/v1/photos/{source_object_id}/rename"))
+		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/photos.LibraryService/RenamePhoto", runtime.WithHTTPPathPattern("/v1/photos/{source_object_id=**}/rename"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -948,7 +948,7 @@ func RegisterLibraryServiceHandlerServer(ctx context.Context, mux *runtime.Serve
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/photos.LibraryService/UpdatePhotoMetadata", runtime.WithHTTPPathPattern("/v1/photos/{object_id}/metadata"))
+		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/photos.LibraryService/UpdatePhotoMetadata", runtime.WithHTTPPathPattern("/v1/photos/{object_id=**}/metadata"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -968,7 +968,7 @@ func RegisterLibraryServiceHandlerServer(ctx context.Context, mux *runtime.Serve
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/photos.LibraryService/GenerateSignedUrl", runtime.WithHTTPPathPattern("/v1/photos/{object_id}/signed-url"))
+		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/photos.LibraryService/GenerateSignedUrl", runtime.WithHTTPPathPattern("/v1/photos/{object_id=**}/signed-url"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -988,7 +988,7 @@ func RegisterLibraryServiceHandlerServer(ctx context.Context, mux *runtime.Serve
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/photos.LibraryService/PhotoExists", runtime.WithHTTPPathPattern("/v1/photos/{object_id}/exists"))
+		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/photos.LibraryService/PhotoExists", runtime.WithHTTPPathPattern("/v1/photos/{object_id=**}/exists"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -1042,7 +1042,7 @@ func RegisterLibraryServiceHandlerServer(ctx context.Context, mux *runtime.Serve
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/photos.LibraryService/CreateMarkdown", runtime.WithHTTPPathPattern("/v1/directories/{prefix}/markdown"))
+		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/photos.LibraryService/CreateMarkdown", runtime.WithHTTPPathPattern("/v1/directories/{prefix=**}/markdown"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -1062,7 +1062,7 @@ func RegisterLibraryServiceHandlerServer(ctx context.Context, mux *runtime.Serve
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/photos.LibraryService/GetMarkdown", runtime.WithHTTPPathPattern("/v1/directories/{prefix}/markdown"))
+		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/photos.LibraryService/GetMarkdown", runtime.WithHTTPPathPattern("/v1/directories/{prefix=**}/markdown"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -1082,7 +1082,7 @@ func RegisterLibraryServiceHandlerServer(ctx context.Context, mux *runtime.Serve
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/photos.LibraryService/UpdateMarkdown", runtime.WithHTTPPathPattern("/v1/directories/{prefix}/markdown"))
+		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/photos.LibraryService/UpdateMarkdown", runtime.WithHTTPPathPattern("/v1/directories/{prefix=**}/markdown"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -1102,7 +1102,7 @@ func RegisterLibraryServiceHandlerServer(ctx context.Context, mux *runtime.Serve
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/photos.LibraryService/DeleteMarkdown", runtime.WithHTTPPathPattern("/v1/directories/{prefix}/markdown"))
+		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/photos.LibraryService/DeleteMarkdown", runtime.WithHTTPPathPattern("/v1/directories/{prefix=**}/markdown"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -1122,7 +1122,7 @@ func RegisterLibraryServiceHandlerServer(ctx context.Context, mux *runtime.Serve
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/photos.LibraryService/GenerateVideoThumbnail", runtime.WithHTTPPathPattern("/v1/photos/{object_id}/thumbnail"))
+		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/photos.LibraryService/GenerateVideoThumbnail", runtime.WithHTTPPathPattern("/v1/photos/{object_id=**}/thumbnail"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -1142,7 +1142,7 @@ func RegisterLibraryServiceHandlerServer(ctx context.Context, mux *runtime.Serve
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/photos.LibraryService/GenerateDNGPreview", runtime.WithHTTPPathPattern("/v1/photos/{object_id}/dng-preview"))
+		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/photos.LibraryService/GenerateDNGPreview", runtime.WithHTTPPathPattern("/v1/photos/{object_id=**}/dng-preview"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -1217,7 +1217,7 @@ func RegisterByteServiceHandlerClient(ctx context.Context, mux *runtime.ServeMux
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/photos.ByteService/Download", runtime.WithHTTPPathPattern("/v1/photos/{object_id}/download"))
+		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/photos.ByteService/Download", runtime.WithHTTPPathPattern("/v1/photos/{object_id=**}/download"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -1235,7 +1235,7 @@ func RegisterByteServiceHandlerClient(ctx context.Context, mux *runtime.ServeMux
 
 var (
 	pattern_ByteService_Upload_0   = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"v1", "photos", "upload"}, ""))
-	pattern_ByteService_Download_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 1, 0, 4, 1, 5, 2, 2, 3}, []string{"v1", "photos", "object_id", "download"}, ""))
+	pattern_ByteService_Download_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 3, 0, 4, 1, 5, 2, 2, 3}, []string{"v1", "photos", "object_id", "download"}, ""))
 )
 
 var (
@@ -1283,7 +1283,7 @@ func RegisterLibraryServiceHandlerClient(ctx context.Context, mux *runtime.Serve
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/photos.LibraryService/DeletePhoto", runtime.WithHTTPPathPattern("/v1/photos/{object_id}"))
+		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/photos.LibraryService/DeletePhoto", runtime.WithHTTPPathPattern("/v1/photos/{object_id=**}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -1300,7 +1300,7 @@ func RegisterLibraryServiceHandlerClient(ctx context.Context, mux *runtime.Serve
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/photos.LibraryService/GetPhoto", runtime.WithHTTPPathPattern("/v1/photos/{object_id}"))
+		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/photos.LibraryService/GetPhoto", runtime.WithHTTPPathPattern("/v1/photos/{object_id=**}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -1334,7 +1334,7 @@ func RegisterLibraryServiceHandlerClient(ctx context.Context, mux *runtime.Serve
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/photos.LibraryService/CopyPhoto", runtime.WithHTTPPathPattern("/v1/photos/{source_object_id}/copy"))
+		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/photos.LibraryService/CopyPhoto", runtime.WithHTTPPathPattern("/v1/photos/{source_object_id=**}/copy"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -1351,7 +1351,7 @@ func RegisterLibraryServiceHandlerClient(ctx context.Context, mux *runtime.Serve
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/photos.LibraryService/RenamePhoto", runtime.WithHTTPPathPattern("/v1/photos/{source_object_id}/rename"))
+		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/photos.LibraryService/RenamePhoto", runtime.WithHTTPPathPattern("/v1/photos/{source_object_id=**}/rename"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -1368,7 +1368,7 @@ func RegisterLibraryServiceHandlerClient(ctx context.Context, mux *runtime.Serve
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/photos.LibraryService/UpdatePhotoMetadata", runtime.WithHTTPPathPattern("/v1/photos/{object_id}/metadata"))
+		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/photos.LibraryService/UpdatePhotoMetadata", runtime.WithHTTPPathPattern("/v1/photos/{object_id=**}/metadata"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -1385,7 +1385,7 @@ func RegisterLibraryServiceHandlerClient(ctx context.Context, mux *runtime.Serve
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/photos.LibraryService/GenerateSignedUrl", runtime.WithHTTPPathPattern("/v1/photos/{object_id}/signed-url"))
+		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/photos.LibraryService/GenerateSignedUrl", runtime.WithHTTPPathPattern("/v1/photos/{object_id=**}/signed-url"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -1402,7 +1402,7 @@ func RegisterLibraryServiceHandlerClient(ctx context.Context, mux *runtime.Serve
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/photos.LibraryService/PhotoExists", runtime.WithHTTPPathPattern("/v1/photos/{object_id}/exists"))
+		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/photos.LibraryService/PhotoExists", runtime.WithHTTPPathPattern("/v1/photos/{object_id=**}/exists"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -1470,7 +1470,7 @@ func RegisterLibraryServiceHandlerClient(ctx context.Context, mux *runtime.Serve
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/photos.LibraryService/CreateMarkdown", runtime.WithHTTPPathPattern("/v1/directories/{prefix}/markdown"))
+		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/photos.LibraryService/CreateMarkdown", runtime.WithHTTPPathPattern("/v1/directories/{prefix=**}/markdown"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -1487,7 +1487,7 @@ func RegisterLibraryServiceHandlerClient(ctx context.Context, mux *runtime.Serve
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/photos.LibraryService/GetMarkdown", runtime.WithHTTPPathPattern("/v1/directories/{prefix}/markdown"))
+		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/photos.LibraryService/GetMarkdown", runtime.WithHTTPPathPattern("/v1/directories/{prefix=**}/markdown"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -1504,7 +1504,7 @@ func RegisterLibraryServiceHandlerClient(ctx context.Context, mux *runtime.Serve
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/photos.LibraryService/UpdateMarkdown", runtime.WithHTTPPathPattern("/v1/directories/{prefix}/markdown"))
+		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/photos.LibraryService/UpdateMarkdown", runtime.WithHTTPPathPattern("/v1/directories/{prefix=**}/markdown"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -1521,7 +1521,7 @@ func RegisterLibraryServiceHandlerClient(ctx context.Context, mux *runtime.Serve
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/photos.LibraryService/DeleteMarkdown", runtime.WithHTTPPathPattern("/v1/directories/{prefix}/markdown"))
+		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/photos.LibraryService/DeleteMarkdown", runtime.WithHTTPPathPattern("/v1/directories/{prefix=**}/markdown"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -1538,7 +1538,7 @@ func RegisterLibraryServiceHandlerClient(ctx context.Context, mux *runtime.Serve
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/photos.LibraryService/GenerateVideoThumbnail", runtime.WithHTTPPathPattern("/v1/photos/{object_id}/thumbnail"))
+		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/photos.LibraryService/GenerateVideoThumbnail", runtime.WithHTTPPathPattern("/v1/photos/{object_id=**}/thumbnail"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -1555,7 +1555,7 @@ func RegisterLibraryServiceHandlerClient(ctx context.Context, mux *runtime.Serve
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/photos.LibraryService/GenerateDNGPreview", runtime.WithHTTPPathPattern("/v1/photos/{object_id}/dng-preview"))
+		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/photos.LibraryService/GenerateDNGPreview", runtime.WithHTTPPathPattern("/v1/photos/{object_id=**}/dng-preview"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -1572,23 +1572,23 @@ func RegisterLibraryServiceHandlerClient(ctx context.Context, mux *runtime.Serve
 }
 
 var (
-	pattern_LibraryService_DeletePhoto_0            = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 1, 0, 4, 1, 5, 2}, []string{"v1", "photos", "object_id"}, ""))
-	pattern_LibraryService_GetPhoto_0               = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 1, 0, 4, 1, 5, 2}, []string{"v1", "photos", "object_id"}, ""))
+	pattern_LibraryService_DeletePhoto_0            = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 3, 0, 4, 1, 5, 2}, []string{"v1", "photos", "object_id"}, ""))
+	pattern_LibraryService_GetPhoto_0               = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 3, 0, 4, 1, 5, 2}, []string{"v1", "photos", "object_id"}, ""))
 	pattern_LibraryService_ListPhotos_0             = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"v1", "photos"}, ""))
-	pattern_LibraryService_CopyPhoto_0              = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 1, 0, 4, 1, 5, 2, 2, 3}, []string{"v1", "photos", "source_object_id", "copy"}, ""))
-	pattern_LibraryService_RenamePhoto_0            = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 1, 0, 4, 1, 5, 2, 2, 3}, []string{"v1", "photos", "source_object_id", "rename"}, ""))
-	pattern_LibraryService_UpdatePhotoMetadata_0    = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 1, 0, 4, 1, 5, 2, 2, 3}, []string{"v1", "photos", "object_id", "metadata"}, ""))
-	pattern_LibraryService_GenerateSignedUrl_0      = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 1, 0, 4, 1, 5, 2, 2, 3}, []string{"v1", "photos", "object_id", "signed-url"}, ""))
-	pattern_LibraryService_PhotoExists_0            = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 1, 0, 4, 1, 5, 2, 2, 3}, []string{"v1", "photos", "object_id", "exists"}, ""))
+	pattern_LibraryService_CopyPhoto_0              = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 3, 0, 4, 1, 5, 2, 2, 3}, []string{"v1", "photos", "source_object_id", "copy"}, ""))
+	pattern_LibraryService_RenamePhoto_0            = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 3, 0, 4, 1, 5, 2, 2, 3}, []string{"v1", "photos", "source_object_id", "rename"}, ""))
+	pattern_LibraryService_UpdatePhotoMetadata_0    = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 3, 0, 4, 1, 5, 2, 2, 3}, []string{"v1", "photos", "object_id", "metadata"}, ""))
+	pattern_LibraryService_GenerateSignedUrl_0      = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 3, 0, 4, 1, 5, 2, 2, 3}, []string{"v1", "photos", "object_id", "signed-url"}, ""))
+	pattern_LibraryService_PhotoExists_0            = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 3, 0, 4, 1, 5, 2, 2, 3}, []string{"v1", "photos", "object_id", "exists"}, ""))
 	pattern_LibraryService_ListDirectories_0        = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"v1", "directories"}, ""))
 	pattern_LibraryService_SyncDatabase_0           = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"v1", "photos", "sync"}, ""))
 	pattern_LibraryService_UpdateWebp_0             = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"v1", "photos"}, "update-webp"))
-	pattern_LibraryService_CreateMarkdown_0         = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 1, 0, 4, 1, 5, 2, 2, 3}, []string{"v1", "directories", "prefix", "markdown"}, ""))
-	pattern_LibraryService_GetMarkdown_0            = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 1, 0, 4, 1, 5, 2, 2, 3}, []string{"v1", "directories", "prefix", "markdown"}, ""))
-	pattern_LibraryService_UpdateMarkdown_0         = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 1, 0, 4, 1, 5, 2, 2, 3}, []string{"v1", "directories", "prefix", "markdown"}, ""))
-	pattern_LibraryService_DeleteMarkdown_0         = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 1, 0, 4, 1, 5, 2, 2, 3}, []string{"v1", "directories", "prefix", "markdown"}, ""))
-	pattern_LibraryService_GenerateVideoThumbnail_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 1, 0, 4, 1, 5, 2, 2, 3}, []string{"v1", "photos", "object_id", "thumbnail"}, ""))
-	pattern_LibraryService_GenerateDNGPreview_0     = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 1, 0, 4, 1, 5, 2, 2, 3}, []string{"v1", "photos", "object_id", "dng-preview"}, ""))
+	pattern_LibraryService_CreateMarkdown_0         = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 3, 0, 4, 1, 5, 2, 2, 3}, []string{"v1", "directories", "prefix", "markdown"}, ""))
+	pattern_LibraryService_GetMarkdown_0            = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 3, 0, 4, 1, 5, 2, 2, 3}, []string{"v1", "directories", "prefix", "markdown"}, ""))
+	pattern_LibraryService_UpdateMarkdown_0         = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 3, 0, 4, 1, 5, 2, 2, 3}, []string{"v1", "directories", "prefix", "markdown"}, ""))
+	pattern_LibraryService_DeleteMarkdown_0         = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 3, 0, 4, 1, 5, 2, 2, 3}, []string{"v1", "directories", "prefix", "markdown"}, ""))
+	pattern_LibraryService_GenerateVideoThumbnail_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 3, 0, 4, 1, 5, 2, 2, 3}, []string{"v1", "photos", "object_id", "thumbnail"}, ""))
+	pattern_LibraryService_GenerateDNGPreview_0     = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 3, 0, 4, 1, 5, 2, 2, 3}, []string{"v1", "photos", "object_id", "dng-preview"}, ""))
 )
 
 var (

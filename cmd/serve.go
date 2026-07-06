@@ -430,6 +430,10 @@ func getRestfulProxyServerHandler(ctx context.Context, fqdn string, grpcServerPo
 		return nil, nil, err
 	}
 
+	if err = proto.RegisterLibraryServiceHandlerFromEndpoint(ctx, gwMux, grpcEndpoint, opts); err != nil {
+		return nil, nil, fmt.Errorf("failed to register LibraryService gateway handler: %w", err)
+	}
+
 	conn, err := grpc.NewClient(grpcEndpoint, opts...)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create gRPC client for raw bytes handler: %w", err)

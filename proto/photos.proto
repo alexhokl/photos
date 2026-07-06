@@ -395,7 +395,7 @@ service ByteService {
   // Download retrieves a photo by ID
   rpc Download(DownloadRequest) returns (DownloadResponse) {
     option (google.api.http) = {
-      get: "/v1/photos/{object_id}/download"
+      get: "/v1/photos/{object_id=**}/download"
     };
   }
 
@@ -416,14 +416,14 @@ service LibraryService {
   // DeletePhoto removes a photo by ID
   rpc DeletePhoto(DeletePhotoRequest) returns (DeletePhotoResponse) {
     option (google.api.http) = {
-      delete: "/v1/photos/{object_id}"
+      delete: "/v1/photos/{object_id=**}"
     };
   }
 
   // GetPhoto retrieves photo metadata by ID
   rpc GetPhoto(GetPhotoRequest) returns (GetPhotoResponse) {
     option (google.api.http) = {
-      get: "/v1/photos/{object_id}"
+      get: "/v1/photos/{object_id=**}"
     };
   }
 
@@ -437,7 +437,7 @@ service LibraryService {
   // CopyPhoto copies a photo to a new location
   rpc CopyPhoto(CopyPhotoRequest) returns (CopyPhotoResponse) {
     option (google.api.http) = {
-      post: "/v1/photos/{source_object_id}/copy"
+      post: "/v1/photos/{source_object_id=**}/copy"
       body: "*"
     };
   }
@@ -445,7 +445,7 @@ service LibraryService {
   // RenamePhoto renames a photo by moving it to a new object ID
   rpc RenamePhoto(RenamePhotoRequest) returns (RenamePhotoResponse) {
     option (google.api.http) = {
-      post: "/v1/photos/{source_object_id}/rename"
+      post: "/v1/photos/{source_object_id=**}/rename"
       body: "*"
     };
   }
@@ -453,7 +453,7 @@ service LibraryService {
   // UpdatePhotoMetadata updates metadata for a photo
   rpc UpdatePhotoMetadata(UpdatePhotoMetadataRequest) returns (UpdatePhotoMetadataResponse) {
     option (google.api.http) = {
-      patch: "/v1/photos/{object_id}/metadata"
+      patch: "/v1/photos/{object_id=**}/metadata"
       body: "*"
     };
   }
@@ -461,7 +461,7 @@ service LibraryService {
   // GenerateSignedUrl creates a time-limited signed URL for photo access
   rpc GenerateSignedUrl(GenerateSignedUrlRequest) returns (GenerateSignedUrlResponse) {
     option (google.api.http) = {
-      post: "/v1/photos/{object_id}/signed-url"
+      post: "/v1/photos/{object_id=**}/signed-url"
       body: "*"
     };
   }
@@ -469,7 +469,7 @@ service LibraryService {
   // PhotoExists checks if a photo exists by ID
   rpc PhotoExists(PhotoExistsRequest) returns (PhotoExistsResponse) {
     option (google.api.http) = {
-      get: "/v1/photos/{object_id}/exists"
+      get: "/v1/photos/{object_id=**}/exists"
     };
   }
 
@@ -500,7 +500,7 @@ service LibraryService {
   // CreateMarkdown creates an index.md file in a specified prefix (directory)
   rpc CreateMarkdown(CreateMarkdownRequest) returns (CreateMarkdownResponse) {
     option (google.api.http) = {
-      post: "/v1/directories/{prefix}/markdown"
+      post: "/v1/directories/{prefix=**}/markdown"
       body: "*"
     };
   }
@@ -508,14 +508,14 @@ service LibraryService {
   // GetMarkdown retrieves an index.md file from a specified prefix (directory)
   rpc GetMarkdown(GetMarkdownRequest) returns (GetMarkdownResponse) {
     option (google.api.http) = {
-      get: "/v1/directories/{prefix}/markdown"
+      get: "/v1/directories/{prefix=**}/markdown"
     };
   }
 
   // UpdateMarkdown updates an existing index.md file in a specified prefix (directory)
   rpc UpdateMarkdown(UpdateMarkdownRequest) returns (UpdateMarkdownResponse) {
     option (google.api.http) = {
-      put: "/v1/directories/{prefix}/markdown"
+      put: "/v1/directories/{prefix=**}/markdown"
       body: "*"
     };
   }
@@ -523,14 +523,14 @@ service LibraryService {
   // DeleteMarkdown deletes an index.md file from a specified prefix (directory)
   rpc DeleteMarkdown(DeleteMarkdownRequest) returns (DeleteMarkdownResponse) {
     option (google.api.http) = {
-      delete: "/v1/directories/{prefix}/markdown"
+      delete: "/v1/directories/{prefix=**}/markdown"
     };
   }
 
   // GenerateVideoThumbnail generates a thumbnail image for a video
   rpc GenerateVideoThumbnail(GenerateVideoThumbnailRequest) returns (GenerateVideoThumbnailResponse) {
     option (google.api.http) = {
-      post: "/v1/photos/{object_id}/thumbnail"
+      post: "/v1/photos/{object_id=**}/thumbnail"
       body: "*"
     };
   }
@@ -538,7 +538,7 @@ service LibraryService {
   // GenerateDNGPreview generates a JPEG preview image for a DNG photo using dcraw
   rpc GenerateDNGPreview(GenerateDNGPreviewRequest) returns (GenerateDNGPreviewResponse) {
     option (google.api.http) = {
-      post: "/v1/photos/{object_id}/dng-preview"
+      post: "/v1/photos/{object_id=**}/dng-preview"
       body: "*"
     };
   }

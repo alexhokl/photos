@@ -2945,34 +2945,34 @@ const file_proto_photos_proto_rawDesc = "" +
 	"\n" +
 	"signed_url\x18\x02 \x01(\tR\tsignedUrl\x12\x1d\n" +
 	"\n" +
-	"expires_at\x18\x03 \x01(\tR\texpiresAt2\xce\x03\n" +
+	"expires_at\x18\x03 \x01(\tR\texpiresAt2\xd1\x03\n" +
 	"\vByteService\x12U\n" +
-	"\x06Upload\x12\x15.photos.UploadRequest\x1a\x16.photos.UploadResponse\"\x1c\x82\xd3\xe4\x93\x02\x16:\x01*\"\x11/v1/photos/upload\x12f\n" +
-	"\bDownload\x12\x17.photos.DownloadRequest\x1a\x18.photos.DownloadResponse\"'\x82\xd3\xe4\x93\x02!\x12\x1f/v1/photos/{object_id}/download\x12K\n" +
+	"\x06Upload\x12\x15.photos.UploadRequest\x1a\x16.photos.UploadResponse\"\x1c\x82\xd3\xe4\x93\x02\x16:\x01*\"\x11/v1/photos/upload\x12i\n" +
+	"\bDownload\x12\x17.photos.DownloadRequest\x1a\x18.photos.DownloadResponse\"*\x82\xd3\xe4\x93\x02$\x12\"/v1/photos/{object_id=**}/download\x12K\n" +
 	"\x0fStreamingUpload\x12\x1e.photos.StreamingUploadRequest\x1a\x16.photos.UploadResponse(\x01\x12W\n" +
 	"\x13BulkStreamingUpload\x12\x1e.photos.StreamingUploadRequest\x1a\x1c.photos.BulkUploadFileResult(\x010\x01\x12Z\n" +
-	"\x11StreamingDownload\x12 .photos.StreamingDownloadRequest\x1a!.photos.StreamingDownloadResponse0\x012\xf0\x0f\n" +
-	"\x0eLibraryService\x12f\n" +
-	"\vDeletePhoto\x12\x1a.photos.DeletePhotoRequest\x1a\x1b.photos.DeletePhotoResponse\"\x1e\x82\xd3\xe4\x93\x02\x18*\x16/v1/photos/{object_id}\x12]\n" +
-	"\bGetPhoto\x12\x17.photos.GetPhotoRequest\x1a\x18.photos.GetPhotoResponse\"\x1e\x82\xd3\xe4\x93\x02\x18\x12\x16/v1/photos/{object_id}\x12W\n" +
+	"\x11StreamingDownload\x12 .photos.StreamingDownloadRequest\x1a!.photos.StreamingDownloadResponse0\x012\x99\x10\n" +
+	"\x0eLibraryService\x12i\n" +
+	"\vDeletePhoto\x12\x1a.photos.DeletePhotoRequest\x1a\x1b.photos.DeletePhotoResponse\"!\x82\xd3\xe4\x93\x02\x1b*\x19/v1/photos/{object_id=**}\x12`\n" +
+	"\bGetPhoto\x12\x17.photos.GetPhotoRequest\x1a\x18.photos.GetPhotoResponse\"!\x82\xd3\xe4\x93\x02\x1b\x12\x19/v1/photos/{object_id=**}\x12W\n" +
 	"\n" +
 	"ListPhotos\x12\x19.photos.ListPhotosRequest\x1a\x1a.photos.ListPhotosResponse\"\x12\x82\xd3\xe4\x93\x02\f\x12\n" +
-	"/v1/photos\x12o\n" +
-	"\tCopyPhoto\x12\x18.photos.CopyPhotoRequest\x1a\x19.photos.CopyPhotoResponse\"-\x82\xd3\xe4\x93\x02':\x01*\"\"/v1/photos/{source_object_id}/copy\x12w\n" +
-	"\vRenamePhoto\x12\x1a.photos.RenamePhotoRequest\x1a\x1b.photos.RenamePhotoResponse\"/\x82\xd3\xe4\x93\x02):\x01*\"$/v1/photos/{source_object_id}/rename\x12\x8a\x01\n" +
-	"\x13UpdatePhotoMetadata\x12\".photos.UpdatePhotoMetadataRequest\x1a#.photos.UpdatePhotoMetadataResponse\"*\x82\xd3\xe4\x93\x02$:\x01*2\x1f/v1/photos/{object_id}/metadata\x12\x86\x01\n" +
-	"\x11GenerateSignedUrl\x12 .photos.GenerateSignedUrlRequest\x1a!.photos.GenerateSignedUrlResponse\",\x82\xd3\xe4\x93\x02&:\x01*\"!/v1/photos/{object_id}/signed-url\x12m\n" +
-	"\vPhotoExists\x12\x1a.photos.PhotoExistsRequest\x1a\x1b.photos.PhotoExistsResponse\"%\x82\xd3\xe4\x93\x02\x1f\x12\x1d/v1/photos/{object_id}/exists\x12k\n" +
+	"/v1/photos\x12r\n" +
+	"\tCopyPhoto\x12\x18.photos.CopyPhotoRequest\x1a\x19.photos.CopyPhotoResponse\"0\x82\xd3\xe4\x93\x02*:\x01*\"%/v1/photos/{source_object_id=**}/copy\x12z\n" +
+	"\vRenamePhoto\x12\x1a.photos.RenamePhotoRequest\x1a\x1b.photos.RenamePhotoResponse\"2\x82\xd3\xe4\x93\x02,:\x01*\"'/v1/photos/{source_object_id=**}/rename\x12\x8d\x01\n" +
+	"\x13UpdatePhotoMetadata\x12\".photos.UpdatePhotoMetadataRequest\x1a#.photos.UpdatePhotoMetadataResponse\"-\x82\xd3\xe4\x93\x02':\x01*2\"/v1/photos/{object_id=**}/metadata\x12\x89\x01\n" +
+	"\x11GenerateSignedUrl\x12 .photos.GenerateSignedUrlRequest\x1a!.photos.GenerateSignedUrlResponse\"/\x82\xd3\xe4\x93\x02):\x01*\"$/v1/photos/{object_id=**}/signed-url\x12p\n" +
+	"\vPhotoExists\x12\x1a.photos.PhotoExistsRequest\x1a\x1b.photos.PhotoExistsResponse\"(\x82\xd3\xe4\x93\x02\"\x12 /v1/photos/{object_id=**}/exists\x12k\n" +
 	"\x0fListDirectories\x12\x1e.photos.ListDirectoriesRequest\x1a\x1f.photos.ListDirectoriesResponse\"\x17\x82\xd3\xe4\x93\x02\x11\x12\x0f/v1/directories\x12g\n" +
 	"\fSyncDatabase\x12\x1b.photos.SyncDatabaseRequest\x1a\x1c.photos.SyncDatabaseProgress\"\x1a\x82\xd3\xe4\x93\x02\x14:\x01*\"\x0f/v1/photos/sync0\x01\x12h\n" +
 	"\n" +
-	"UpdateWebp\x12\x19.photos.UpdateWebpRequest\x1a\x1a.photos.UpdateWebpProgress\"!\x82\xd3\xe4\x93\x02\x1b:\x01*\"\x16/v1/photos:update-webp0\x01\x12}\n" +
-	"\x0eCreateMarkdown\x12\x1d.photos.CreateMarkdownRequest\x1a\x1e.photos.CreateMarkdownResponse\",\x82\xd3\xe4\x93\x02&:\x01*\"!/v1/directories/{prefix}/markdown\x12q\n" +
-	"\vGetMarkdown\x12\x1a.photos.GetMarkdownRequest\x1a\x1b.photos.GetMarkdownResponse\")\x82\xd3\xe4\x93\x02#\x12!/v1/directories/{prefix}/markdown\x12}\n" +
-	"\x0eUpdateMarkdown\x12\x1d.photos.UpdateMarkdownRequest\x1a\x1e.photos.UpdateMarkdownResponse\",\x82\xd3\xe4\x93\x02&:\x01*\x1a!/v1/directories/{prefix}/markdown\x12z\n" +
-	"\x0eDeleteMarkdown\x12\x1d.photos.DeleteMarkdownRequest\x1a\x1e.photos.DeleteMarkdownResponse\")\x82\xd3\xe4\x93\x02#*!/v1/directories/{prefix}/markdown\x12\x94\x01\n" +
-	"\x16GenerateVideoThumbnail\x12%.photos.GenerateVideoThumbnailRequest\x1a&.photos.GenerateVideoThumbnailResponse\"+\x82\xd3\xe4\x93\x02%:\x01*\" /v1/photos/{object_id}/thumbnail\x12\x8a\x01\n" +
-	"\x12GenerateDNGPreview\x12!.photos.GenerateDNGPreviewRequest\x1a\".photos.GenerateDNGPreviewResponse\"-\x82\xd3\xe4\x93\x02':\x01*\"\"/v1/photos/{object_id}/dng-previewB\x0eZ\fphotos/protob\x06proto3"
+	"UpdateWebp\x12\x19.photos.UpdateWebpRequest\x1a\x1a.photos.UpdateWebpProgress\"!\x82\xd3\xe4\x93\x02\x1b:\x01*\"\x16/v1/photos:update-webp0\x01\x12\x80\x01\n" +
+	"\x0eCreateMarkdown\x12\x1d.photos.CreateMarkdownRequest\x1a\x1e.photos.CreateMarkdownResponse\"/\x82\xd3\xe4\x93\x02):\x01*\"$/v1/directories/{prefix=**}/markdown\x12t\n" +
+	"\vGetMarkdown\x12\x1a.photos.GetMarkdownRequest\x1a\x1b.photos.GetMarkdownResponse\",\x82\xd3\xe4\x93\x02&\x12$/v1/directories/{prefix=**}/markdown\x12\x80\x01\n" +
+	"\x0eUpdateMarkdown\x12\x1d.photos.UpdateMarkdownRequest\x1a\x1e.photos.UpdateMarkdownResponse\"/\x82\xd3\xe4\x93\x02):\x01*\x1a$/v1/directories/{prefix=**}/markdown\x12}\n" +
+	"\x0eDeleteMarkdown\x12\x1d.photos.DeleteMarkdownRequest\x1a\x1e.photos.DeleteMarkdownResponse\",\x82\xd3\xe4\x93\x02&*$/v1/directories/{prefix=**}/markdown\x12\x97\x01\n" +
+	"\x16GenerateVideoThumbnail\x12%.photos.GenerateVideoThumbnailRequest\x1a&.photos.GenerateVideoThumbnailResponse\".\x82\xd3\xe4\x93\x02(:\x01*\"#/v1/photos/{object_id=**}/thumbnail\x12\x8d\x01\n" +
+	"\x12GenerateDNGPreview\x12!.photos.GenerateDNGPreviewRequest\x1a\".photos.GenerateDNGPreviewResponse\"0\x82\xd3\xe4\x93\x02*:\x01*\"%/v1/photos/{object_id=**}/dng-previewB\x0eZ\fphotos/protob\x06proto3"
 
 var (
 	file_proto_photos_proto_rawDescOnce sync.Once
