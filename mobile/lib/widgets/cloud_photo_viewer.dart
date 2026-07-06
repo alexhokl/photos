@@ -355,10 +355,10 @@ class _CloudPhotoViewerState extends State<CloudPhotoViewer> {
   Future<void> _shareLink() async {
     final config = await BackendConfig.load();
     final scheme = config.scheme;
-    final portPart = (scheme == 'https' && config.port == 443) ||
-            (scheme == 'http' && config.port == 80)
+    final portPart = (scheme == 'https' && config.proxyPort == 443) ||
+            (scheme == 'http' && config.proxyPort == 80)
         ? ''
-        : ':${config.port}';
+        : ':${config.proxyPort}';
     final encoded = _currentPhoto.objectId
         .split('/')
         .map(Uri.encodeComponent)

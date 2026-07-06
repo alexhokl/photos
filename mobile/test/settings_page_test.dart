@@ -14,6 +14,14 @@ void main() {
       );
     });
 
+    test('proxyPortKey is defined', () {
+      expect(SettingsPage.proxyPortKey, equals('proxy_port'));
+    });
+
+    test('defaultProxyPort is 8081', () {
+      expect(SettingsPage.defaultProxyPort, equals(8081));
+    });
+
     test('defaultDirectoryKey is defined', () {
       expect(SettingsPage.defaultDirectoryKey, equals('default_directory'));
     });
@@ -38,6 +46,7 @@ void main() {
 
         expect(config.host, equals('example.com'));
         expect(config.port, equals(443));
+        expect(config.proxyPort, equals(SettingsPage.defaultProxyPort));
         expect(config.defaultDirectory, equals(''));
         expect(config.deleteAfterUpload, isFalse);
         expect(config.uploadTimeoutSeconds, equals(30));
@@ -50,13 +59,21 @@ void main() {
           defaultDirectory: 'photos/2024',
           deleteAfterUpload: true,
           uploadTimeoutSeconds: 60,
+          proxyPort: 8081,
         );
 
         expect(config.host, equals('photos.example.com'));
         expect(config.port, equals(8443));
+        expect(config.proxyPort, equals(8081));
         expect(config.defaultDirectory, equals('photos/2024'));
         expect(config.deleteAfterUpload, isTrue);
         expect(config.uploadTimeoutSeconds, equals(60));
+      });
+
+      test('defaults proxyPort to 8081', () {
+        const config = BackendConfig(host: 'example.com', port: 443);
+
+        expect(config.proxyPort, equals(8081));
       });
 
       test('defaults uploadTimeoutSeconds to 30', () {
@@ -122,6 +139,21 @@ void main() {
         final config = BackendConfig.fromUrl('https://photos.example.com');
 
         expect(config.uploadTimeoutSeconds, equals(30));
+      });
+
+      test('includes proxyPort parameter', () {
+        final config = BackendConfig.fromUrl(
+          'https://photos.example.com',
+          proxyPort: 9000,
+        );
+
+        expect(config.proxyPort, equals(9000));
+      });
+
+      test('defaults proxyPort to 8081', () {
+        final config = BackendConfig.fromUrl('https://photos.example.com');
+
+        expect(config.proxyPort, equals(8081));
       });
 
       test('parses various URL formats', () {

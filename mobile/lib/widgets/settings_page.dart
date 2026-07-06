@@ -9,6 +9,7 @@ class BackendConfig {
   final String host;
   final int port;
   final String scheme;
+  final int proxyPort;
   final String defaultDirectory;
   final bool deleteAfterUpload;
   final int uploadTimeoutSeconds;
@@ -18,6 +19,7 @@ class BackendConfig {
     required this.host,
     required this.port,
     this.scheme = 'https',
+    this.proxyPort = SettingsPage.defaultProxyPort,
     this.defaultDirectory = '',
     this.deleteAfterUpload = false,
     this.uploadTimeoutSeconds = SettingsPage.defaultUploadTimeoutSeconds,
@@ -34,6 +36,7 @@ class BackendConfig {
     int uploadTimeoutSeconds = SettingsPage.defaultUploadTimeoutSeconds,
     int signedUrlExpirationSeconds =
         SettingsPage.defaultSignedUrlExpirationSeconds,
+    int proxyPort = SettingsPage.defaultProxyPort,
   }) {
     final uri = Uri.parse(url);
     final host = uri.host;
@@ -51,6 +54,7 @@ class BackendConfig {
       host: host,
       port: port,
       scheme: scheme,
+      proxyPort: proxyPort,
       defaultDirectory: defaultDirectory,
       deleteAfterUpload: deleteAfterUpload,
       uploadTimeoutSeconds: uploadTimeoutSeconds,
@@ -74,12 +78,16 @@ class BackendConfig {
     final signedUrlExpirationSeconds =
         await prefs.getInt(SettingsPage.signedUrlExpirationKey) ??
         SettingsPage.defaultSignedUrlExpirationSeconds;
+    final proxyPort =
+        await prefs.getInt(SettingsPage.proxyPortKey) ??
+        SettingsPage.defaultProxyPort;
     return BackendConfig.fromUrl(
       url,
       defaultDirectory: defaultDir,
       deleteAfterUpload: deleteAfterUpload,
       uploadTimeoutSeconds: uploadTimeoutSeconds,
       signedUrlExpirationSeconds: signedUrlExpirationSeconds,
+      proxyPort: proxyPort,
     );
   }
 }
@@ -91,6 +99,8 @@ class SettingsPage extends StatefulWidget {
 
   static const String backendUrlKey = 'backend_url';
   static const String defaultBackendUrl = 'https://photos.a-b.ts.net';
+  static const String proxyPortKey = 'proxy_port';
+  static const int defaultProxyPort = 8081;
   static const String defaultDirectoryKey = 'default_directory';
   static const String deleteAfterUploadKey = 'delete_after_upload';
   static const String uploadTimeoutKey = 'upload_timeout_seconds';
@@ -105,6 +115,7 @@ class SettingsPage extends StatefulWidget {
 
 class _SettingsPageState extends State<SettingsPage> {
   final TextEditingController _backendUrlController = TextEditingController();
+  final TextEditingController _proxyPortController = TextEditingController();
   final TextEditingController _directoryController = TextEditingController();
   final TextEditingController _uploadTimeoutController =
       TextEditingController();
@@ -139,6 +150,7 @@ class _SettingsPageState extends State<SettingsPage> {
   Future<void> _initPreferences() async {
     _prefs = SharedPreferencesAsync();
     final savedUrl = await _prefs.getString(SettingsPage.backendUrlKey);
+    final savedProxyPort = await _prefs.getInt(SettingsPage.proxyPortKey);
     final savedDirectory = await _prefs.getString(
       SettingsPage.defaultDirectoryKey,
     );
@@ -153,6 +165,8 @@ class _SettingsPageState extends State<SettingsPage> {
     );
     setState(() {
       _backendUrlController.text = savedUrl ?? SettingsPage.defaultBackendUrl;
+      _proxyPortController.text =
+          (savedProxyPort ?? SettingsPage.defaultProxyPort).toString();
       _directoryController.text = savedDirectory ?? '';
       _deleteAfterUpload = deleteAfterUpload ?? false;
       _uploadTimeoutController.text =
@@ -172,6 +186,13 @@ class _SettingsPageState extends State<SettingsPage> {
     await _prefs.setString(SettingsPage.backendUrlKey, url);
     // Reload directory suggestions when backend URL changes
     _loadDirectorySuggestions();
+  }
+
+  Future<void> _saveProxyPort(String value) async {
+    final port = int.tryParse(value);
+    if (port != null && port > 0 && port <= 65535) {
+      await _prefs.setInt(SettingsPage.proxyPortKey, port);
+    }
   }
 
   Future<void> _saveDefaultDirectory(String directory) async {
@@ -229,6 +250,7 @@ class _SettingsPageState extends State<SettingsPage> {
   @override
   void dispose() {
     _backendUrlController.dispose();
+    _proxyPortController.dispose();
     _directoryController.dispose();
     _uploadTimeoutController.dispose();
     _signedUrlExpirationController.dispose();
@@ -261,6 +283,19 @@ class _SettingsPageState extends State<SettingsPage> {
             ),
             keyboardType: TextInputType.url,
             onChanged: _saveBackendUrl,
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _proxyPortController,
+            decoration: const InputDecoration(
+              labelText: 'Proxy port (REST endpoints)',
+              hintText: 'Enter the REST proxy port',
+              border: OutlineInputBorder(),
+              prefixIcon: Icon(Icons.cloud_queue),
+              helperText: 'Port for RESTful endpoints',
+            ),
+            keyboardType: TextInputType.number,
+            onChanged: _saveProxyPort,
           ),
           const SizedBox(height: 24),
           Text(
