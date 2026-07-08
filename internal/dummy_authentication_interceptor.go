@@ -2,6 +2,7 @@ package internal
 
 import (
 	"context"
+	"net/http"
 
 	"google.golang.org/grpc"
 )
@@ -15,6 +16,16 @@ func DummyAuthenticationInterceptor(
 ) (any, error) {
 	ctx = context.WithValue(ctx, contextKeyUser{}, uint(1))
 	return handler(ctx, req)
+}
+
+// DummyHTTPMiddleware is a placeholder HTTP authentication middleware, used
+// in place of (*TailscaleAuthenticationInterceptor).HTTPMiddleware when
+// Tailscale is not configured.
+func DummyHTTPMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctx := context.WithValue(r.Context(), contextKeyUser{}, uint(1))
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
 }
 
 // DummyStreamAuthenticationInterceptor is a placeholder for a streaming authentication interceptor.

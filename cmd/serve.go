@@ -214,15 +214,42 @@ func runServe(cmd *cobra.Command, args []string) error {
 
 	g, ctx := errgroup.WithContext(ctx)
 
+	// Construct the gRPC service implementations once; they are shared by
+	// the gRPC server (served over Tailscale/tsnet or a plain TCP listener)
+	// and the RESTful gateway below, which invokes them in-process instead
+	// of dialing back into the gRPC server over the network.
+	libraryServer := &internal.LibraryServer{
+		DB:          dbConn,
+		GCSClient:   gcsClient,
+		BucketName:  serveOpts.GCSBucket,
+		WebPQuality: serveOpts.WebPQuality,
+	}
+	bytesServer := &internal.BytesServer{
+		DB:          dbConn,
+		GCSClient:   gcsClient,
+		BucketName:  serveOpts.GCSBucket,
+		WebPQuality: serveOpts.WebPQuality,
+	}
+
+	authenticationInterceptor := internal.DummyAuthenticationInterceptor
+	streamAuthenticationInterceptor := internal.DummyStreamAuthenticationInterceptor
+	httpAuthenticationMiddleware := internal.DummyHTTPMiddleware
+	if privateServer != nil {
+		tailscaleInterceptor := internal.NewTailscaleAuthenticationInterceptor(dbConn, privateServer)
+		authenticationInterceptor = tailscaleInterceptor.Intercept
+		streamAuthenticationInterceptor = tailscaleInterceptor.InterceptStream
+		httpAuthenticationMiddleware = tailscaleInterceptor.HTTPMiddleware
+	}
+
 	// Create gRPC server
-	grpcServer := getGrpcServer(ctx, dbConn, privateServer, gcsClient, serveOpts.GCSBucket, serveOpts.WebPQuality)
+	grpcServer := getGrpcServer(libraryServer, bytesServer, authenticationInterceptor, streamAuthenticationInterceptor)
 
 	// Create HTTP servers for graceful shutdown support
 	fqdn := ""
 	if privateServer != nil {
 		fqdn = privateServer.FQDN()
 	}
-	restfulHandler, connCleanup, err := getRestfulProxyServerHandler(ctx, fqdn, serveOpts.Port)
+	restfulHandler, err := getRestfulProxyServerHandler(ctx, libraryServer, bytesServer, httpAuthenticationMiddleware)
 	if err != nil {
 		return fmt.Errorf("failed to create RESTful proxy server handler: %w", err)
 	}
@@ -258,10 +285,6 @@ func runServe(cmd *cobra.Command, args []string) error {
 		} else {
 			slog.Info("RESTful proxy server stopped gracefully")
 		}
-
-		// Close the gRPC client connection used by the raw bytes handler
-		connCleanup()
-		slog.Info("raw bytes gRPC client connection closed")
 
 		if nonHTTPSServer != nil {
 			if err := nonHTTPSServer.Shutdown(shutdownCtx); err != nil {
@@ -376,14 +399,12 @@ func validateFlags(opts serveOptions) error {
 	return nil
 }
 
-func getGrpcServer(_ context.Context, conn *gorm.DB, privateServer *pserver.Server, gcsClient *storage.Client, bucketName string, webPQuality int) *grpc.Server {
-	authenticationInterceptor := internal.DummyAuthenticationInterceptor
-	streamAuthenticationInterceptor := internal.DummyStreamAuthenticationInterceptor
-	if privateServer != nil {
-		tailscaleInterceptor := internal.NewTailscaleAuthenticationInterceptor(conn, privateServer)
-		authenticationInterceptor = tailscaleInterceptor.Intercept
-		streamAuthenticationInterceptor = tailscaleInterceptor.InterceptStream
-	}
+func getGrpcServer(
+	libraryServer proto.LibraryServiceServer,
+	bytesServer proto.ByteServiceServer,
+	authenticationInterceptor grpc.UnaryServerInterceptor,
+	streamAuthenticationInterceptor grpc.StreamServerInterceptor,
+) *grpc.Server {
 	grpcServer := grpc.NewServer(
 		grpc.MaxRecvMsgSize(10*1024*1024), // 10 MB
 		grpc.MaxSendMsgSize(10*1024*1024), // 10 MB
@@ -396,55 +417,47 @@ func getGrpcServer(_ context.Context, conn *gorm.DB, privateServer *pserver.Serv
 		),
 	)
 
-	proto.RegisterByteServiceServer(grpcServer, &internal.BytesServer{
-		DB:          conn,
-		GCSClient:   gcsClient,
-		BucketName:  bucketName,
-		WebPQuality: webPQuality,
-	})
-	proto.RegisterLibraryServiceServer(grpcServer, &internal.LibraryServer{
-		DB:          conn,
-		GCSClient:   gcsClient,
-		BucketName:  bucketName,
-		WebPQuality: webPQuality,
-	})
+	proto.RegisterByteServiceServer(grpcServer, bytesServer)
+	proto.RegisterLibraryServiceServer(grpcServer, libraryServer)
 
 	return grpcServer
 }
 
-func getRestfulProxyServerHandler(ctx context.Context, fqdn string, grpcServerPort int) (http.Handler, func(), error) {
+// getRestfulProxyServerHandler builds the RESTful/JSON gateway handler. It
+// registers the grpc-gateway mux directly against the in-process
+// LibraryService/ByteService implementations (via the generated
+// Register*HandlerServer functions), rather than dialing back into the gRPC
+// server over the network - the gateway and the gRPC server run in the same
+// process, so a network round-trip back to itself is unnecessary and, when
+// the gRPC server is only reachable over Tailscale/tsnet, not reliably
+// possible at all.
+//
+// Because Register*HandlerServer bypasses the gRPC server's own interceptor
+// chain, authMiddleware is responsible for authenticating the incoming HTTP
+// request and injecting the resolved caller identity into its context
+// (mirroring what the gRPC authentication interceptors do for direct gRPC
+// calls).
+func getRestfulProxyServerHandler(
+	ctx context.Context,
+	libraryServer proto.LibraryServiceServer,
+	bytesServer proto.ByteServiceServer,
+	authMiddleware func(http.Handler) http.Handler,
+) (http.Handler, error) {
 	gwMux := runtime.NewServeMux()
 
-	url := "localhost"
-	if requireSecureConnection(fqdn) {
-		url = fqdn
-	}
-	opts := []grpc.DialOption{
-		grpc.WithTransportCredentials(getConnectionCredentials(requireSecureConnection(fqdn))),
-		grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(10 * 1024 * 1024)), // 10 MB, matches server MaxSendMsgSize
-	}
-	grpcEndpoint := fmt.Sprintf("%s:%d", url, grpcServerPort)
-
-	err := proto.RegisterByteServiceHandlerFromEndpoint(ctx, gwMux, grpcEndpoint, opts)
-	if err != nil {
-		return nil, nil, err
+	if err := proto.RegisterByteServiceHandlerServer(ctx, gwMux, bytesServer); err != nil {
+		return nil, fmt.Errorf("failed to register ByteService gateway handler: %w", err)
 	}
 
-	if err = proto.RegisterLibraryServiceHandlerFromEndpoint(ctx, gwMux, grpcEndpoint, opts); err != nil {
-		return nil, nil, fmt.Errorf("failed to register LibraryService gateway handler: %w", err)
+	if err := proto.RegisterLibraryServiceHandlerServer(ctx, gwMux, libraryServer); err != nil {
+		return nil, fmt.Errorf("failed to register LibraryService gateway handler: %w", err)
 	}
-
-	conn, err := grpc.NewClient(grpcEndpoint, opts...)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to create gRPC client for raw bytes handler: %w", err)
-	}
-	client := proto.NewByteServiceClient(conn)
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("GET /v1/photos/bytes/{object_id...}", internal.NewRawBytesHandler(client))
+	mux.HandleFunc("GET /v1/photos/bytes/{object_id...}", internal.NewRawBytesHandler(&internal.ByteServerDownloader{Server: bytesServer}))
 	mux.Handle("/", gwMux)
 
-	return mux, func() { _ = conn.Close() }, nil
+	return authMiddleware(mux), nil
 }
 
 func getGCSClient(ctx context.Context, opts serveOptions) (*storage.Client, error) {

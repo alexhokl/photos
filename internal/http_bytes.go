@@ -1,12 +1,34 @@
 package internal
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/alexhokl/photos/proto"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
+
+// byteDownloader is the minimal interface required to serve raw photo bytes
+// over HTTP. It is satisfied by both proto.ByteServiceClient (a real gRPC
+// client) and *ByteServerDownloader (an in-process adapter around
+// proto.ByteServiceServer), so the handler works whether the RESTful gateway
+// is wired to a remote or a local (same-process) backend.
+type byteDownloader interface {
+	Download(ctx context.Context, in *proto.DownloadRequest, opts ...grpc.CallOption) (*proto.DownloadResponse, error)
+}
+
+// ByteServerDownloader adapts a proto.ByteServiceServer (the in-process
+// server implementation) to the byteDownloader interface, so it can be
+// passed to NewRawBytesHandler without going through a network gRPC client.
+type ByteServerDownloader struct {
+	Server proto.ByteServiceServer
+}
+
+func (a *ByteServerDownloader) Download(ctx context.Context, in *proto.DownloadRequest, _ ...grpc.CallOption) (*proto.DownloadResponse, error) {
+	return a.Server.Download(ctx, in)
+}
 
 // NewRawBytesHandler returns an HTTP handler that fetches a photo from the
 // gRPC ByteService and writes the raw bytes directly to the response. This
@@ -15,7 +37,7 @@ import (
 // The URL must contain an {object_id...} wildcard path parameter, e.g.:
 //
 //	GET /v1/photos/bytes/{object_id...}
-func NewRawBytesHandler(client proto.ByteServiceClient) http.HandlerFunc {
+func NewRawBytesHandler(client byteDownloader) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		objectID := r.PathValue("object_id")
 		if objectID == "" {
