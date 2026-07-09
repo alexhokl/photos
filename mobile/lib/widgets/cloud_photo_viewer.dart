@@ -363,7 +363,7 @@ class _CloudPhotoViewerState extends State<CloudPhotoViewer> {
         .split('/')
         .map(Uri.encodeComponent)
         .join('/');
-    final url = '$scheme://${config.host}$portPart/v1/photos/$encoded/download';
+    final url = '$scheme://${config.host}$portPart/v1/photos/bytes/$encoded';
     await SharePlus.instance.share(ShareParams(uri: Uri.parse(url)));
   }
 
