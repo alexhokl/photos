@@ -1097,14 +1097,22 @@ func (s *LibraryServer) UpdateWebp(req *proto.UpdateWebpRequest, stream grpc.Ser
 		return status.Errorf(codes.Unauthenticated, "authentication required")
 	}
 
-	var objects []database.PhotoObject
-	if err := s.DB.Where("user_id = ?", userID).Find(&objects).Error; err != nil {
+	// Get all objects from GCS
+	gcsObjects, err := getGCSObjectsMap(ctx, s.GCSClient, s.BucketName)
+	if err != nil {
+		return status.Errorf(codes.Internal, "failed to list GCS objects: %v", err)
+	}
+
+	objectsMissingWebp := missingWebp(gcsObjects)
+
+	var databasePhotos []database.PhotoObject
+	if err := s.DB.Where("user_id = ?", userID).Find(&databasePhotos).Error; err != nil {
 		return status.Errorf(codes.Internal, "failed to list database objects: %v", err)
 	}
 
 	// Filter to eligible rows: missing webp_object_id and not a derived asset.
-	eligible := make([]database.PhotoObject, 0, len(objects))
-	for _, obj := range objects {
+	eligible := make([]database.PhotoObject, 0, len(databasePhotos))
+	for _, obj := range databasePhotos {
 		if isDerivedObjectID(obj.ObjectID) {
 			continue
 		}
@@ -1114,15 +1122,23 @@ func (s *LibraryServer) UpdateWebp(req *proto.UpdateWebpRequest, stream grpc.Ser
 		eligible = append(eligible, obj)
 	}
 
+	// Build a set of object IDs already covered by the eligible DB rows so
+	// the GCS-only pass can skip them and avoid redundant work.
+	eligibleSet := make(map[string]struct{}, len(eligible))
+	for _, obj := range eligible {
+		eligibleSet[obj.ObjectID] = struct{}{}
+	}
+
 	pause := time.Duration(req.GetPauseBetweenObjectsSeconds()) * time.Second
 
 	var generated, skipped, failed int
-	total := uint32(len(eligible))
+	total := uint32(len(eligible) + len(objectsMissingWebp))
 
 	slog.Info(
-		"Starting WebP generation pass",
-		slog.Int("eligible", len(eligible)),
-		slog.Int("total_db", len(objects)),
+		"Starting WebP generation",
+		slog.Int("missing_webp_object", len(objectsMissingWebp)),
+		slog.Int("eligible_db", len(eligible)),
+		slog.Int("total_db", len(databasePhotos)),
 		slog.Uint64("user_id", uint64(userID)),
 	)
 
@@ -1130,16 +1146,48 @@ func (s *LibraryServer) UpdateWebp(req *proto.UpdateWebpRequest, stream grpc.Ser
 	// configured; this avoids a nil pointer dereference on the GCS client when
 	// the database has no eligible rows or the server is misconfigured.
 	var bucket *storage.BucketHandle
-	if len(eligible) > 0 && s.GCSClient != nil {
+	if (len(eligible) > 0 || len(objectsMissingWebp) > 0) && s.GCSClient != nil {
 		bucket = s.GCSClient.Bucket(s.BucketName)
 	}
 
+	var processed uint32
 	for i := range eligible {
-		processed := uint32(i + 1)
+		processed++
 		photoObject := &eligible[i]
 		objectID := photoObject.ObjectID
 
 		status := s.generateWebpForObject(ctx, bucket, photoObject, objectID)
+		switch status {
+		case webpStatusGenerated:
+			generated++
+		case webpStatusSkipped:
+			skipped++
+		case webpStatusFailed:
+			failed++
+		}
+
+		if pause > 0 && status == webpStatusGenerated {
+			time.Sleep(pause)
+		}
+
+		if err := stream.Send(&proto.UpdateWebpProgress{
+			Processed: processed,
+			Total:     total,
+			Generated: uint32(generated),
+			Skipped:   uint32(skipped),
+			Failed:    uint32(failed),
+		}); err != nil {
+			return err
+		}
+	}
+
+	for _, objectID := range objectsMissingWebp {
+		if _, ok := eligibleSet[objectID]; ok {
+			continue
+		}
+		processed++
+
+		status := s.generateWebpFromPath(ctx, bucket, objectID)
 		switch status {
 		case webpStatusGenerated:
 			generated++
@@ -1169,7 +1217,8 @@ func (s *LibraryServer) UpdateWebp(req *proto.UpdateWebpRequest, stream grpc.Ser
 		slog.Int("generated", generated),
 		slog.Int("skipped", skipped),
 		slog.Int("failed", failed),
-		slog.Int("eligible", len(eligible)),
+		slog.Int("eligible_db", len(eligible)),
+		slog.Int("gcs_only", len(objectsMissingWebp)),
 		slog.Uint64("user_id", uint64(userID)),
 	)
 
@@ -1296,6 +1345,111 @@ func (s *LibraryServer) generateWebpForObject(
 			return webpStatusGenerated
 		}
 		return webpStatusFailed
+
+	default:
+		// Unsupported content type (video, heic, etc.) - skip.
+		return webpStatusSkipped
+	}
+}
+
+// generateWebpFromPath generates a WebP rendition for an object identified only
+// by its GCS object ID, without a database.PhotoObject record. It mirrors
+// generateWebpForObject but skips DNG preview handling and database updates,
+// both of which require a PhotoObject. The WebP is uploaded to GCS but the
+// caller is responsible for persisting the resulting webp_object_id if needed.
+func (s *LibraryServer) generateWebpFromPath(
+	ctx context.Context,
+	bucket *storage.BucketHandle,
+	objectID string,
+) webpStatus {
+	if bucket == nil {
+		slog.Warn(
+			"no storage bucket available for WebP generation",
+			slog.String("object_id", objectID),
+		)
+		return webpStatusFailed
+	}
+
+	// Reload attributes to obtain the current content type without relying on
+	// stale database state.
+	attrs, err := bucket.Object(objectID).Attrs(ctx)
+	if err != nil {
+		slog.Warn(
+			"failed to get object attrs during WebP generation",
+			slog.String("object_id", objectID),
+			slog.String("error", err.Error()),
+		)
+		return webpStatusFailed
+	}
+
+	switch {
+	case IsDNGContentType(attrs.ContentType):
+		// DNG handling requires a PhotoObject to persist the preview object ID
+		// (thumbnail_object_id), so it cannot be performed from a path alone.
+		slog.Warn(
+			"DNG WebP generation requires a PhotoObject",
+			slog.String("object_id", objectID),
+		)
+		return webpStatusSkipped
+
+	case IsWebPConvertibleContentType(attrs.ContentType):
+		reader, rErr := bucket.Object(objectID).NewReader(ctx)
+		if rErr != nil {
+			slog.Warn(
+				"failed to read object for WebP generation",
+				slog.String("object_id", objectID),
+				slog.String("error", rErr.Error()),
+			)
+			return webpStatusFailed
+		}
+		data, rErr := io.ReadAll(reader)
+		_ = reader.Close()
+		if rErr != nil {
+			slog.Warn(
+				"failed to read object data for WebP generation",
+				slog.String("object_id", objectID),
+				slog.String("error", rErr.Error()),
+			)
+			return webpStatusFailed
+		}
+
+		webpID := webpObjectID(objectID)
+		webpData, genErr := GenerateWebP(data, s.WebPQuality)
+		if genErr != nil {
+			slog.Warn(
+				"failed to generate WebP",
+				slog.String("object_id", objectID),
+				slog.String("error", genErr.Error()),
+			)
+			return webpStatusFailed
+		}
+
+		webpWriter := bucket.Object(webpID).NewWriter(ctx)
+		webpWriter.ContentType = "image/webp"
+		if _, wErr := webpWriter.Write(webpData); wErr != nil {
+			_ = webpWriter.Close()
+			slog.Warn(
+				"failed to write WebP to GCS",
+				slog.String("object_id", objectID),
+				slog.String("error", wErr.Error()),
+			)
+			return webpStatusFailed
+		}
+		if cErr := webpWriter.Close(); cErr != nil {
+			slog.Warn(
+				"failed to close WebP writer",
+				slog.String("object_id", objectID),
+				slog.String("error", cErr.Error()),
+			)
+			return webpStatusFailed
+		}
+
+		slog.Info(
+			"Generated WebP (DB record not updated; no PhotoObject provided)",
+			slog.String("object_id", objectID),
+			slog.String("webp_object_id", webpID),
+		)
+		return webpStatusGenerated
 
 	default:
 		// Unsupported content type (video, heic, etc.) - skip.
@@ -1660,11 +1814,35 @@ func (s *LibraryServer) UpdatePhotoMetadata(ctx context.Context, req *proto.Upda
 	}, nil
 }
 
+// missingWebp returns the object IDs of original (non-derived) GCS objects
+// whose expected WebP rendition is absent from the bucket, filtered to
+// content types eligible for WebP generation (raster images and DNG files).
+// Videos, HEIC, and already-WebP objects are excluded so the returned slice
+// reflects only objects that could actually produce a WebP rendition.
+func missingWebp(gcsObjects map[string]*storage.ObjectAttrs) (objectsMissingWebp []string) {
+	for objectID, attrs := range gcsObjects {
+		if isDerivedObjectID(objectID) {
+			continue
+		}
+		if !IsWebPConvertibleContentType(attrs.ContentType) && !IsDNGContentType(attrs.ContentType) {
+			continue
+		}
+		webpID := webpObjectID(objectID)
+		if _, ok := gcsObjects[webpID]; !ok {
+			objectsMissingWebp = append(objectsMissingWebp, objectID)
+		}
+	}
+	return objectsMissingWebp
+}
+
 // getGCSObjectsMap reads from the specified bucket and returns a map of object IDs
 // to their attributes. Derived assets (DNG JPEG previews, video thumbnails, and
 // WebP renditions identified by isDerivedObjectID) are excluded so callers can
 // treat every entry as an original upload.
 func getGCSObjectsMap(ctx context.Context, client *storage.Client, bucketName string) (map[string]*storage.ObjectAttrs, error) {
+	if client == nil {
+		return make(map[string]*storage.ObjectAttrs), nil
+	}
 	bucket := client.Bucket(bucketName)
 	it := bucket.Objects(ctx, nil)
 

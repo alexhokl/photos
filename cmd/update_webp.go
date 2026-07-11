@@ -18,20 +18,32 @@ var updateWebpOpts updateWebpOptions
 var updateWebpCmd = &cobra.Command{
 	Use:   "webp",
 	Short: "Generate missing WebP renditions for all eligible photos",
-	Long: `Generate missing WebP renditions for every PhotoObject belonging to the
-authenticated user whose webp_object_id is empty.
+	Long: `Generate missing WebP renditions for every photo belonging to the
+authenticated user. The command runs in two passes:
 
-For each eligible object the original file is downloaded from the storage
-backend and a lossy WebP rendition is generated and stored alongside the
-original; the new object ID is recorded in webp_object_id. DNG files are
-handled via their JPEG preview: if no preview exists one is generated first,
-then the WebP is derived from the preview. JPEG, PNG, and GIF files use the
-original object as the WebP source. All other content types (videos, HEIC,
-already-WebP files, and other derived assets) are skipped.
+1. Database pass — every PhotoObject whose webp_object_id is empty. For
+   each eligible object the original file is downloaded from the storage
+   backend and a lossy WebP rendition is generated and stored alongside the
+   original; the new object ID is recorded in webp_object_id. DNG files are
+   handled via their JPEG preview: if no preview exists one is generated
+   first, then the WebP is derived from the preview. JPEG, PNG, and GIF
+   files use the original object as the WebP source.
+
+2. GCS pass — original (non-derived) objects in the storage bucket whose
+   expected WebP rendition is absent, even when the corresponding database
+   row is missing or already has webp_object_id set. The WebP is uploaded to
+   the bucket but the database record is not updated (the caller is
+   responsible for persisting webp_object_id if needed). DNG files are
+   skipped in this pass because preview handling requires a PhotoObject.
+
+All other content types (videos, HEIC, already-WebP files, and other
+derived assets) are skipped. Objects already processed in the database pass
+are not processed again in the GCS pass.
 
 Per-object failures are logged and skipped; they do not abort the run.
-Progress is streamed from the server: one message per processed object, plus
-a final summary message with cumulative generated/skipped/failed counts.`,
+Progress is streamed from the server: one message per processed object,
+plus a final summary message with cumulative generated/skipped/failed
+counts.`,
 	RunE: runUpdateWebp,
 }
 
