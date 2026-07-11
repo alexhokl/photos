@@ -62,7 +62,10 @@ dependencies:
 
   # Platform-native HTTP clients with HTTP/3 support
   cupertino_http: ^2.4.0
-  cronet_http: ^1.7.0
+  # Pinned exactly: 1.9.0 causes an AGP manifest-merge failure
+  # ("Namespace 'org.chromium.net' is used in multiple modules") due to a
+  # conflicting org.chromium.net:cronet-api/cronet-shared resolution.
+  cronet_http: 1.8.0
   http: ^1.6.0
 
   # Video playback
