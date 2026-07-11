@@ -19,6 +19,8 @@ import (
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/api/option"
 	"google.golang.org/grpc"
@@ -135,9 +137,29 @@ func runServe(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	// Initialise OpenTelemetry (TracerProvider + LoggerProvider + default slog).
+	// This must happen before any slog calls so all log output is routed through
+	// the OTLP log exporter and carries trace correlation fields.
+	ctx := cmd.Context()
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	otelShutdown, err := internal.SetupOTel(ctx)
+	if err != nil {
+		// Non-fatal: log to stderr and continue without OTel rather than
+		// refusing to start the server.
+		slog.Error("failed to set up OpenTelemetry", slog.String("error", err.Error()))
+	} else {
+		defer func() {
+			if shutdownErr := otelShutdown(context.Background()); shutdownErr != nil {
+				slog.Error("error shutting down OpenTelemetry", slog.String("error", shutdownErr.Error()))
+			}
+		}()
+	}
+
 	dbConn, err := getDatabaseConnection(serveOpts.DatebaseFilePath)
 	if err != nil {
-		slog.Error("failed to connect to database", slog.String("error", err.Error()))
+		slog.ErrorContext(ctx, "failed to connect to database", slog.String("error", err.Error()))
 	}
 
 	// Migrate the schema
@@ -155,7 +177,7 @@ func runServe(cmd *cobra.Command, args []string) error {
 	if err := verifyGCSBucket(cmd.Context(), gcsClient, serveOpts.GCSBucket); err != nil {
 		return fmt.Errorf("failed to connect to GCS bucket %q: %w", serveOpts.GCSBucket, err)
 	}
-	slog.Info("successfully connected to GCS bucket", slog.String("bucket", serveOpts.GCSBucket))
+	slog.InfoContext(ctx, "successfully connected to GCS bucket", slog.String("bucket", serveOpts.GCSBucket))
 
 	var privateServer *pserver.Server
 	var grpcListener net.Listener
@@ -182,11 +204,12 @@ func runServe(cmd *cobra.Command, args []string) error {
 		restfulListener = listeners[1]
 		nonHTTPSListener = redirectListener
 		nonHTTPSHandler = redirectHandler
-		slog.Info("Tailscale is enabled", slog.String("hostname", serveOpts.Hostname))
+		slog.InfoContext(ctx, "Tailscale is enabled", slog.String("hostname", serveOpts.Hostname))
 	} else {
 		grpcListener, err = net.Listen("tcp", fmt.Sprintf(":%d", serveOpts.Port))
 		if err != nil {
-			slog.Error(
+			slog.ErrorContext(
+				ctx,
 				"failed to listen to port of gRPC server",
 				slog.Int("port", serveOpts.Port),
 				slog.String("error", err.Error()),
@@ -195,7 +218,8 @@ func runServe(cmd *cobra.Command, args []string) error {
 		}
 		restfulListener, err = net.Listen("tcp", fmt.Sprintf(":%d", serveOpts.ProxyPort))
 		if err != nil {
-			slog.Error(
+			slog.ErrorContext(
+				ctx,
 				"failed to listen to port of RESTful proxy server",
 				slog.Int("port", serveOpts.ProxyPort),
 				slog.String("error", err.Error()),
@@ -264,12 +288,12 @@ func runServe(cmd *cobra.Command, args []string) error {
 	g.Go(func() error {
 		select {
 		case sig := <-sigChan:
-			slog.Info("received shutdown signal", slog.String("signal", sig.String()))
+			slog.InfoContext(context.Background(), "received shutdown signal", slog.String("signal", sig.String()))
 		case <-ctx.Done():
 			return nil
 		}
 
-		slog.Info("initiating graceful shutdown")
+		slog.InfoContext(context.Background(), "initiating graceful shutdown")
 
 		// Create a timeout context for shutdown
 		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -277,20 +301,20 @@ func runServe(cmd *cobra.Command, args []string) error {
 
 		// Gracefully stop gRPC server (stops accepting new connections and waits for existing ones)
 		grpcServer.GracefulStop()
-		slog.Info("gRPC server stopped gracefully")
+		slog.InfoContext(shutdownCtx, "gRPC server stopped gracefully")
 
 		// Shutdown HTTP servers
 		if err := restfulServer.Shutdown(shutdownCtx); err != nil {
-			slog.Error("error shutting down RESTful server", slog.String("error", err.Error()))
+			slog.ErrorContext(shutdownCtx, "error shutting down RESTful server", slog.String("error", err.Error()))
 		} else {
-			slog.Info("RESTful proxy server stopped gracefully")
+			slog.InfoContext(shutdownCtx, "RESTful proxy server stopped gracefully")
 		}
 
 		if nonHTTPSServer != nil {
 			if err := nonHTTPSServer.Shutdown(shutdownCtx); err != nil {
-				slog.Error("error shutting down non-HTTPS server", slog.String("error", err.Error()))
+				slog.ErrorContext(shutdownCtx, "error shutting down non-HTTPS server", slog.String("error", err.Error()))
 			} else {
-				slog.Info("non-HTTPS server stopped gracefully")
+				slog.InfoContext(shutdownCtx, "non-HTTPS server stopped gracefully")
 			}
 		}
 
@@ -301,7 +325,8 @@ func runServe(cmd *cobra.Command, args []string) error {
 
 	// gRPC server goroutine
 	g.Go(func() error {
-		slog.Info(
+		slog.InfoContext(
+			ctx,
 			"gRPC server is serving",
 			slog.Int("port", serveOpts.Port),
 		)
@@ -320,7 +345,8 @@ func runServe(cmd *cobra.Command, args []string) error {
 
 	// RESTful proxy server goroutine
 	g.Go(func() error {
-		slog.Info(
+		slog.InfoContext(
+			ctx,
 			"RESTful proxy server is serving",
 			slog.Int("port", serveOpts.ProxyPort),
 			slog.Bool("https", requireSecureConnection(fqdn)),
@@ -336,7 +362,8 @@ func runServe(cmd *cobra.Command, args []string) error {
 	// Non-HTTPS server goroutine (if enabled)
 	if nonHTTPSServer != nil {
 		g.Go(func() error {
-			slog.Info(
+			slog.InfoContext(
+				ctx,
 				"non-HTTPS server is listening",
 				slog.String("addr", nonHTTPSListener.Addr().String()),
 			)
@@ -352,7 +379,7 @@ func runServe(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	slog.Info("server shutdown complete")
+	slog.InfoContext(context.Background(), "server shutdown complete")
 	return nil
 }
 
@@ -406,6 +433,10 @@ func getGrpcServer(
 	streamAuthenticationInterceptor grpc.StreamServerInterceptor,
 ) *grpc.Server {
 	grpcServer := grpc.NewServer(
+		// OTel stats handler: starts a span for every incoming RPC and
+		// propagates W3C trace context so logs emitted inside handlers are
+		// correlated with the active trace in GCP Cloud Trace.
+		grpc.StatsHandler(otelgrpc.NewServerHandler()),
 		grpc.MaxRecvMsgSize(10*1024*1024), // 10 MB
 		grpc.MaxSendMsgSize(10*1024*1024), // 10 MB
 		grpc.ChainUnaryInterceptor(
@@ -457,7 +488,7 @@ func getRestfulProxyServerHandler(
 	mux.HandleFunc("GET /v1/photos/bytes/{object_id...}", internal.NewRawBytesHandler(&internal.ByteServerDownloader{Server: bytesServer}))
 	mux.Handle("/", gwMux)
 
-	return authMiddleware(mux), nil
+	return authMiddleware(otelhttp.NewHandler(mux, "gateway")), nil
 }
 
 func getGCSClient(ctx context.Context, opts serveOptions) (*storage.Client, error) {

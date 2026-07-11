@@ -49,7 +49,8 @@ func (s *BytesServer) Upload(ctx context.Context, req *proto.UploadRequest) (*pr
 	md5Hash := md5.Sum(data)
 	md5HashBase64 := base64.StdEncoding.EncodeToString(md5Hash[:])
 
-	slog.Info(
+	slog.InfoContext(
+		ctx,
 		"Uploading file to bucket",
 		slog.String("object_id", objectID),
 		slog.String("md5_hash", md5HashBase64),
@@ -61,23 +62,30 @@ func (s *BytesServer) Upload(ctx context.Context, req *proto.UploadRequest) (*pr
 	bucket := s.GCSClient.Bucket(s.BucketName)
 	obj := bucket.Object(objectID)
 
+	_, writeSpan := startSpan(ctx, "gcs.write_object")
 	writer := obj.NewWriter(ctx)
 	writer.ContentType = req.GetContentType()
 	writer.Metadata = photoMetadata.ToGCSMetadata()
 
 	if _, err := writer.Write(data); err != nil {
+		recordSpanError(writeSpan, err)
 		return nil, status.Errorf(codes.Internal, "failed to write data to GCS: %v", err)
 	}
 
 	if err := writer.Close(); err != nil {
+		recordSpanError(writeSpan, err)
 		return nil, status.Errorf(codes.Internal, "failed to close GCS writer: %v", err)
 	}
+	endSpanOk(writeSpan)
 
 	// Get object attributes after upload
+	_, attrsSpan := startSpan(ctx, "gcs.get_object_attrs")
 	attrs, err := obj.Attrs(ctx)
 	if err != nil {
+		recordSpanError(attrsSpan, err)
 		return nil, status.Errorf(codes.Internal, "failed to get object attributes: %v", err)
 	}
+	endSpanOk(attrsSpan)
 
 	// Write to PhotoObject table (create or restore if soft-deleted)
 	var timeTaken *time.Time
@@ -96,19 +104,26 @@ func (s *BytesServer) Upload(ctx context.Context, req *proto.UploadRequest) (*pr
 		uploadWebP(ctx, bucket, data, objectID, s.WebPQuality, photoObject)
 	}
 
+	_, createSpan := startSpan(ctx, "db.create_or_restore_photo_object")
 	if err := database.CreateOrRestorePhotoObject(s.DB, photoObject); err != nil {
+		recordSpanError(createSpan, err)
 		return nil, status.Errorf(codes.Internal, "failed to create photo object record: %v", err)
 	}
+	endSpanOk(createSpan)
 
 	// Write to PhotoDirectory table (create or restore if soft-deleted)
 	dir := ExtractDirectoryFromPath(objectID)
 	if dir != "" {
+		_, dirSpan := startSpan(ctx, "db.create_or_restore_photo_directory")
 		if err := database.CreateOrRestorePhotoDirectory(s.DB, dir); err != nil {
+			recordSpanError(dirSpan, err)
 			return nil, status.Errorf(codes.Internal, "failed to create photo directory record: %v", err)
 		}
+		endSpanOk(dirSpan)
 	}
 
-	slog.Info(
+	slog.InfoContext(
+		ctx,
 		"Uploaded file to bucket",
 		slog.String("object_id", objectID),
 	)
@@ -187,7 +202,7 @@ func createPhotoObject(objectID string, attrs *storage.ObjectAttrs, userID uint,
 func uploadDNGPreview(ctx context.Context, bucket *storage.BucketHandle, data []byte, objectID string, photoObject *database.PhotoObject) {
 	previewData, err := GenerateDNGPreview(data)
 	if err != nil {
-		slog.Warn("failed to generate DNG preview",
+		slog.WarnContext(ctx, "failed to generate DNG preview",
 			slog.String("object_id", objectID),
 			slog.String("error", err.Error()),
 		)
@@ -195,12 +210,14 @@ func uploadDNGPreview(ctx context.Context, bucket *storage.BucketHandle, data []
 	}
 
 	previewObjectID := dngPreviewObjectID(objectID)
+	_, writeSpan := startSpan(ctx, "gcs.write_object")
 	previewWriter := bucket.Object(previewObjectID).NewWriter(ctx)
 	previewWriter.ContentType = "image/jpeg"
 
 	if _, err := previewWriter.Write(previewData); err != nil {
 		_ = previewWriter.Close()
-		slog.Warn("failed to write DNG preview to GCS",
+		recordSpanError(writeSpan, err)
+		slog.WarnContext(ctx, "failed to write DNG preview to GCS",
 			slog.String("object_id", objectID),
 			slog.String("error", err.Error()),
 		)
@@ -208,16 +225,18 @@ func uploadDNGPreview(ctx context.Context, bucket *storage.BucketHandle, data []
 	}
 
 	if err := previewWriter.Close(); err != nil {
-		slog.Warn("failed to close DNG preview writer",
+		recordSpanError(writeSpan, err)
+		slog.WarnContext(ctx, "failed to close DNG preview writer",
 			slog.String("object_id", objectID),
 			slog.String("error", err.Error()),
 		)
 		return
 	}
+	endSpanOk(writeSpan)
 
 	photoObject.ThumbnailObjectID = &previewObjectID
 
-	slog.Info("Generated DNG preview",
+	slog.InfoContext(ctx, "Generated DNG preview",
 		slog.String("object_id", objectID),
 		slog.String("preview_object_id", previewObjectID),
 	)
@@ -228,7 +247,7 @@ func uploadDNGPreview(ctx context.Context, bucket *storage.BucketHandle, data []
 func uploadWebP(ctx context.Context, bucket *storage.BucketHandle, data []byte, objectID string, quality int, photoObject *database.PhotoObject) {
 	webpData, err := GenerateWebP(data, quality)
 	if err != nil {
-		slog.Warn("failed to generate WebP",
+		slog.WarnContext(ctx, "failed to generate WebP",
 			slog.String("object_id", objectID),
 			slog.String("error", err.Error()),
 		)
@@ -236,12 +255,14 @@ func uploadWebP(ctx context.Context, bucket *storage.BucketHandle, data []byte, 
 	}
 
 	webpID := webpObjectID(objectID)
+	_, writeSpan := startSpan(ctx, "gcs.write_object")
 	webpWriter := bucket.Object(webpID).NewWriter(ctx)
 	webpWriter.ContentType = "image/webp"
 
 	if _, err := webpWriter.Write(webpData); err != nil {
 		_ = webpWriter.Close()
-		slog.Warn("failed to write WebP to GCS",
+		recordSpanError(writeSpan, err)
+		slog.WarnContext(ctx, "failed to write WebP to GCS",
 			slog.String("object_id", objectID),
 			slog.String("error", err.Error()),
 		)
@@ -249,16 +270,18 @@ func uploadWebP(ctx context.Context, bucket *storage.BucketHandle, data []byte, 
 	}
 
 	if err := webpWriter.Close(); err != nil {
-		slog.Warn("failed to close WebP writer",
+		recordSpanError(writeSpan, err)
+		slog.WarnContext(ctx, "failed to close WebP writer",
 			slog.String("object_id", objectID),
 			slog.String("error", err.Error()),
 		)
 		return
 	}
+	endSpanOk(writeSpan)
 
 	photoObject.WebpObjectID = &webpID
 
-	slog.Info("Generated WebP",
+	slog.InfoContext(ctx, "Generated WebP",
 		slog.String("object_id", objectID),
 		slog.String("webp_object_id", webpID),
 	)
@@ -279,7 +302,8 @@ func (s *BytesServer) Download(ctx context.Context, req *proto.DownloadRequest) 
 	objectID := req.GetObjectId()
 	stripLocation := req.GetStripLocation()
 
-	slog.Info(
+	slog.InfoContext(
+		ctx,
 		"Downloading file from bucket",
 		slog.String("object_id", objectID),
 		slog.Bool("strip_location", stripLocation),
@@ -289,25 +313,32 @@ func (s *BytesServer) Download(ctx context.Context, req *proto.DownloadRequest) 
 	obj := bucket.Object(objectID)
 
 	// Get object attributes
+	_, attrsSpan := startSpan(ctx, "gcs.get_object_attrs")
 	attrs, err := obj.Attrs(ctx)
 	if err != nil {
+		recordSpanError(attrsSpan, err)
 		if err == storage.ErrObjectNotExist {
 			return nil, status.Errorf(codes.NotFound, "object not found: %s", objectID)
 		}
 		return nil, status.Errorf(codes.Internal, "failed to get object attributes: %v", err)
 	}
+	endSpanOk(attrsSpan)
 
 	// Read object data
+	_, readSpan := startSpan(ctx, "gcs.read_object")
 	reader, err := obj.NewReader(ctx)
 	if err != nil {
+		recordSpanError(readSpan, err)
 		return nil, status.Errorf(codes.Internal, "failed to create reader for object: %v", err)
 	}
 	defer func() { _ = reader.Close() }()
 
 	data, err := io.ReadAll(reader)
 	if err != nil {
+		recordSpanError(readSpan, err)
 		return nil, status.Errorf(codes.Internal, "failed to read object data: %v", err)
 	}
+	endSpanOk(readSpan)
 
 	// Parse stored metadata from GCS object attributes
 	photoMetadata := ParseGCSMetadata(attrs.Metadata)
@@ -316,7 +347,8 @@ func (s *BytesServer) Download(ctx context.Context, req *proto.DownloadRequest) 
 	if stripLocation {
 		strippedData, err := StripLocationFromImage(data)
 		if err != nil {
-			slog.Warn(
+			slog.WarnContext(
+				ctx,
 				"Failed to strip location from image, returning original",
 				slog.String("object_id", objectID),
 				slog.String("error", err.Error()),
@@ -334,7 +366,8 @@ func (s *BytesServer) Download(ctx context.Context, req *proto.DownloadRequest) 
 	md5Hash := md5.Sum(data)
 	md5HashBase64 := base64.StdEncoding.EncodeToString(md5Hash[:])
 
-	slog.Info(
+	slog.InfoContext(
+		ctx,
 		"Downloaded file from bucket",
 		slog.String("object_id", objectID),
 		slog.Int("size_bytes", len(data)),
@@ -411,7 +444,8 @@ func (s *BytesServer) StreamingUpload(stream grpc.ClientStreamingServer[proto.St
 	objectID := metadata.GetFilename()
 	contentType := metadata.GetContentType()
 
-	slog.Info(
+	slog.InfoContext(
+		ctx,
 		"Starting streaming upload to bucket",
 		slog.String("object_id", objectID),
 		slog.String("content_type", contentType),
@@ -453,6 +487,7 @@ func (s *BytesServer) StreamingUpload(stream grpc.ClientStreamingServer[proto.St
 	bucket := s.GCSClient.Bucket(s.BucketName)
 	obj := bucket.Object(objectID)
 
+	_, writeSpan := startSpan(ctx, "gcs.write_object")
 	writer := obj.NewWriter(ctx)
 	writer.ContentType = contentType
 	writer.Metadata = photoMetadata.ToGCSMetadata()
@@ -460,22 +495,28 @@ func (s *BytesServer) StreamingUpload(stream grpc.ClientStreamingServer[proto.St
 	// Write all data to GCS
 	if _, err := writer.Write(allData); err != nil {
 		_ = writer.Close()
+		recordSpanError(writeSpan, err)
 		return status.Errorf(codes.Internal, "failed to write data to GCS: %v", err)
 	}
 
 	if err := writer.Close(); err != nil {
+		recordSpanError(writeSpan, err)
 		return status.Errorf(codes.Internal, "failed to close GCS writer: %v", err)
 	}
+	endSpanOk(writeSpan)
 
 	// Compute final MD5 hash
 	md5Hash := md5Hasher.Sum(nil)
 	md5HashBase64 := base64.StdEncoding.EncodeToString(md5Hash)
 
 	// Get object attributes after upload
+	_, attrsSpan := startSpan(ctx, "gcs.get_object_attrs")
 	attrs, err := obj.Attrs(ctx)
 	if err != nil {
+		recordSpanError(attrsSpan, err)
 		return status.Errorf(codes.Internal, "failed to get object attributes: %v", err)
 	}
+	endSpanOk(attrsSpan)
 
 	// Write to PhotoObject table (create or restore if soft-deleted)
 	var streamTimeTaken *time.Time
@@ -494,19 +535,26 @@ func (s *BytesServer) StreamingUpload(stream grpc.ClientStreamingServer[proto.St
 		uploadWebP(ctx, bucket, allData, objectID, s.WebPQuality, photoObject)
 	}
 
+	_, createSpan := startSpan(ctx, "db.create_or_restore_photo_object")
 	if err := database.CreateOrRestorePhotoObject(s.DB, photoObject); err != nil {
+		recordSpanError(createSpan, err)
 		return status.Errorf(codes.Internal, "failed to create photo object record: %v", err)
 	}
+	endSpanOk(createSpan)
 
 	// Write to PhotoDirectory table (create or restore if soft-deleted)
 	dir := ExtractDirectoryFromPath(objectID)
 	if dir != "" {
+		_, dirSpan := startSpan(ctx, "db.create_or_restore_photo_directory")
 		if err := database.CreateOrRestorePhotoDirectory(s.DB, dir); err != nil {
+			recordSpanError(dirSpan, err)
 			return status.Errorf(codes.Internal, "failed to create photo directory record: %v", err)
 		}
+		endSpanOk(dirSpan)
 	}
 
-	slog.Info(
+	slog.InfoContext(
+		ctx,
 		"Completed streaming upload to bucket",
 		slog.String("object_id", objectID),
 		slog.Int64("size_bytes", attrs.Size),
@@ -625,7 +673,7 @@ func (s *BytesServer) BulkStreamingUpload(stream grpc.BidiStreamingServer[proto.
 
 		case *proto.StreamingUploadRequest_Chunk:
 			if !fileStarted {
-				slog.Warn("bulk upload: received chunk before metadata, ignoring")
+				slog.WarnContext(ctx, "bulk upload: received chunk before metadata, ignoring")
 				continue
 			}
 			currentData = append(currentData, d.Chunk...)
@@ -633,7 +681,7 @@ func (s *BytesServer) BulkStreamingUpload(stream grpc.BidiStreamingServer[proto.
 
 		case *proto.StreamingUploadRequest_EndOfFile:
 			if !fileStarted {
-				slog.Warn("bulk upload: received end_of_file with no preceding metadata, ignoring")
+				slog.WarnContext(ctx, "bulk upload: received end_of_file with no preceding metadata, ignoring")
 				continue
 			}
 			// Snapshot the current file's state so the goroutine captures its own copy.
@@ -686,7 +734,7 @@ func (s *BytesServer) uploadSingleFile(
 ) *proto.BulkUploadFileResult {
 	failResult := func(format string, args ...any) *proto.BulkUploadFileResult {
 		msg := fmt.Sprintf(format, args...)
-		slog.Error("bulk upload: file failed",
+		slog.ErrorContext(ctx, "bulk upload: file failed",
 			slog.String("object_id", objectID),
 			slog.String("error", msg),
 		)
@@ -697,7 +745,7 @@ func (s *BytesServer) uploadSingleFile(
 		}
 	}
 
-	slog.Info("bulk upload: starting file upload",
+	slog.InfoContext(ctx, "bulk upload: starting file upload",
 		slog.String("object_id", objectID),
 		slog.String("content_type", contentType),
 	)
@@ -708,26 +756,33 @@ func (s *BytesServer) uploadSingleFile(
 	bucket := s.GCSClient.Bucket(s.BucketName)
 	obj := bucket.Object(objectID)
 
+	_, writeSpan := startSpan(ctx, "gcs.write_object")
 	writer := obj.NewWriter(ctx)
 	writer.ContentType = contentType
 	writer.Metadata = photoMetadata.ToGCSMetadata()
 
 	if _, err := writer.Write(data); err != nil {
 		_ = writer.Close()
+		recordSpanError(writeSpan, err)
 		return failResult("failed to write data to GCS: %v", err)
 	}
 	if err := writer.Close(); err != nil {
+		recordSpanError(writeSpan, err)
 		return failResult("failed to close GCS writer: %v", err)
 	}
+	endSpanOk(writeSpan)
 
 	// Compute the final MD5 hash.
 	md5HashBase64 := base64.StdEncoding.EncodeToString(md5Hasher.Sum(nil))
 
 	// Fetch GCS object attributes confirmed after the upload.
+	_, attrsSpan := startSpan(ctx, "gcs.get_object_attrs")
 	attrs, err := obj.Attrs(ctx)
 	if err != nil {
+		recordSpanError(attrsSpan, err)
 		return failResult("failed to get object attributes: %v", err)
 	}
+	endSpanOk(attrsSpan)
 
 	var timeTaken *time.Time
 	if photoMetadata.HasDateTaken {
@@ -747,18 +802,24 @@ func (s *BytesServer) uploadSingleFile(
 
 	// Create the database entry immediately — this is the key behaviour: the entry
 	// is written as soon as this file's upload completes, not after the full batch.
+	_, createSpan := startSpan(ctx, "db.create_or_restore_photo_object")
 	if err := database.CreateOrRestorePhotoObject(s.DB, photoObject); err != nil {
+		recordSpanError(createSpan, err)
 		return failResult("failed to create photo object record: %v", err)
 	}
+	endSpanOk(createSpan)
 
 	dir := ExtractDirectoryFromPath(objectID)
 	if dir != "" {
+		_, dirSpan := startSpan(ctx, "db.create_or_restore_photo_directory")
 		if err := database.CreateOrRestorePhotoDirectory(s.DB, dir); err != nil {
+			recordSpanError(dirSpan, err)
 			return failResult("failed to create photo directory record: %v", err)
 		}
+		endSpanOk(dirSpan)
 	}
 
-	slog.Info("bulk upload: file upload completed",
+	slog.InfoContext(ctx, "bulk upload: file upload completed",
 		slog.String("object_id", objectID),
 		slog.Int64("size_bytes", attrs.Size),
 		slog.String("md5_hash", md5HashBase64),
@@ -823,7 +884,8 @@ func (s *BytesServer) StreamingDownload(req *proto.StreamingDownloadRequest, str
 
 	stripLocation := req.GetStripLocation()
 
-	slog.Info(
+	slog.InfoContext(
+		ctx,
 		"Starting streaming download from bucket",
 		slog.String("object_id", objectID),
 		slog.Bool("strip_location", stripLocation),
@@ -833,17 +895,22 @@ func (s *BytesServer) StreamingDownload(req *proto.StreamingDownloadRequest, str
 	obj := bucket.Object(objectID)
 
 	// Get object attributes
+	_, attrsSpan := startSpan(ctx, "gcs.get_object_attrs")
 	attrs, err := obj.Attrs(ctx)
 	if err != nil {
+		recordSpanError(attrsSpan, err)
 		if err == storage.ErrObjectNotExist {
 			return status.Errorf(codes.NotFound, "object not found: %s", objectID)
 		}
 		return status.Errorf(codes.Internal, "failed to get object attributes: %v", err)
 	}
+	endSpanOk(attrsSpan)
 
 	// Create reader for streaming
+	_, readSpan := startSpan(ctx, "gcs.read_object")
 	reader, err := obj.NewReader(ctx)
 	if err != nil {
+		recordSpanError(readSpan, err)
 		return status.Errorf(codes.Internal, "failed to create reader for object: %v", err)
 	}
 	defer func() { _ = reader.Close() }()
@@ -853,11 +920,23 @@ func (s *BytesServer) StreamingDownload(req *proto.StreamingDownloadRequest, str
 
 	// If strip_location is requested, we need to read the entire file, process it, then stream
 	if stripLocation {
-		return s.streamDownloadWithLocationStripped(stream, reader, attrs, photoMetadata, objectID)
+		err := s.streamDownloadWithLocationStripped(stream, reader, attrs, photoMetadata, objectID)
+		if err != nil {
+			recordSpanError(readSpan, err)
+		} else {
+			endSpanOk(readSpan)
+		}
+		return err
 	}
 
 	// Normal streaming download (no location stripping)
-	return s.streamDownloadDirect(stream, reader, attrs, photoMetadata, objectID)
+	err = s.streamDownloadDirect(stream, reader, attrs, photoMetadata, objectID)
+	if err != nil {
+		recordSpanError(readSpan, err)
+	} else {
+		endSpanOk(readSpan)
+	}
+	return err
 }
 
 // streamDownloadDirect streams the file directly from GCS without modification.
@@ -934,7 +1013,8 @@ func (s *BytesServer) streamDownloadDirect(
 		totalBytes += int64(n)
 	}
 
-	slog.Info(
+	slog.InfoContext(
+		stream.Context(),
 		"Completed streaming download from bucket",
 		slog.String("object_id", objectID),
 		slog.Int64("size_bytes", totalBytes),
@@ -960,7 +1040,8 @@ func (s *BytesServer) streamDownloadWithLocationStripped(
 	// Strip GPS location from the image
 	strippedData, err := StripLocationFromImage(data)
 	if err != nil {
-		slog.Warn(
+		slog.WarnContext(
+			stream.Context(),
 			"Failed to strip location from image, returning original",
 			slog.String("object_id", objectID),
 			slog.String("error", err.Error()),
@@ -1041,7 +1122,8 @@ func (s *BytesServer) streamDownloadWithLocationStripped(
 		totalBytes += int64(n)
 	}
 
-	slog.Info(
+	slog.InfoContext(
+		stream.Context(),
 		"Completed streaming download (location stripped) from bucket",
 		slog.String("object_id", objectID),
 		slog.Int64("size_bytes", totalBytes),

@@ -46,9 +46,12 @@ func (s *LibraryServer) ListDirectories(ctx context.Context, req *proto.ListDire
 		query = query.Where("path LIKE ?", prefix+"%")
 	}
 
+	_, dbSpan := startSpan(ctx, "db.list_directories")
 	if err := query.Order("path ASC").Find(&directories).Error; err != nil {
+		recordSpanError(dbSpan, err)
 		return nil, status.Errorf(codes.Internal, "failed to list directories: %v", err)
 	}
+	endSpanOk(dbSpan)
 
 	prefixes := make([]string, 0, len(directories))
 	if req.GetRecursive() {
@@ -98,24 +101,30 @@ func (s *LibraryServer) GetPhoto(ctx context.Context, req *proto.GetPhotoRequest
 
 	// Query the photo from the database
 	var photoObject database.PhotoObject
+	_, dbSpan := startSpan(ctx, "db.get_photo")
 	if err := s.DB.Where("object_id = ? AND user_id = ?", objectID, userID).First(&photoObject).Error; err != nil {
+		recordSpanError(dbSpan, err)
 		if err == gorm.ErrRecordNotFound {
 			return nil, status.Errorf(codes.NotFound, "photo not found: %s", objectID)
 		}
 		return nil, status.Errorf(codes.Internal, "failed to query photo: %v", err)
 	}
+	endSpanOk(dbSpan)
 
 	// Get additional attributes from GCS for size information
 	bucket := s.GCSClient.Bucket(s.BucketName)
 	obj := bucket.Object(objectID)
 
+	_, gcsSpan := startSpan(ctx, "gcs.get_object_attrs")
 	attrs, err := obj.Attrs(ctx)
 	if err != nil {
+		recordSpanError(gcsSpan, err)
 		if err == storage.ErrObjectNotExist {
 			return nil, status.Errorf(codes.NotFound, "photo not found in storage: %s", objectID)
 		}
 		return nil, status.Errorf(codes.Internal, "failed to get photo attributes: %v", err)
 	}
+	endSpanOk(gcsSpan)
 
 	// Parse stored metadata from GCS object attributes
 	photoMetadata := ParseGCSMetadata(attrs.Metadata)
@@ -170,7 +179,8 @@ func (s *LibraryServer) GetPhoto(ctx context.Context, req *proto.GetPhotoRequest
 		WebpObjectId:      webpObjectID,
 	}
 
-	slog.Info(
+	slog.InfoContext(
+		ctx,
 		"Retrieved photo metadata",
 		slog.String("object_id", objectID),
 		slog.Uint64("user_id", uint64(userID)),
@@ -195,15 +205,19 @@ func (s *LibraryServer) PhotoExists(ctx context.Context, req *proto.PhotoExistsR
 
 	// Check if the photo exists in the database for this user
 	var count int64
+	_, dbSpan := startSpan(ctx, "db.photo_exists")
 	if err := s.DB.Model(&database.PhotoObject{}).
 		Where("object_id = ? AND user_id = ?", objectID, userID).
 		Count(&count).Error; err != nil {
+		recordSpanError(dbSpan, err)
 		return nil, status.Errorf(codes.Internal, "failed to check photo existence: %v", err)
 	}
+	endSpanOk(dbSpan)
 
 	exists := count > 0
 
-	slog.Info(
+	slog.InfoContext(
+		ctx,
 		"Checked photo existence",
 		slog.String("object_id", objectID),
 		slog.Bool("exists", exists),
@@ -237,20 +251,26 @@ func (s *LibraryServer) CopyPhoto(ctx context.Context, req *proto.CopyPhotoReque
 
 	// Verify the source photo exists and belongs to the user
 	var sourcePhoto database.PhotoObject
+	_, dbSpan := startSpan(ctx, "db.get_source_photo")
 	if err := s.DB.Where("object_id = ? AND user_id = ?", sourceObjectID, userID).First(&sourcePhoto).Error; err != nil {
+		recordSpanError(dbSpan, err)
 		if err == gorm.ErrRecordNotFound {
 			return nil, status.Errorf(codes.NotFound, "source photo not found: %s", sourceObjectID)
 		}
 		return nil, status.Errorf(codes.Internal, "failed to query source photo: %v", err)
 	}
+	endSpanOk(dbSpan)
 
 	// Check if destination already exists
 	var destCount int64
+	_, destSpan := startSpan(ctx, "db.count_destination")
 	if err := s.DB.Model(&database.PhotoObject{}).
 		Where("object_id = ? AND user_id = ?", destObjectID, userID).
 		Count(&destCount).Error; err != nil {
+		recordSpanError(destSpan, err)
 		return nil, status.Errorf(codes.Internal, "failed to check destination: %v", err)
 	}
+	endSpanOk(destSpan)
 	if destCount > 0 {
 		return nil, status.Errorf(codes.AlreadyExists, "destination photo already exists: %s", destObjectID)
 	}
@@ -261,13 +281,16 @@ func (s *LibraryServer) CopyPhoto(ctx context.Context, req *proto.CopyPhotoReque
 	dstObj := bucket.Object(destObjectID)
 
 	copier := dstObj.CopierFrom(srcObj)
+	_, copySpan := startSpan(ctx, "gcs.copy_object")
 	attrs, err := copier.Run(ctx)
 	if err != nil {
+		recordSpanError(copySpan, err)
 		if err == storage.ErrObjectNotExist {
 			return nil, status.Errorf(codes.NotFound, "source photo not found in storage: %s", sourceObjectID)
 		}
 		return nil, status.Errorf(codes.Internal, "failed to copy photo in storage: %v", err)
 	}
+	endSpanOk(copySpan)
 
 	// Compute MD5 hash from attributes
 	md5HashBase64 := base64.StdEncoding.EncodeToString(attrs.MD5)
@@ -280,25 +303,35 @@ func (s *LibraryServer) CopyPhoto(ctx context.Context, req *proto.CopyPhotoReque
 		UserID:      userID,
 	}
 
+	_, createSpan := startSpan(ctx, "db.create_or_restore_photo_object")
 	if err := database.CreateOrRestorePhotoObject(s.DB, destPhoto); err != nil {
+		recordSpanError(createSpan, err)
 		// Try to clean up the GCS object if database insert fails
+		_, delSpan := startSpan(ctx, "gcs.delete_object")
 		_ = dstObj.Delete(ctx)
+		endSpanOk(delSpan)
 		return nil, status.Errorf(codes.Internal, "failed to create photo record: %v", err)
 	}
+	endSpanOk(createSpan)
 
 	// Create directory entry if applicable (create or restore if soft-deleted)
 	dir := ExtractDirectoryFromPath(destObjectID)
 	if dir != "" {
+		_, dirSpan := startSpan(ctx, "db.create_or_restore_photo_directory")
 		if err := database.CreateOrRestorePhotoDirectory(s.DB, dir); err != nil {
-			slog.Warn(
+			recordSpanError(dirSpan, err)
+			slog.WarnContext(
+				ctx,
 				"failed to create photo directory for copy",
 				slog.String("path", dir),
 				slog.String("error", err.Error()),
 			)
 		}
+		endSpanOk(dirSpan)
 	}
 
-	slog.Info(
+	slog.InfoContext(
+		ctx,
 		"Copied photo",
 		slog.String("source", sourceObjectID),
 		slog.String("destination", destObjectID),
@@ -344,20 +377,26 @@ func (s *LibraryServer) RenamePhoto(ctx context.Context, req *proto.RenamePhotoR
 
 	// Verify the source photo exists and belongs to the user
 	var sourcePhoto database.PhotoObject
+	_, dbSpan := startSpan(ctx, "db.get_source_photo")
 	if err := s.DB.Where("object_id = ? AND user_id = ?", sourceObjectID, userID).First(&sourcePhoto).Error; err != nil {
+		recordSpanError(dbSpan, err)
 		if err == gorm.ErrRecordNotFound {
 			return nil, status.Errorf(codes.NotFound, "source photo not found: %s", sourceObjectID)
 		}
 		return nil, status.Errorf(codes.Internal, "failed to query source photo: %v", err)
 	}
+	endSpanOk(dbSpan)
 
 	// Check if destination already exists
 	var destCount int64
+	_, destSpan := startSpan(ctx, "db.count_destination")
 	if err := s.DB.Model(&database.PhotoObject{}).
 		Where("object_id = ? AND user_id = ?", destObjectID, userID).
 		Count(&destCount).Error; err != nil {
+		recordSpanError(destSpan, err)
 		return nil, status.Errorf(codes.Internal, "failed to check destination: %v", err)
 	}
+	endSpanOk(destSpan)
 	if destCount > 0 {
 		return nil, status.Errorf(codes.AlreadyExists, "destination photo already exists: %s", destObjectID)
 	}
@@ -368,13 +407,16 @@ func (s *LibraryServer) RenamePhoto(ctx context.Context, req *proto.RenamePhotoR
 	dstObj := bucket.Object(destObjectID)
 
 	copier := dstObj.CopierFrom(srcObj)
+	_, copySpan := startSpan(ctx, "gcs.copy_object")
 	attrs, err := copier.Run(ctx)
 	if err != nil {
+		recordSpanError(copySpan, err)
 		if err == storage.ErrObjectNotExist {
 			return nil, status.Errorf(codes.NotFound, "source photo not found in storage: %s", sourceObjectID)
 		}
 		return nil, status.Errorf(codes.Internal, "failed to copy photo in storage: %v", err)
 	}
+	endSpanOk(copySpan)
 
 	// Compute MD5 hash from attributes
 	md5HashBase64 := base64.StdEncoding.EncodeToString(attrs.MD5)
@@ -387,69 +429,97 @@ func (s *LibraryServer) RenamePhoto(ctx context.Context, req *proto.RenamePhotoR
 		UserID:      userID,
 	}
 
+	_, createSpan := startSpan(ctx, "db.create_or_restore_photo_object")
 	if err := database.CreateOrRestorePhotoObject(s.DB, destPhoto); err != nil {
+		recordSpanError(createSpan, err)
 		// Try to clean up the GCS object if database insert fails
+		_, delSpan := startSpan(ctx, "gcs.delete_object")
 		_ = dstObj.Delete(ctx)
+		endSpanOk(delSpan)
 		return nil, status.Errorf(codes.Internal, "failed to create photo record: %v", err)
 	}
+	endSpanOk(createSpan)
 
 	// Create directory entry for destination if applicable (create or restore if soft-deleted)
 	destDir := ExtractDirectoryFromPath(destObjectID)
 	if destDir != "" {
+		_, dirSpan := startSpan(ctx, "db.create_or_restore_photo_directory")
 		if err := database.CreateOrRestorePhotoDirectory(s.DB, destDir); err != nil {
-			slog.Warn(
+			recordSpanError(dirSpan, err)
+			slog.WarnContext(
+				ctx,
 				"failed to create photo directory for rename",
 				slog.String("path", destDir),
 				slog.String("error", err.Error()),
 			)
 		}
+		endSpanOk(dirSpan)
 	}
 
 	// Delete the source object from GCS
+	_, srcDelSpan := startSpan(ctx, "gcs.delete_object")
 	if err := srcObj.Delete(ctx); err != nil {
+		recordSpanError(srcDelSpan, err)
 		if err != storage.ErrObjectNotExist {
-			slog.Warn(
+			slog.WarnContext(
+				ctx,
 				"failed to delete source photo from storage during rename",
 				slog.String("object_id", sourceObjectID),
 				slog.String("error", err.Error()),
 			)
 		}
 	}
+	endSpanOk(srcDelSpan)
 
 	// Delete the source database record
+	_, srcDbDelSpan := startSpan(ctx, "db.delete_source_photo")
 	if err := s.DB.Delete(&sourcePhoto).Error; err != nil {
+		recordSpanError(srcDbDelSpan, err)
 		return nil, status.Errorf(codes.Internal, "failed to delete source photo from database: %v", err)
 	}
+	endSpanOk(srcDbDelSpan)
 
 	// Check if the source directory is now empty and clean up
 	sourceDir := ExtractDirectoryFromPath(sourceObjectID)
 	if sourceDir != "" {
 		var count int64
+		_, countSpan := startSpan(ctx, "db.count_photos_in_directory")
 		if err := s.DB.Model(&database.PhotoObject{}).
 			Where("object_id LIKE ? AND object_id != ?", sourceDir+"/%", sourceObjectID).
 			Count(&count).Error; err != nil {
-			slog.Warn(
+			recordSpanError(countSpan, err)
+			slog.WarnContext(
+				ctx,
 				"failed to count photos in source directory during rename",
 				slog.String("path", sourceDir),
 				slog.String("error", err.Error()),
 			)
 		} else if count == 0 {
+			endSpanOk(countSpan)
+			_, dirDelSpan := startSpan(ctx, "db.delete_directory")
 			if err := s.DB.Where("path = ?", sourceDir).Delete(&database.PhotoDirectory{}).Error; err != nil {
-				slog.Warn(
+				recordSpanError(dirDelSpan, err)
+				slog.WarnContext(
+					ctx,
 					"failed to delete empty source directory during rename",
 					slog.String("path", sourceDir),
 					slog.String("error", err.Error()),
 				)
 			} else {
-				slog.Info(
+				endSpanOk(dirDelSpan)
+				slog.InfoContext(
+					ctx,
 					"Deleted empty directory after rename",
 					slog.String("path", sourceDir),
 				)
 			}
+		} else {
+			endSpanOk(countSpan)
 		}
 	}
 
-	slog.Info(
+	slog.InfoContext(
+		ctx,
 		"Renamed photo",
 		slog.String("source", sourceObjectID),
 		slog.String("destination", destObjectID),
@@ -506,11 +576,14 @@ func (s *LibraryServer) GenerateSignedUrl(ctx context.Context, req *proto.Genera
 
 	// Verify the photo exists and belongs to the user
 	var count int64
+	_, dbSpan := startSpan(ctx, "db.count_photo_ownership")
 	if err := s.DB.Model(&database.PhotoObject{}).
 		Where("object_id = ? AND user_id = ?", objectID, userID).
 		Count(&count).Error; err != nil {
+		recordSpanError(dbSpan, err)
 		return nil, status.Errorf(codes.Internal, "failed to verify photo ownership: %v", err)
 	}
+	endSpanOk(dbSpan)
 	if count == 0 {
 		return nil, status.Errorf(codes.NotFound, "photo not found: %s", objectID)
 	}
@@ -519,15 +592,19 @@ func (s *LibraryServer) GenerateSignedUrl(ctx context.Context, req *proto.Genera
 	bucket := s.GCSClient.Bucket(s.BucketName)
 	expiresAt := time.Now().Add(time.Duration(expirationSeconds) * time.Second)
 
+	_, gcsSpan := startSpan(ctx, "gcs.signed_url")
 	signedURL, err := bucket.SignedURL(objectID, &storage.SignedURLOptions{
 		Method:  method,
 		Expires: expiresAt,
 	})
 	if err != nil {
+		recordSpanError(gcsSpan, err)
 		return nil, status.Errorf(codes.Internal, "failed to generate signed URL: %v", err)
 	}
+	endSpanOk(gcsSpan)
 
-	slog.Info(
+	slog.InfoContext(
+		ctx,
 		"Generated signed URL",
 		slog.String("object_id", objectID),
 		slog.String("method", method),
@@ -592,9 +669,12 @@ func (s *LibraryServer) ListPhotos(ctx context.Context, req *proto.ListPhotosReq
 
 	// Count total matching items (before pagination)
 	var totalCount int64
+	_, countSpan := startSpan(ctx, "db.count_photos")
 	if err := query.Model(&database.PhotoObject{}).Count(&totalCount).Error; err != nil {
+		recordSpanError(countSpan, err)
 		return nil, status.Errorf(codes.Internal, "failed to count photos: %v", err)
 	}
+	endSpanOk(countSpan)
 
 	// Handle pagination token
 	// Token format: "time_taken|object_id" where time_taken is RFC3339 or "null"
@@ -658,9 +738,12 @@ func (s *LibraryServer) ListPhotos(ctx context.Context, req *proto.ListPhotosReq
 		// Default order: newest first, NULLs last
 		orderClause = "time_taken DESC NULLS LAST, object_id ASC"
 	}
+	_, listSpan := startSpan(ctx, "db.list_photos")
 	if err := query.Order(orderClause).Limit(int(pageSize) + 1).Find(&photoObjects).Error; err != nil {
+		recordSpanError(listSpan, err)
 		return nil, status.Errorf(codes.Internal, "failed to list photos: %v", err)
 	}
+	endSpanOk(listSpan)
 
 	var photos []*proto.Photo
 	var lastPhoto *database.PhotoObject
@@ -730,7 +813,8 @@ func (s *LibraryServer) ListPhotos(ctx context.Context, req *proto.ListPhotosReq
 		nextPageToken = base64.StdEncoding.EncodeToString([]byte(tokenValue))
 	}
 
-	slog.Info(
+	slog.InfoContext(
+		ctx,
 		"Listed photos",
 		slog.String("prefix", prefix),
 		slog.Int("count", int(count)),
@@ -758,20 +842,26 @@ func (s *LibraryServer) DeletePhoto(ctx context.Context, req *proto.DeletePhotoR
 
 	// Verify the photo exists and belongs to the user
 	var photoObject database.PhotoObject
+	_, dbSpan := startSpan(ctx, "db.get_photo")
 	if err := s.DB.Where("object_id = ? AND user_id = ?", objectID, userID).First(&photoObject).Error; err != nil {
+		recordSpanError(dbSpan, err)
 		if err == gorm.ErrRecordNotFound {
 			return nil, status.Errorf(codes.NotFound, "photo not found: %s", objectID)
 		}
 		return nil, status.Errorf(codes.Internal, "failed to query photo: %v", err)
 	}
+	endSpanOk(dbSpan)
 
 	// Delete from GCS bucket
 	bucket := s.GCSClient.Bucket(s.BucketName)
 	obj := bucket.Object(objectID)
 
+	_, gcsDelSpan := startSpan(ctx, "gcs.delete_object")
 	if err := obj.Delete(ctx); err != nil {
+		recordSpanError(gcsDelSpan, err)
 		if err == storage.ErrObjectNotExist {
-			slog.Warn(
+			slog.WarnContext(
+				ctx,
 				"photo not found in GCS, continuing with database deletion",
 				slog.String("object_id", objectID),
 			)
@@ -779,31 +869,43 @@ func (s *LibraryServer) DeletePhoto(ctx context.Context, req *proto.DeletePhotoR
 			return nil, status.Errorf(codes.Internal, "failed to delete photo from storage: %v", err)
 		}
 	}
+	endSpanOk(gcsDelSpan)
 
 	// Delete from database
+	_, dbDelSpan := startSpan(ctx, "db.delete_photo")
 	if err := s.DB.Delete(&photoObject).Error; err != nil {
+		recordSpanError(dbDelSpan, err)
 		return nil, status.Errorf(codes.Internal, "failed to delete photo from database: %v", err)
 	}
+	endSpanOk(dbDelSpan)
 
 	// Check if it is the last file in the directory, if so delete the directory as well
 	directoryPath := ExtractDirectoryFromPath(objectID)
 	if directoryPath != "" {
 		var count int64
+		_, countSpan := startSpan(ctx, "db.count_photos_in_directory")
 		if err := s.DB.Model(&database.PhotoObject{}).
 			Where("object_id LIKE ? AND object_id != ?", directoryPath+"/%", objectID).
 			Count(&count).Error; err != nil {
+			recordSpanError(countSpan, err)
 			return nil, status.Errorf(codes.Internal, "failed to count photos in directory: %v", err)
 		}
+		endSpanOk(countSpan)
 		if count == 0 {
 			// This is the last file in the directory, delete the directory record
+			_, dirDelSpan := startSpan(ctx, "db.delete_directory")
 			if err := s.DB.Where("path = ?", directoryPath).Delete(&database.PhotoDirectory{}).Error; err != nil {
-				slog.Warn(
+				recordSpanError(dirDelSpan, err)
+				slog.WarnContext(
+					ctx,
 					"failed to delete empty directory",
 					slog.String("path", directoryPath),
 					slog.String("error", err.Error()),
 				)
 			} else {
-				slog.Info(
+				endSpanOk(dirDelSpan)
+				slog.InfoContext(
+					ctx,
 					"Deleted empty directory",
 					slog.String("path", directoryPath),
 				)
@@ -811,7 +913,8 @@ func (s *LibraryServer) DeletePhoto(ctx context.Context, req *proto.DeletePhotoR
 		}
 	}
 
-	slog.Info(
+	slog.InfoContext(
+		ctx,
 		"Deleted photo",
 		slog.String("object_id", objectID),
 		slog.Uint64("user_id", uint64(userID)),
@@ -855,16 +958,22 @@ func (s *LibraryServer) SyncDatabase(req *proto.SyncDatabaseRequest, stream grpc
 	updateMetadata := req.GetUpdateMetadata()
 
 	// Get all objects from GCS
+	_, gcsListSpan := startSpan(ctx, "gcs.list_objects")
 	gcsObjects, err := getGCSObjectsMap(ctx, s.GCSClient, s.BucketName)
 	if err != nil {
+		recordSpanError(gcsListSpan, err)
 		return status.Errorf(codes.Internal, "failed to list GCS objects: %v", err)
 	}
+	endSpanOk(gcsListSpan)
 
 	// Get all objects from database for this user
 	var dbObjects []database.PhotoObject
+	_, dbListSpan := startSpan(ctx, "db.list_photo_objects")
 	if err := s.DB.Where("user_id = ?", userID).Find(&dbObjects).Error; err != nil {
+		recordSpanError(dbListSpan, err)
 		return status.Errorf(codes.Internal, "failed to list database objects: %v", err)
 	}
+	endSpanOk(dbListSpan)
 
 	// Create a map of database objects for quick lookup
 	dbObjectMap := make(map[string]database.PhotoObject)
@@ -875,7 +984,8 @@ func (s *LibraryServer) SyncDatabase(req *proto.SyncDatabaseRequest, stream grpc
 	// Track statistics
 	var added, removed, metadataUpdated int
 
-	slog.Info(
+	slog.InfoContext(
+		ctx,
 		"About to update database...",
 		slog.Int("gcs_objects", len(gcsObjects)),
 		slog.Int("db_objects", len(dbObjects)),
@@ -909,25 +1019,33 @@ func (s *LibraryServer) SyncDatabase(req *proto.SyncDatabaseRequest, stream grpc
 			}
 
 			// Create or restore photo object if soft-deleted
+			_, createSpan := startSpan(ctx, "db.create_or_restore_photo_object")
 			if err := database.CreateOrRestorePhotoObject(s.DB, photoObject); err != nil {
-				slog.Warn(
+				recordSpanError(createSpan, err)
+				slog.WarnContext(
+					ctx,
 					"failed to create photo object during sync",
 					slog.String("object_id", objectID),
 					slog.String("error", err.Error()),
 				)
 				continue
 			}
+			endSpanOk(createSpan)
 
 			// Create directory entry if applicable (create or restore if soft-deleted)
 			dir := ExtractDirectoryFromPath(objectID)
 			if dir != "" {
+				_, dirSpan := startSpan(ctx, "db.create_or_restore_photo_directory")
 				if err := database.CreateOrRestorePhotoDirectory(s.DB, dir); err != nil {
-					slog.Warn(
+					recordSpanError(dirSpan, err)
+					slog.WarnContext(
+						ctx,
 						"failed to create photo directory during sync",
 						slog.String("path", dir),
 						slog.String("error", err.Error()),
 					)
 				}
+				endSpanOk(dirSpan)
 			}
 
 			added++
@@ -948,29 +1066,42 @@ func (s *LibraryServer) SyncDatabase(req *proto.SyncDatabaseRequest, stream grpc
 	for objectID, photoObject := range dbObjectMap {
 		processedRemove++
 		if _, exists := gcsObjects[objectID]; !exists {
+			_, delSpan := startSpan(ctx, "db.delete_photo")
 			if err := s.DB.Delete(&photoObject).Error; err != nil {
-				slog.Warn(
+				recordSpanError(delSpan, err)
+				slog.WarnContext(
+					ctx,
 					"failed to delete photo object during sync",
 					slog.String("object_id", objectID),
 					slog.String("error", err.Error()),
 				)
 				continue
 			}
+			endSpanOk(delSpan)
 
 			// Check if it's the last file in the directory
 			dir := ExtractDirectoryFromPath(objectID)
 			if dir != "" {
 				var count int64
+				_, countSpan := startSpan(ctx, "db.count_photos_in_directory")
 				if err := s.DB.Model(&database.PhotoObject{}).
 					Where("object_id LIKE ?", dir+"/%").
 					Count(&count).Error; err == nil && count == 0 {
+					endSpanOk(countSpan)
+					_, dirDelSpan := startSpan(ctx, "db.delete_directory")
 					if err := s.DB.Where("path = ?", dir).Delete(&database.PhotoDirectory{}).Error; err != nil {
-						slog.Warn(
+						recordSpanError(dirDelSpan, err)
+						slog.WarnContext(
+							ctx,
 							"failed to delete empty directory during sync",
 							slog.String("path", dir),
 							slog.String("error", err.Error()),
 						)
+					} else {
+						endSpanOk(dirDelSpan)
 					}
+				} else {
+					endSpanOk(countSpan)
 				}
 			}
 
@@ -993,29 +1124,42 @@ func (s *LibraryServer) SyncDatabase(req *proto.SyncDatabaseRequest, stream grpc
 		if !isDerivedObjectID(objectID) {
 			continue
 		}
+		_, delSpan := startSpan(ctx, "db.delete_derived_photo")
 		if err := s.DB.Delete(&photoObject).Error; err != nil {
-			slog.Warn(
+			recordSpanError(delSpan, err)
+			slog.WarnContext(
+				ctx,
 				"failed to delete derived photo object during sync",
 				slog.String("object_id", objectID),
 				slog.String("error", err.Error()),
 			)
 			continue
 		}
+		endSpanOk(delSpan)
 
 		// Check if it's the last file in the directory
 		dir := ExtractDirectoryFromPath(objectID)
 		if dir != "" {
 			var count int64
+			_, countSpan := startSpan(ctx, "db.count_photos_in_directory")
 			if err := s.DB.Model(&database.PhotoObject{}).
 				Where("object_id LIKE ?", dir+"/%").
 				Count(&count).Error; err == nil && count == 0 {
+				endSpanOk(countSpan)
+				_, dirDelSpan := startSpan(ctx, "db.delete_directory")
 				if err := s.DB.Where("path = ?", dir).Delete(&database.PhotoDirectory{}).Error; err != nil {
-					slog.Warn(
+					recordSpanError(dirDelSpan, err)
+					slog.WarnContext(
+						ctx,
 						"failed to delete empty directory during sync",
 						slog.String("path", dir),
 						slog.String("error", err.Error()),
 					)
+				} else {
+					endSpanOk(dirDelSpan)
 				}
+			} else {
+				endSpanOk(countSpan)
 			}
 		}
 
@@ -1031,7 +1175,8 @@ func (s *LibraryServer) SyncDatabase(req *proto.SyncDatabaseRequest, stream grpc
 			processedMetadata++
 			updated, err := s.updateObjectMetadata(ctx, objectID, attrs, userID)
 			if err != nil {
-				slog.Warn(
+				slog.WarnContext(
+					ctx,
 					"failed to update metadata during sync",
 					slog.String("object_id", objectID),
 					slog.String("error", err.Error()),
@@ -1053,7 +1198,8 @@ func (s *LibraryServer) SyncDatabase(req *proto.SyncDatabaseRequest, stream grpc
 		}
 	}
 
-	slog.Info(
+	slog.InfoContext(
+		ctx,
 		"Database sync completed",
 		slog.Int("added", added),
 		slog.Int("removed", removed),
@@ -1100,18 +1246,24 @@ func (s *LibraryServer) UpdateWebp(req *proto.UpdateWebpRequest, stream grpc.Ser
 	}
 
 	// Get all objects from GCS
+	_, gcsListSpan := startSpan(ctx, "gcs.list_objects")
 	gcsObjects, err := getGCSObjectsMap(ctx, s.GCSClient, s.BucketName)
 	if err != nil {
+		recordSpanError(gcsListSpan, err)
 		return status.Errorf(codes.Internal, "failed to list GCS objects: %v", err)
 	}
+	endSpanOk(gcsListSpan)
 
 	objectsMissingWebp := missingWebp(gcsObjects)
 	slices.Sort(objectsMissingWebp)
 
 	var databasePhotos []database.PhotoObject
+	_, dbListSpan := startSpan(ctx, "db.list_photo_objects")
 	if err := s.DB.Where("user_id = ?", userID).Find(&databasePhotos).Error; err != nil {
+		recordSpanError(dbListSpan, err)
 		return status.Errorf(codes.Internal, "failed to list database objects: %v", err)
 	}
+	endSpanOk(dbListSpan)
 
 	// Filter to eligible rows: missing webp_object_id and not a derived asset.
 	eligible := make([]database.PhotoObject, 0, len(databasePhotos))
@@ -1140,7 +1292,8 @@ func (s *LibraryServer) UpdateWebp(req *proto.UpdateWebpRequest, stream grpc.Ser
 	var generated, skipped, failed int
 	total := uint32(len(eligible) + len(objectsMissingWebp))
 
-	slog.Info(
+	slog.InfoContext(
+		ctx,
 		"Starting WebP generation",
 		slog.Int("missing_webp_object", len(objectsMissingWebp)),
 		slog.Int("eligible_db", len(eligible)),
@@ -1218,7 +1371,8 @@ func (s *LibraryServer) UpdateWebp(req *proto.UpdateWebpRequest, stream grpc.Ser
 		}
 	}
 
-	slog.Info(
+	slog.InfoContext(
+		ctx,
 		"WebP generation pass completed",
 		slog.Int("generated", generated),
 		slog.Int("skipped", skipped),
@@ -1259,7 +1413,8 @@ func (s *LibraryServer) generateWebpForObject(
 	objectID string,
 ) webpStatus {
 	if bucket == nil {
-		slog.Warn(
+		slog.WarnContext(
+			ctx,
 			"no storage bucket available for WebP generation",
 			slog.String("object_id", objectID),
 		)
@@ -1268,15 +1423,19 @@ func (s *LibraryServer) generateWebpForObject(
 
 	// Reload attributes to obtain the current content type without relying on
 	// stale database state.
+	_, attrsSpan := startSpan(ctx, "gcs.get_object_attrs")
 	attrs, err := bucket.Object(objectID).Attrs(ctx)
 	if err != nil {
-		slog.Warn(
+		recordSpanError(attrsSpan, err)
+		slog.WarnContext(
+			ctx,
 			"failed to get object attrs during WebP generation",
 			slog.String("object_id", objectID),
 			slog.String("error", err.Error()),
 		)
 		return webpStatusFailed
 	}
+	endSpanOk(attrsSpan)
 
 	switch {
 	case IsDNGContentType(attrs.ContentType):
@@ -1286,7 +1445,8 @@ func (s *LibraryServer) generateWebpForObject(
 		if photoObject.ThumbnailObjectID == nil || *photoObject.ThumbnailObjectID == "" {
 			generated, genErr := s.generateAndStoreDNGPreview(ctx, bucket, photoObject, objectID, attrs.ContentType)
 			if genErr != nil {
-				slog.Warn(
+				slog.WarnContext(
+					ctx,
 					"failed to generate DNG preview for WebP",
 					slog.String("object_id", objectID),
 					slog.String("error", genErr.Error()),
@@ -1295,9 +1455,12 @@ func (s *LibraryServer) generateWebpForObject(
 			}
 			srcData = generated
 		} else {
+			_, readSpan := startSpan(ctx, "gcs.read_object")
 			previewReader, rErr := bucket.Object(*photoObject.ThumbnailObjectID).NewReader(ctx)
 			if rErr != nil {
-				slog.Warn(
+				recordSpanError(readSpan, rErr)
+				slog.WarnContext(
+					ctx,
 					"failed to read DNG preview for WebP",
 					slog.String("object_id", objectID),
 					slog.String("error", rErr.Error()),
@@ -1307,16 +1470,20 @@ func (s *LibraryServer) generateWebpForObject(
 			srcData, err = io.ReadAll(previewReader)
 			_ = previewReader.Close()
 			if err != nil {
-				slog.Warn(
+				recordSpanError(readSpan, err)
+				slog.WarnContext(
+					ctx,
 					"failed to read DNG preview data for WebP",
 					slog.String("object_id", objectID),
 					slog.String("error", err.Error()),
 				)
 				return webpStatusFailed
 			}
+			endSpanOk(readSpan)
 		}
 		if len(srcData) == 0 {
-			slog.Warn(
+			slog.WarnContext(
+				ctx,
 				"no source data for DNG WebP generation",
 				slog.String("object_id", objectID),
 			)
@@ -1328,9 +1495,12 @@ func (s *LibraryServer) generateWebpForObject(
 		return webpStatusFailed
 
 	case IsWebPConvertibleContentType(attrs.ContentType):
+		_, readSpan := startSpan(ctx, "gcs.read_object")
 		reader, rErr := bucket.Object(objectID).NewReader(ctx)
 		if rErr != nil {
-			slog.Warn(
+			recordSpanError(readSpan, rErr)
+			slog.WarnContext(
+				ctx,
 				"failed to read object for WebP generation",
 				slog.String("object_id", objectID),
 				slog.String("error", rErr.Error()),
@@ -1340,13 +1510,16 @@ func (s *LibraryServer) generateWebpForObject(
 		data, rErr := io.ReadAll(reader)
 		_ = reader.Close()
 		if rErr != nil {
-			slog.Warn(
+			recordSpanError(readSpan, rErr)
+			slog.WarnContext(
+				ctx,
 				"failed to read object data for WebP generation",
 				slog.String("object_id", objectID),
 				slog.String("error", rErr.Error()),
 			)
 			return webpStatusFailed
 		}
+		endSpanOk(readSpan)
 		if s.generateAndRecordWebP(ctx, bucket, photoObject, objectID, data) {
 			return webpStatusGenerated
 		}
@@ -1369,7 +1542,8 @@ func (s *LibraryServer) generateWebpFromPath(
 	objectID string,
 ) webpStatus {
 	if bucket == nil {
-		slog.Warn(
+		slog.WarnContext(
+			ctx,
 			"no storage bucket available for WebP generation",
 			slog.String("object_id", objectID),
 		)
@@ -1378,30 +1552,38 @@ func (s *LibraryServer) generateWebpFromPath(
 
 	// Reload attributes to obtain the current content type without relying on
 	// stale database state.
+	_, attrsSpan := startSpan(ctx, "gcs.get_object_attrs")
 	attrs, err := bucket.Object(objectID).Attrs(ctx)
 	if err != nil {
-		slog.Warn(
+		recordSpanError(attrsSpan, err)
+		slog.WarnContext(
+			ctx,
 			"failed to get object attrs during WebP generation",
 			slog.String("object_id", objectID),
 			slog.String("error", err.Error()),
 		)
 		return webpStatusFailed
 	}
+	endSpanOk(attrsSpan)
 
 	switch {
 	case IsDNGContentType(attrs.ContentType):
 		// DNG handling requires a PhotoObject to persist the preview object ID
 		// (thumbnail_object_id), so it cannot be performed from a path alone.
-		slog.Warn(
+		slog.WarnContext(
+			ctx,
 			"DNG WebP generation requires a PhotoObject",
 			slog.String("object_id", objectID),
 		)
 		return webpStatusSkipped
 
 	case IsWebPConvertibleContentType(attrs.ContentType):
+		_, readSpan := startSpan(ctx, "gcs.read_object")
 		reader, rErr := bucket.Object(objectID).NewReader(ctx)
 		if rErr != nil {
-			slog.Warn(
+			recordSpanError(readSpan, rErr)
+			slog.WarnContext(
+				ctx,
 				"failed to read object for WebP generation",
 				slog.String("object_id", objectID),
 				slog.String("error", rErr.Error()),
@@ -1411,18 +1593,22 @@ func (s *LibraryServer) generateWebpFromPath(
 		data, rErr := io.ReadAll(reader)
 		_ = reader.Close()
 		if rErr != nil {
-			slog.Warn(
+			recordSpanError(readSpan, rErr)
+			slog.WarnContext(
+				ctx,
 				"failed to read object data for WebP generation",
 				slog.String("object_id", objectID),
 				slog.String("error", rErr.Error()),
 			)
 			return webpStatusFailed
 		}
+		endSpanOk(readSpan)
 
 		webpID := webpObjectID(objectID)
 		webpData, genErr := GenerateWebP(data, s.WebPQuality)
 		if genErr != nil {
-			slog.Warn(
+			slog.WarnContext(
+				ctx,
 				"failed to generate WebP",
 				slog.String("object_id", objectID),
 				slog.String("error", genErr.Error()),
@@ -1430,11 +1616,14 @@ func (s *LibraryServer) generateWebpFromPath(
 			return webpStatusFailed
 		}
 
+		_, writeSpan := startSpan(ctx, "gcs.write_object")
 		webpWriter := bucket.Object(webpID).NewWriter(ctx)
 		webpWriter.ContentType = "image/webp"
 		if _, wErr := webpWriter.Write(webpData); wErr != nil {
 			_ = webpWriter.Close()
-			slog.Warn(
+			recordSpanError(writeSpan, wErr)
+			slog.WarnContext(
+				ctx,
 				"failed to write WebP to GCS",
 				slog.String("object_id", objectID),
 				slog.String("error", wErr.Error()),
@@ -1442,15 +1631,19 @@ func (s *LibraryServer) generateWebpFromPath(
 			return webpStatusFailed
 		}
 		if cErr := webpWriter.Close(); cErr != nil {
-			slog.Warn(
+			recordSpanError(writeSpan, cErr)
+			slog.WarnContext(
+				ctx,
 				"failed to close WebP writer",
 				slog.String("object_id", objectID),
 				slog.String("error", cErr.Error()),
 			)
 			return webpStatusFailed
 		}
+		endSpanOk(writeSpan)
 
-		slog.Info(
+		slog.InfoContext(
+			ctx,
 			"Generated WebP (DB record not updated; no PhotoObject provided)",
 			slog.String("object_id", objectID),
 			slog.String("webp_object_id", webpID),
@@ -1476,15 +1669,19 @@ func (s *LibraryServer) generateAndStoreDNGPreview(
 	contentType string,
 ) ([]byte, error) {
 	// Download the DNG once to derive the preview.
+	_, readSpan := startSpan(ctx, "gcs.read_object")
 	reader, err := bucket.Object(objectID).NewReader(ctx)
 	if err != nil {
+		recordSpanError(readSpan, err)
 		return nil, fmt.Errorf("failed to read DNG for preview: %w", err)
 	}
 	data, err := io.ReadAll(reader)
 	_ = reader.Close()
 	if err != nil {
+		recordSpanError(readSpan, err)
 		return nil, fmt.Errorf("failed to read DNG data for preview: %w", err)
 	}
+	endSpanOk(readSpan)
 
 	generated, err := GenerateDNGPreview(data)
 	if err != nil {
@@ -1492,21 +1689,29 @@ func (s *LibraryServer) generateAndStoreDNGPreview(
 	}
 
 	previewObjectID := dngPreviewObjectID(objectID)
+	_, writeSpan := startSpan(ctx, "gcs.write_object")
 	previewWriter := bucket.Object(previewObjectID).NewWriter(ctx)
 	previewWriter.ContentType = "image/jpeg"
 	if _, wErr := previewWriter.Write(generated); wErr != nil {
 		_ = previewWriter.Close()
+		recordSpanError(writeSpan, wErr)
 		return nil, fmt.Errorf("failed to write DNG preview: %w", wErr)
 	}
 	if cErr := previewWriter.Close(); cErr != nil {
+		recordSpanError(writeSpan, cErr)
 		return nil, fmt.Errorf("failed to close DNG preview writer: %w", cErr)
 	}
+	endSpanOk(writeSpan)
 
+	_, dbSpan := startSpan(ctx, "db.update_thumbnail_object_id")
 	if dbErr := s.DB.Model(photoObject).Update("thumbnail_object_id", previewObjectID).Error; dbErr != nil {
+		recordSpanError(dbSpan, dbErr)
 		return nil, fmt.Errorf("failed to update thumbnail_object_id: %w", dbErr)
 	}
+	endSpanOk(dbSpan)
 
-	slog.Info(
+	slog.InfoContext(
+		ctx,
 		"Generated DNG preview during WebP pass",
 		slog.String("object_id", objectID),
 		slog.String("preview_object_id", previewObjectID),
@@ -1529,7 +1734,8 @@ func (s *LibraryServer) generateAndRecordWebP(
 
 	webpData, err := GenerateWebP(srcData, s.WebPQuality)
 	if err != nil {
-		slog.Warn(
+		slog.WarnContext(
+			ctx,
 			"failed to generate WebP",
 			slog.String("object_id", originalObjectID),
 			slog.String("error", err.Error()),
@@ -1537,12 +1743,15 @@ func (s *LibraryServer) generateAndRecordWebP(
 		return false
 	}
 
+	_, writeSpan := startSpan(ctx, "gcs.write_object")
 	webpWriter := bucket.Object(webpID).NewWriter(ctx)
 	webpWriter.ContentType = "image/webp"
 
 	if _, err := webpWriter.Write(webpData); err != nil {
 		_ = webpWriter.Close()
-		slog.Warn(
+		recordSpanError(writeSpan, err)
+		slog.WarnContext(
+			ctx,
 			"failed to write WebP to GCS",
 			slog.String("object_id", originalObjectID),
 			slog.String("error", err.Error()),
@@ -1551,24 +1760,32 @@ func (s *LibraryServer) generateAndRecordWebP(
 	}
 
 	if err := webpWriter.Close(); err != nil {
-		slog.Warn(
+		recordSpanError(writeSpan, err)
+		slog.WarnContext(
+			ctx,
 			"failed to close WebP writer",
 			slog.String("object_id", originalObjectID),
 			slog.String("error", err.Error()),
 		)
 		return false
 	}
+	endSpanOk(writeSpan)
 
+	_, dbSpan := startSpan(ctx, "db.update_webp_object_id")
 	if err := s.DB.Model(photoObject).Update("webp_object_id", webpID).Error; err != nil {
-		slog.Warn(
+		recordSpanError(dbSpan, err)
+		slog.WarnContext(
+			ctx,
 			"failed to update webp_object_id",
 			slog.String("object_id", originalObjectID),
 			slog.String("error", err.Error()),
 		)
 		return false
 	}
+	endSpanOk(dbSpan)
 
-	slog.Info(
+	slog.InfoContext(
+		ctx,
 		"Generated WebP",
 		slog.String("object_id", originalObjectID),
 		slog.String("webp_object_id", webpID),
@@ -1589,16 +1806,20 @@ func (s *LibraryServer) updateObjectMetadata(ctx context.Context, objectID strin
 	obj := bucket.Object(objectID)
 
 	// Download the object data
+	_, readSpan := startSpan(ctx, "gcs.read_object")
 	reader, err := obj.NewReader(ctx)
 	if err != nil {
+		recordSpanError(readSpan, err)
 		return false, err
 	}
 	defer func() { _ = reader.Close() }()
 
 	data, err := io.ReadAll(reader)
 	if err != nil {
+		recordSpanError(readSpan, err)
 		return false, err
 	}
+	endSpanOk(readSpan)
 
 	// Extract EXIF metadata from the photo data
 	photoMetadata := ExtractPhotoMetadata(data, objectID)
@@ -1608,9 +1829,12 @@ func (s *LibraryServer) updateObjectMetadata(ctx context.Context, objectID strin
 		Metadata: photoMetadata.ToGCSMetadata(),
 	}
 
+	_, updateSpan := startSpan(ctx, "gcs.update_object")
 	if _, err := obj.Update(ctx, attrsToUpdate); err != nil {
+		recordSpanError(updateSpan, err)
 		return false, err
 	}
+	endSpanOk(updateSpan)
 
 	// Update time_taken in the database
 	var timeTaken *time.Time
@@ -1618,15 +1842,20 @@ func (s *LibraryServer) updateObjectMetadata(ctx context.Context, objectID strin
 		timeTaken = &photoMetadata.DateTaken
 	}
 
+	_, dbTimeSpan := startSpan(ctx, "db.update_time_taken")
 	if err := s.DB.Model(&database.PhotoObject{}).
 		Where("object_id = ? AND user_id = ?", objectID, userID).
 		Update("time_taken", timeTaken).Error; err != nil {
+		recordSpanError(dbTimeSpan, err)
 		return false, err
 	}
+	endSpanOk(dbTimeSpan)
 
 	// Load the PhotoObject row once; used by both the DNG-preview and WebP blocks.
 	var photoObject database.PhotoObject
+	_, dbGetSpan := startSpan(ctx, "db.get_photo")
 	hasPhotoObject := s.DB.Where("object_id = ? AND user_id = ?", objectID, userID).First(&photoObject).Error == nil
+	endSpanOk(dbGetSpan)
 
 	// For DNG files, generate a JPEG preview if one does not already exist.
 	// previewData is kept in scope so the WebP block can reuse the freshly
@@ -1636,38 +1865,50 @@ func (s *LibraryServer) updateObjectMetadata(ctx context.Context, objectID strin
 		if photoObject.ThumbnailObjectID == nil || *photoObject.ThumbnailObjectID == "" {
 			generated, err := GenerateDNGPreview(data)
 			if err != nil {
-				slog.Warn(
+				slog.WarnContext(
+					ctx,
 					"failed to generate DNG preview during sync",
 					slog.String("object_id", objectID),
 					slog.String("error", err.Error()),
 				)
 			} else {
 				previewObjectID := dngPreviewObjectID(objectID)
+				_, writeSpan := startSpan(ctx, "gcs.write_object")
 				previewWriter := bucket.Object(previewObjectID).NewWriter(ctx)
 				previewWriter.ContentType = "image/jpeg"
 				if _, writeErr := previewWriter.Write(generated); writeErr != nil {
 					_ = previewWriter.Close()
-					slog.Warn(
+					recordSpanError(writeSpan, writeErr)
+					slog.WarnContext(
+						ctx,
 						"failed to write DNG preview during sync",
 						slog.String("object_id", objectID),
 						slog.String("error", writeErr.Error()),
 					)
 				} else if closeErr := previewWriter.Close(); closeErr != nil {
-					slog.Warn(
+					recordSpanError(writeSpan, closeErr)
+					slog.WarnContext(
+						ctx,
 						"failed to close DNG preview writer during sync",
 						slog.String("object_id", objectID),
 						slog.String("error", closeErr.Error()),
 					)
 				} else {
+					endSpanOk(writeSpan)
+					_, dbThumbSpan := startSpan(ctx, "db.update_thumbnail_object_id")
 					if dbErr := s.DB.Model(&photoObject).Update("thumbnail_object_id", previewObjectID).Error; dbErr != nil {
-						slog.Warn(
+						recordSpanError(dbThumbSpan, dbErr)
+						slog.WarnContext(
+							ctx,
 							"failed to update thumbnail_object_id during sync",
 							slog.String("object_id", objectID),
 							slog.String("error", dbErr.Error()),
 						)
 					} else {
+						endSpanOk(dbThumbSpan)
 						previewData = generated
-						slog.Info(
+						slog.InfoContext(
+							ctx,
 							"Generated DNG preview during sync",
 							slog.String("object_id", objectID),
 							slog.String("preview_object_id", previewObjectID),
@@ -1692,9 +1933,12 @@ func (s *LibraryServer) updateObjectMetadata(ctx context.Context, objectID strin
 			if len(previewData) > 0 {
 				srcData = previewData
 			} else if photoObject.ThumbnailObjectID != nil && *photoObject.ThumbnailObjectID != "" {
+				_, previewReadSpan := startSpan(ctx, "gcs.read_object")
 				previewReader, err := bucket.Object(*photoObject.ThumbnailObjectID).NewReader(ctx)
 				if err != nil {
-					slog.Warn(
+					recordSpanError(previewReadSpan, err)
+					slog.WarnContext(
+						ctx,
 						"failed to read DNG preview for WebP generation during sync",
 						slog.String("object_id", objectID),
 						slog.String("error", err.Error()),
@@ -1703,13 +1947,16 @@ func (s *LibraryServer) updateObjectMetadata(ctx context.Context, objectID strin
 					srcData, err = io.ReadAll(previewReader)
 					_ = previewReader.Close()
 					if err != nil {
-						slog.Warn(
+						recordSpanError(previewReadSpan, err)
+						slog.WarnContext(
+							ctx,
 							"failed to read DNG preview data for WebP generation during sync",
 							slog.String("object_id", objectID),
 							slog.String("error", err.Error()),
 						)
 						srcData = nil
 					}
+					endSpanOk(previewReadSpan)
 				}
 			}
 			if len(srcData) > 0 {
@@ -1721,7 +1968,8 @@ func (s *LibraryServer) updateObjectMetadata(ctx context.Context, objectID strin
 		}
 	}
 
-	slog.Info(
+	slog.InfoContext(
+		ctx,
 		"Updated metadata for object",
 		slog.String("object_id", objectID),
 		slog.Bool("has_date_taken", photoMetadata.HasDateTaken),
@@ -1753,12 +2001,15 @@ func (s *LibraryServer) UpdatePhotoMetadata(ctx context.Context, req *proto.Upda
 
 	// Query the photo from the database to verify ownership
 	var photoObject database.PhotoObject
+	_, dbSpan := startSpan(ctx, "db.get_photo")
 	if err := s.DB.Where("object_id = ? AND user_id = ?", objectID, userID).First(&photoObject).Error; err != nil {
+		recordSpanError(dbSpan, err)
 		if err == gorm.ErrRecordNotFound {
 			return nil, status.Errorf(codes.NotFound, "photo not found: %s", objectID)
 		}
 		return nil, status.Errorf(codes.Internal, "failed to query photo: %v", err)
 	}
+	endSpanOk(dbSpan)
 
 	// Update GCS object metadata
 	bucket := s.GCSClient.Bucket(s.BucketName)
@@ -1774,27 +2025,36 @@ func (s *LibraryServer) UpdatePhotoMetadata(ctx context.Context, req *proto.Upda
 	}
 
 	// Update GCS object
+	_, gcsUpdateSpan := startSpan(ctx, "gcs.update_object")
 	_, err := obj.Update(ctx, attrsToUpdate)
 	if err != nil {
+		recordSpanError(gcsUpdateSpan, err)
 		if err == storage.ErrObjectNotExist {
 			return nil, status.Errorf(codes.NotFound, "photo not found in storage: %s", objectID)
 		}
 		return nil, status.Errorf(codes.Internal, "failed to update object metadata: %v", err)
 	}
+	endSpanOk(gcsUpdateSpan)
 
 	// Update database if content type changed
 	if contentType != "" && contentType != photoObject.ContentType {
+		_, dbContentSpan := startSpan(ctx, "db.update_content_type")
 		if err := s.DB.Model(&photoObject).Update("content_type", contentType).Error; err != nil {
+			recordSpanError(dbContentSpan, err)
 			return nil, status.Errorf(codes.Internal, "failed to update database: %v", err)
 		}
+		endSpanOk(dbContentSpan)
 		photoObject.ContentType = contentType
 	}
 
 	// Get updated attributes from GCS
+	_, gcsAttrsSpan := startSpan(ctx, "gcs.get_object_attrs")
 	attrs, err := obj.Attrs(ctx)
 	if err != nil {
+		recordSpanError(gcsAttrsSpan, err)
 		return nil, status.Errorf(codes.Internal, "failed to get updated attributes: %v", err)
 	}
+	endSpanOk(gcsAttrsSpan)
 
 	photo := &proto.Photo{
 		ObjectId:    photoObject.ObjectID,
@@ -1807,7 +2067,8 @@ func (s *LibraryServer) UpdatePhotoMetadata(ctx context.Context, req *proto.Upda
 		IsVideo:     IsVideoContentType(photoObject.ContentType),
 	}
 
-	slog.Info(
+	slog.InfoContext(
+		ctx,
 		"Updated photo metadata",
 		slog.String("object_id", objectID),
 		slog.String("content_type", contentType),
@@ -1849,6 +2110,9 @@ func getGCSObjectsMap(ctx context.Context, client *storage.Client, bucketName st
 	if client == nil {
 		return make(map[string]*storage.ObjectAttrs), nil
 	}
+	_, span := startSpan(ctx, "gcs.list_objects")
+	defer span.End()
+
 	bucket := client.Bucket(bucketName)
 	it := bucket.Objects(ctx, nil)
 
@@ -1884,8 +2148,10 @@ func (s *LibraryServer) getDirectoryConfiguration(ctx context.Context, prefix st
 	bucket := s.GCSClient.Bucket(s.BucketName)
 	obj := bucket.Object(objectID)
 
+	_, readSpan := startSpan(ctx, "gcs.read_object")
 	reader, err := obj.NewReader(ctx)
 	if err != nil {
+		recordSpanError(readSpan, err)
 		// File doesn't exist or can't be read - return nil for default behavior
 		return nil
 	}
@@ -1893,8 +2159,10 @@ func (s *LibraryServer) getDirectoryConfiguration(ctx context.Context, prefix st
 
 	data, err := io.ReadAll(reader)
 	if err != nil {
+		recordSpanError(readSpan, err)
 		return nil
 	}
+	endSpanOk(readSpan)
 
 	config, err := ParseMarkdownFrontmatter(string(data))
 	if err != nil {
@@ -1933,30 +2201,39 @@ func (s *LibraryServer) CreateMarkdown(ctx context.Context, req *proto.CreateMar
 	bucket := s.GCSClient.Bucket(s.BucketName)
 	obj := bucket.Object(objectID)
 
+	_, writeSpan := startSpan(ctx, "gcs.write_object")
 	writer := obj.NewWriter(ctx)
 	writer.ContentType = "text/markdown"
 
 	if _, err := writer.Write([]byte(markdown)); err != nil {
+		recordSpanError(writeSpan, err)
 		return nil, status.Errorf(codes.Internal, "failed to write markdown to GCS: %v", err)
 	}
 
 	if err := writer.Close(); err != nil {
+		recordSpanError(writeSpan, err)
 		return nil, status.Errorf(codes.Internal, "failed to close GCS writer: %v", err)
 	}
+	endSpanOk(writeSpan)
 
 	// Create directory entry if applicable (create or restore if soft-deleted)
 	dir := ExtractDirectoryFromPath(objectID)
 	if dir != "" {
+		_, dirSpan := startSpan(ctx, "db.create_or_restore_photo_directory")
 		if err := database.CreateOrRestorePhotoDirectory(s.DB, dir); err != nil {
-			slog.Warn(
+			recordSpanError(dirSpan, err)
+			slog.WarnContext(
+				ctx,
 				"failed to create photo directory for markdown",
 				slog.String("path", dir),
 				slog.String("error", err.Error()),
 			)
 		}
+		endSpanOk(dirSpan)
 	}
 
-	slog.Info(
+	slog.InfoContext(
+		ctx,
 		"Created markdown file",
 		slog.String("object_id", objectID),
 		slog.String("prefix", prefix),
@@ -1986,19 +2263,24 @@ func (s *LibraryServer) GetMarkdown(ctx context.Context, req *proto.GetMarkdownR
 	// Check if the directory exists in the database
 	dir := ExtractDirectoryFromPath(objectID)
 	var photoDir database.PhotoDirectory
+	_, dbSpan := startSpan(ctx, "db.get_directory")
 	if err := s.DB.Where("path = ?", dir).First(&photoDir).Error; err != nil {
+		recordSpanError(dbSpan, err)
 		if err == gorm.ErrRecordNotFound {
 			return nil, status.Errorf(codes.NotFound, "directory not found: %s", dir)
 		}
 		return nil, status.Errorf(codes.Internal, "failed to query directory: %v", err)
 	}
+	endSpanOk(dbSpan)
 
 	// Read the markdown file from GCS
 	bucket := s.GCSClient.Bucket(s.BucketName)
 	obj := bucket.Object(objectID)
 
+	_, readSpan := startSpan(ctx, "gcs.read_object")
 	reader, err := obj.NewReader(ctx)
 	if err != nil {
+		recordSpanError(readSpan, err)
 		if err == storage.ErrObjectNotExist {
 			return nil, status.Errorf(codes.NotFound, "markdown file not found in storage: %s", objectID)
 		}
@@ -2008,10 +2290,13 @@ func (s *LibraryServer) GetMarkdown(ctx context.Context, req *proto.GetMarkdownR
 
 	data, err := io.ReadAll(reader)
 	if err != nil {
+		recordSpanError(readSpan, err)
 		return nil, status.Errorf(codes.Internal, "failed to read markdown content: %v", err)
 	}
+	endSpanOk(readSpan)
 
-	slog.Info(
+	slog.InfoContext(
+		ctx,
 		"Retrieved markdown file",
 		slog.String("object_id", objectID),
 		slog.String("prefix", prefix),
@@ -2052,29 +2337,37 @@ func (s *LibraryServer) UpdateMarkdown(ctx context.Context, req *proto.UpdateMar
 	// Check if the directory exists in the database
 	dir := ExtractDirectoryFromPath(objectID)
 	var photoDir database.PhotoDirectory
+	_, dbSpan := startSpan(ctx, "db.get_directory")
 	if err := s.DB.Where("path = ?", dir).First(&photoDir).Error; err != nil {
+		recordSpanError(dbSpan, err)
 		if err == gorm.ErrRecordNotFound {
 			return nil, status.Errorf(codes.NotFound, "directory not found: %s", dir)
 		}
 		return nil, status.Errorf(codes.Internal, "failed to query directory: %v", err)
 	}
+	endSpanOk(dbSpan)
 
 	// Write the updated markdown file to GCS
 	bucket := s.GCSClient.Bucket(s.BucketName)
 	obj := bucket.Object(objectID)
 
+	_, writeSpan := startSpan(ctx, "gcs.write_object")
 	writer := obj.NewWriter(ctx)
 	writer.ContentType = "text/markdown"
 
 	if _, err := writer.Write([]byte(markdown)); err != nil {
+		recordSpanError(writeSpan, err)
 		return nil, status.Errorf(codes.Internal, "failed to write markdown to GCS: %v", err)
 	}
 
 	if err := writer.Close(); err != nil {
+		recordSpanError(writeSpan, err)
 		return nil, status.Errorf(codes.Internal, "failed to close GCS writer: %v", err)
 	}
+	endSpanOk(writeSpan)
 
-	slog.Info(
+	slog.InfoContext(
+		ctx,
 		"Updated markdown file",
 		slog.String("object_id", objectID),
 		slog.String("prefix", prefix),
@@ -2104,20 +2397,26 @@ func (s *LibraryServer) DeleteMarkdown(ctx context.Context, req *proto.DeleteMar
 	// Check if the directory exists in the database
 	dir := ExtractDirectoryFromPath(objectID)
 	var photoDir database.PhotoDirectory
+	_, dbSpan := startSpan(ctx, "db.get_directory")
 	if err := s.DB.Where("path = ?", dir).First(&photoDir).Error; err != nil {
+		recordSpanError(dbSpan, err)
 		if err == gorm.ErrRecordNotFound {
 			return nil, status.Errorf(codes.NotFound, "directory not found: %s", dir)
 		}
 		return nil, status.Errorf(codes.Internal, "failed to query directory: %v", err)
 	}
+	endSpanOk(dbSpan)
 
 	// Delete from GCS bucket
 	bucket := s.GCSClient.Bucket(s.BucketName)
 	obj := bucket.Object(objectID)
 
+	_, gcsDelSpan := startSpan(ctx, "gcs.delete_object")
 	if err := obj.Delete(ctx); err != nil {
+		recordSpanError(gcsDelSpan, err)
 		if err == storage.ErrObjectNotExist {
-			slog.Warn(
+			slog.WarnContext(
+				ctx,
 				"markdown file not found in GCS, continuing with database deletion",
 				slog.String("object_id", objectID),
 			)
@@ -2125,8 +2424,10 @@ func (s *LibraryServer) DeleteMarkdown(ctx context.Context, req *proto.DeleteMar
 			return nil, status.Errorf(codes.Internal, "failed to delete markdown from storage: %v", err)
 		}
 	}
+	endSpanOk(gcsDelSpan)
 
-	slog.Info(
+	slog.InfoContext(
+		ctx,
 		"Deleted markdown file",
 		slog.String("object_id", objectID),
 		slog.String("prefix", prefix),
@@ -2152,12 +2453,15 @@ func (s *LibraryServer) GenerateVideoThumbnail(ctx context.Context, req *proto.G
 
 	// Query the photo from the database to verify ownership and check content type
 	var photoObject database.PhotoObject
+	_, dbSpan := startSpan(ctx, "db.get_photo")
 	if err := s.DB.Where("object_id = ? AND user_id = ?", objectID, userID).First(&photoObject).Error; err != nil {
+		recordSpanError(dbSpan, err)
 		if err == gorm.ErrRecordNotFound {
 			return nil, status.Errorf(codes.NotFound, "photo not found: %s", objectID)
 		}
 		return nil, status.Errorf(codes.Internal, "failed to query photo: %v", err)
 	}
+	endSpanOk(dbSpan)
 
 	// Verify this is a video
 	if !IsVideoContentType(photoObject.ContentType) {
@@ -2171,19 +2475,25 @@ func (s *LibraryServer) GenerateVideoThumbnail(ctx context.Context, req *proto.G
 		thumbObj := bucket.Object(*photoObject.ThumbnailObjectID)
 
 		// Verify thumbnail exists in storage
+		_, attrsSpan := startSpan(ctx, "gcs.get_object_attrs")
 		_, err := thumbObj.Attrs(ctx)
 		if err == nil {
+			endSpanOk(attrsSpan)
 			// Thumbnail exists, generate signed URL
 			expiresAt := time.Now().Add(time.Hour)
+			_, signSpan := startSpan(ctx, "gcs.signed_url")
 			signedURL, err := bucket.SignedURL(*photoObject.ThumbnailObjectID, &storage.SignedURLOptions{
 				Method:  "GET",
 				Expires: expiresAt,
 			})
 			if err != nil {
+				recordSpanError(signSpan, err)
 				return nil, status.Errorf(codes.Internal, "failed to generate signed URL for existing thumbnail: %v", err)
 			}
+			endSpanOk(signSpan)
 
-			slog.Info(
+			slog.InfoContext(
+				ctx,
 				"Returned existing video thumbnail",
 				slog.String("object_id", objectID),
 				slog.String("thumbnail_object_id", *photoObject.ThumbnailObjectID),
@@ -2203,8 +2513,10 @@ func (s *LibraryServer) GenerateVideoThumbnail(ctx context.Context, req *proto.G
 	bucket := s.GCSClient.Bucket(s.BucketName)
 	obj := bucket.Object(objectID)
 
+	_, readSpan := startSpan(ctx, "gcs.read_object")
 	reader, err := obj.NewReader(ctx)
 	if err != nil {
+		recordSpanError(readSpan, err)
 		if err == storage.ErrObjectNotExist {
 			return nil, status.Errorf(codes.NotFound, "video not found in storage: %s", objectID)
 		}
@@ -2214,8 +2526,10 @@ func (s *LibraryServer) GenerateVideoThumbnail(ctx context.Context, req *proto.G
 
 	videoData, err := io.ReadAll(reader)
 	if err != nil {
+		recordSpanError(readSpan, err)
 		return nil, status.Errorf(codes.Internal, "failed to read video: %v", err)
 	}
+	endSpanOk(readSpan)
 
 	// Generate thumbnail using ffmpeg
 	timeOffsetMs := req.GetTimeOffsetMs()
@@ -2228,33 +2542,44 @@ func (s *LibraryServer) GenerateVideoThumbnail(ctx context.Context, req *proto.G
 	thumbnailObjectID := strings.TrimSuffix(objectID, "."+getFileExtension(objectID)) + "_thumb.jpg"
 
 	// Upload thumbnail to GCS
+	_, writeSpan := startSpan(ctx, "gcs.write_object")
 	thumbWriter := bucket.Object(thumbnailObjectID).NewWriter(ctx)
 	thumbWriter.ContentType = "image/jpeg"
 
 	if _, err := thumbWriter.Write(thumbnailData); err != nil {
+		recordSpanError(writeSpan, err)
 		return nil, status.Errorf(codes.Internal, "failed to write thumbnail to GCS: %v", err)
 	}
 
 	if err := thumbWriter.Close(); err != nil {
+		recordSpanError(writeSpan, err)
 		return nil, status.Errorf(codes.Internal, "failed to close thumbnail writer: %v", err)
 	}
+	endSpanOk(writeSpan)
 
 	// Update the database with thumbnail object ID
+	_, dbThumbSpan := startSpan(ctx, "db.update_thumbnail_object_id")
 	if err := s.DB.Model(&photoObject).Update("thumbnail_object_id", thumbnailObjectID).Error; err != nil {
+		recordSpanError(dbThumbSpan, err)
 		return nil, status.Errorf(codes.Internal, "failed to update photo with thumbnail: %v", err)
 	}
+	endSpanOk(dbThumbSpan)
 
 	// Generate signed URL for the new thumbnail
 	expiresAt := time.Now().Add(time.Hour)
+	_, signSpan := startSpan(ctx, "gcs.signed_url")
 	signedURL, err := bucket.SignedURL(thumbnailObjectID, &storage.SignedURLOptions{
 		Method:  "GET",
 		Expires: expiresAt,
 	})
 	if err != nil {
+		recordSpanError(signSpan, err)
 		return nil, status.Errorf(codes.Internal, "failed to generate signed URL: %v", err)
 	}
+	endSpanOk(signSpan)
 
-	slog.Info(
+	slog.InfoContext(
+		ctx,
 		"Generated video thumbnail",
 		slog.String("object_id", objectID),
 		slog.String("thumbnail_object_id", thumbnailObjectID),
@@ -2283,12 +2608,15 @@ func (s *LibraryServer) GenerateDNGPreview(ctx context.Context, req *proto.Gener
 
 	// Query the photo from the database to verify ownership and check content type
 	var photoObject database.PhotoObject
+	_, dbSpan := startSpan(ctx, "db.get_photo")
 	if err := s.DB.Where("object_id = ? AND user_id = ?", objectID, userID).First(&photoObject).Error; err != nil {
+		recordSpanError(dbSpan, err)
 		if err == gorm.ErrRecordNotFound {
 			return nil, status.Errorf(codes.NotFound, "photo not found: %s", objectID)
 		}
 		return nil, status.Errorf(codes.Internal, "failed to query photo: %v", err)
 	}
+	endSpanOk(dbSpan)
 
 	// Verify this is a DNG file
 	if !IsDNGContentType(photoObject.ContentType) {
@@ -2302,19 +2630,25 @@ func (s *LibraryServer) GenerateDNGPreview(ctx context.Context, req *proto.Gener
 		thumbObj := bucket.Object(*photoObject.ThumbnailObjectID)
 
 		// Verify preview exists in storage
+		_, attrsSpan := startSpan(ctx, "gcs.get_object_attrs")
 		_, err := thumbObj.Attrs(ctx)
 		if err == nil {
+			endSpanOk(attrsSpan)
 			// Preview exists, generate signed URL
 			expiresAt := time.Now().Add(time.Hour)
+			_, signSpan := startSpan(ctx, "gcs.signed_url")
 			signedURL, err := bucket.SignedURL(*photoObject.ThumbnailObjectID, &storage.SignedURLOptions{
 				Method:  "GET",
 				Expires: expiresAt,
 			})
 			if err != nil {
+				recordSpanError(signSpan, err)
 				return nil, status.Errorf(codes.Internal, "failed to generate signed URL for existing preview: %v", err)
 			}
+			endSpanOk(signSpan)
 
-			slog.Info(
+			slog.InfoContext(
+				ctx,
 				"Returned existing DNG preview",
 				slog.String("object_id", objectID),
 				slog.String("thumbnail_object_id", *photoObject.ThumbnailObjectID),
@@ -2333,8 +2667,10 @@ func (s *LibraryServer) GenerateDNGPreview(ctx context.Context, req *proto.Gener
 	// Download DNG from GCS
 	obj := bucket.Object(objectID)
 
+	_, readSpan := startSpan(ctx, "gcs.read_object")
 	reader, err := obj.NewReader(ctx)
 	if err != nil {
+		recordSpanError(readSpan, err)
 		if err == storage.ErrObjectNotExist {
 			return nil, status.Errorf(codes.NotFound, "DNG not found in storage: %s", objectID)
 		}
@@ -2344,8 +2680,10 @@ func (s *LibraryServer) GenerateDNGPreview(ctx context.Context, req *proto.Gener
 
 	dngData, err := io.ReadAll(reader)
 	if err != nil {
+		recordSpanError(readSpan, err)
 		return nil, status.Errorf(codes.Internal, "failed to read DNG: %v", err)
 	}
+	endSpanOk(readSpan)
 
 	// Generate JPEG preview using dcraw
 	previewData, err := GenerateDNGPreview(dngData)
@@ -2357,33 +2695,44 @@ func (s *LibraryServer) GenerateDNGPreview(ctx context.Context, req *proto.Gener
 	previewObjectID := dngPreviewObjectID(objectID)
 
 	// Upload preview to GCS
+	_, writeSpan := startSpan(ctx, "gcs.write_object")
 	previewWriter := bucket.Object(previewObjectID).NewWriter(ctx)
 	previewWriter.ContentType = "image/jpeg"
 
 	if _, err := previewWriter.Write(previewData); err != nil {
+		recordSpanError(writeSpan, err)
 		return nil, status.Errorf(codes.Internal, "failed to write DNG preview to GCS: %v", err)
 	}
 
 	if err := previewWriter.Close(); err != nil {
+		recordSpanError(writeSpan, err)
 		return nil, status.Errorf(codes.Internal, "failed to close DNG preview writer: %v", err)
 	}
+	endSpanOk(writeSpan)
 
 	// Update the database with preview object ID
+	_, dbThumbSpan := startSpan(ctx, "db.update_thumbnail_object_id")
 	if err := s.DB.Model(&photoObject).Update("thumbnail_object_id", previewObjectID).Error; err != nil {
+		recordSpanError(dbThumbSpan, err)
 		return nil, status.Errorf(codes.Internal, "failed to update photo with preview: %v", err)
 	}
+	endSpanOk(dbThumbSpan)
 
 	// Generate signed URL for the new preview
 	expiresAt := time.Now().Add(time.Hour)
+	_, signSpan := startSpan(ctx, "gcs.signed_url")
 	signedURL, err := bucket.SignedURL(previewObjectID, &storage.SignedURLOptions{
 		Method:  "GET",
 		Expires: expiresAt,
 	})
 	if err != nil {
+		recordSpanError(signSpan, err)
 		return nil, status.Errorf(codes.Internal, "failed to generate signed URL: %v", err)
 	}
+	endSpanOk(signSpan)
 
-	slog.Info(
+	slog.InfoContext(
+		ctx,
 		"Generated DNG preview",
 		slog.String("object_id", objectID),
 		slog.String("thumbnail_object_id", previewObjectID),

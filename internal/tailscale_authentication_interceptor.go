@@ -45,13 +45,14 @@ func (i *TailscaleAuthenticationInterceptor) Intercept(
 ) (any, error) {
 	p, ok := peer.FromContext(ctx)
 	if !ok {
-		slog.Error("could not get peer from context")
+		slog.ErrorContext(ctx, "could not get peer from context")
 		return nil, status.Errorf(codes.Internal, "An issue with tailscale")
 	}
 
 	ipAddress, _, err := net.SplitHostPort(p.Addr.String())
 	if err != nil {
-		slog.Error(
+		slog.ErrorContext(
+			ctx,
 			"unable to parse IP from address string",
 			slog.String("addr", p.Addr.String()),
 			slog.String("error", err.Error()),
@@ -80,7 +81,8 @@ func (i *TailscaleAuthenticationInterceptor) resolveUserID(ctx context.Context, 
 
 	userInfo, err := i.privateServer.GetCallerIdentityFromRemoteIPAddress(ctx, ipAddress)
 	if err != nil {
-		slog.Error(
+		slog.ErrorContext(
+			ctx,
 			"unable to get caller identity from remote IP address",
 			slog.String("ip", ipAddress),
 			slog.String("error", err.Error()),
@@ -88,7 +90,8 @@ func (i *TailscaleAuthenticationInterceptor) resolveUserID(ctx context.Context, 
 		return 0, status.Errorf(codes.Unauthenticated, "Unauthenticated")
 	}
 
-	slog.Info(
+	slog.InfoContext(
+		ctx,
 		"about to search for user",
 		slog.String("ip", ipAddress),
 		slog.String("user", userInfo.UserProfile.LoginName),
@@ -96,7 +99,8 @@ func (i *TailscaleAuthenticationInterceptor) resolveUserID(ctx context.Context, 
 
 	user, err := getOrCreateUser(i.db, userInfo.UserProfile.LoginName)
 	if err != nil {
-		slog.Error(
+		slog.ErrorContext(
+			ctx,
 			"unable to get or create user",
 			slog.String("user", userInfo.UserProfile.LoginName),
 			slog.String("error", err.Error()),
@@ -109,7 +113,8 @@ func (i *TailscaleAuthenticationInterceptor) resolveUserID(ctx context.Context, 
 		UserID:  user.ID,
 	}
 	if err := i.db.Create(&addr).Error; err != nil {
-		slog.Error(
+		slog.ErrorContext(
+			ctx,
 			"unable to create tailscale address",
 			slog.String("ip", ipAddress),
 			slog.String("user", userInfo.UserProfile.LoginName),
@@ -129,7 +134,8 @@ func (i *TailscaleAuthenticationInterceptor) HTTPMiddleware(next http.Handler) h
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ipAddress, _, err := net.SplitHostPort(r.RemoteAddr)
 		if err != nil {
-			slog.Error(
+			slog.ErrorContext(
+				r.Context(),
 				"unable to parse IP from address string",
 				slog.String("addr", r.RemoteAddr),
 				slog.String("error", err.Error()),
@@ -181,13 +187,14 @@ func (i *TailscaleAuthenticationInterceptor) InterceptStream(
 
 	p, ok := peer.FromContext(ctx)
 	if !ok {
-		slog.Error("could not get peer from context")
+		slog.ErrorContext(ctx, "could not get peer from context")
 		return status.Errorf(codes.Internal, "An issue with tailscale")
 	}
 
 	ipAddress, _, err := net.SplitHostPort(p.Addr.String())
 	if err != nil {
-		slog.Error(
+		slog.ErrorContext(
+			ctx,
 			"unable to parse IP from address string",
 			slog.String("addr", p.Addr.String()),
 			slog.String("error", err.Error()),
