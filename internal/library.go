@@ -1,11 +1,13 @@
 package internal
 
 import (
+	"cmp"
 	"context"
 	"encoding/base64"
 	"fmt"
 	"io"
 	"log/slog"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -1104,6 +1106,7 @@ func (s *LibraryServer) UpdateWebp(req *proto.UpdateWebpRequest, stream grpc.Ser
 	}
 
 	objectsMissingWebp := missingWebp(gcsObjects)
+	slices.Sort(objectsMissingWebp)
 
 	var databasePhotos []database.PhotoObject
 	if err := s.DB.Where("user_id = ?", userID).Find(&databasePhotos).Error; err != nil {
@@ -1121,6 +1124,9 @@ func (s *LibraryServer) UpdateWebp(req *proto.UpdateWebpRequest, stream grpc.Ser
 		}
 		eligible = append(eligible, obj)
 	}
+	slices.SortFunc(eligible, func(a, b database.PhotoObject) int {
+		return cmp.Compare(a.ObjectID, b.ObjectID)
+	})
 
 	// Build a set of object IDs already covered by the eligible DB rows so
 	// the GCS-only pass can skip them and avoid redundant work.
