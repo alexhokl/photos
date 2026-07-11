@@ -959,7 +959,7 @@ func (s *LibraryServer) SyncDatabase(req *proto.SyncDatabaseRequest, stream grpc
 
 	// Get all objects from GCS
 	_, gcsListSpan := startSpan(ctx, "gcs.list_objects")
-	gcsObjects, err := getGCSObjectsMap(ctx, s.GCSClient, s.BucketName)
+	gcsObjects, err := getGCSNonDerivedObjectsMap(ctx, s.GCSClient, s.BucketName)
 	if err != nil {
 		recordSpanError(gcsListSpan, err)
 		return status.Errorf(codes.Internal, "failed to list GCS objects: %v", err)
@@ -2103,9 +2103,8 @@ func missingWebp(gcsObjects map[string]*storage.ObjectAttrs) (objectsMissingWebp
 }
 
 // getGCSObjectsMap reads from the specified bucket and returns a map of object IDs
-// to their attributes. Derived assets (DNG JPEG previews, video thumbnails, and
-// WebP renditions identified by isDerivedObjectID) are excluded so callers can
-// treat every entry as an original upload.
+// to their attributes, including both original uploads and derived assets (DNG JPEG
+// previews, video thumbnails, and WebP renditions).
 func getGCSObjectsMap(ctx context.Context, client *storage.Client, bucketName string) (map[string]*storage.ObjectAttrs, error) {
 	if client == nil {
 		return make(map[string]*storage.ObjectAttrs), nil
@@ -2125,11 +2124,28 @@ func getGCSObjectsMap(ctx context.Context, client *storage.Client, bucketName st
 		if err != nil {
 			return nil, err
 		}
-		if attrs.Name != "" && !isDerivedObjectID(attrs.Name) {
+		if attrs.Name != "" {
 			objects[attrs.Name] = attrs
 		}
 	}
 
+	return objects, nil
+}
+
+// getGCSNonDerivedObjectsMap reads from the specified bucket and returns a map of
+// object IDs to their attributes. Derived assets (DNG JPEG previews, video
+// thumbnails, and WebP renditions identified by isDerivedObjectID) are excluded so
+// callers can treat every entry as an original upload.
+func getGCSNonDerivedObjectsMap(ctx context.Context, client *storage.Client, bucketName string) (map[string]*storage.ObjectAttrs, error) {
+	objects, err := getGCSObjectsMap(ctx, client, bucketName)
+	if err != nil {
+		return nil, err
+	}
+	for id := range objects {
+		if isDerivedObjectID(id) {
+			delete(objects, id)
+		}
+	}
 	return objects, nil
 }
 

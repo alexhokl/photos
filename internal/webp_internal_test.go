@@ -6,7 +6,10 @@ import (
 	"image/color"
 	"image/png"
 	"os/exec"
+	"slices"
 	"testing"
+
+	"cloud.google.com/go/storage"
 )
 
 func TestIsWebPConvertibleContentType(t *testing.T) {
@@ -158,6 +161,120 @@ func TestIsDerivedObjectID(t *testing.T) {
 			result := isDerivedObjectID(test.objectID)
 			if result != test.expected {
 				t.Errorf("isDerivedObjectID(%q) = %v, want %v", test.objectID, result, test.expected)
+			}
+		})
+	}
+}
+
+func TestMissingWebp(t *testing.T) {
+	tests := []struct {
+		name        string
+		gcsObjects  map[string]*storage.ObjectAttrs
+		expected    []string
+	}{
+		{
+			name:        "empty map",
+			gcsObjects:  map[string]*storage.ObjectAttrs{},
+			expected:    nil,
+		},
+		{
+			name: "jpeg missing webp",
+			gcsObjects: map[string]*storage.ObjectAttrs{
+				"a/photo.jpg": {Name: "a/photo.jpg", ContentType: "image/jpeg"},
+			},
+			expected: []string{"a/photo.jpg"},
+		},
+		{
+			name: "jpeg with webp present",
+			gcsObjects: map[string]*storage.ObjectAttrs{
+				"a/photo.jpg": {Name: "a/photo.jpg", ContentType: "image/jpeg"},
+				"a/photo.webp": {Name: "a/photo.webp", ContentType: "image/webp"},
+			},
+			expected: nil,
+		},
+		{
+			name: "png missing webp",
+			gcsObjects: map[string]*storage.ObjectAttrs{
+				"img.png": {Name: "img.png", ContentType: "image/png"},
+			},
+			expected: []string{"img.png"},
+		},
+		{
+			name: "gif missing webp",
+			gcsObjects: map[string]*storage.ObjectAttrs{
+				"img.gif": {Name: "img.gif", ContentType: "image/gif"},
+			},
+			expected: []string{"img.gif"},
+		},
+		{
+			name: "already webp excluded",
+			gcsObjects: map[string]*storage.ObjectAttrs{
+				"img.webp": {Name: "img.webp", ContentType: "image/webp"},
+			},
+			expected: nil,
+		},
+		{
+			name: "heic excluded",
+			gcsObjects: map[string]*storage.ObjectAttrs{
+				"img.heic": {Name: "img.heic", ContentType: "image/heic"},
+			},
+			expected: nil,
+		},
+		{
+			name: "video excluded",
+			gcsObjects: map[string]*storage.ObjectAttrs{
+				"clip.mp4": {Name: "clip.mp4", ContentType: "video/mp4"},
+			},
+			expected: nil,
+		},
+		{
+			name: "dng missing webp",
+			gcsObjects: map[string]*storage.ObjectAttrs{
+				"raw.dng": {Name: "raw.dng", ContentType: "image/x-adobe-dng"},
+			},
+			expected: []string{"raw.dng"},
+		},
+		{
+			name: "dng with webp present",
+			gcsObjects: map[string]*storage.ObjectAttrs{
+				"raw.dng":  {Name: "raw.dng", ContentType: "image/x-adobe-dng"},
+				"raw.webp": {Name: "raw.webp", ContentType: "image/webp"},
+			},
+			expected: nil,
+		},
+		{
+			name: "derived preview excluded",
+			gcsObjects: map[string]*storage.ObjectAttrs{
+				"IMG_001_preview.jpg": {Name: "IMG_001_preview.jpg", ContentType: "image/jpeg"},
+			},
+			expected: nil,
+		},
+		{
+			name: "derived thumb excluded",
+			gcsObjects: map[string]*storage.ObjectAttrs{
+				"clip_thumb.jpg": {Name: "clip_thumb.jpg", ContentType: "image/jpeg"},
+			},
+			expected: nil,
+		},
+		{
+			name: "mixed objects",
+			gcsObjects: map[string]*storage.ObjectAttrs{
+				"photo.jpg":  {Name: "photo.jpg", ContentType: "image/jpeg"},
+				"photo.webp": {Name: "photo.webp", ContentType: "image/webp"},
+				"clip.mp4":   {Name: "clip.mp4", ContentType: "video/mp4"},
+				"raw.dng":    {Name: "raw.dng", ContentType: "image/x-adobe-dng"},
+			},
+			expected: []string{"raw.dng"},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			result := missingWebp(test.gcsObjects)
+			slices.Sort(result)
+			expected := slices.Clone(test.expected)
+			slices.Sort(expected)
+			if !slices.Equal(result, expected) {
+				t.Errorf("missingWebp() = %v, want %v", result, expected)
 			}
 		})
 	}
