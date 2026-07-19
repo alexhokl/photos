@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:photos/proto/photos.pb.dart';
 import 'package:photos/widgets/cloud_photo_grid.dart';
 import 'package:photos/widgets/cloud_photo_viewer.dart';
+import 'package:photos/widgets/settings_page.dart';
 
 void main() {
   group('CloudPhotoViewerAction enum', () {
@@ -2124,6 +2126,114 @@ void main() {
 
     test('image/heic renders InteractiveViewer', () {
       expect(shouldRenderVideoPlayer('image/heic'), isFalse);
+    });
+  });
+
+  group('buildPhotoShareUrl', () {
+    BackendConfig config({
+      required String host,
+      required String scheme,
+      required int proxyPort,
+    }) {
+      return BackendConfig(
+        host: host,
+        port: proxyPort,
+        scheme: scheme,
+        proxyPort: proxyPort,
+      );
+    }
+
+    test('prefers webpObjectId when non-empty', () {
+      final photo = Photo(
+        objectId: 'photos/2024/img.jpg',
+        webpObjectId: 'photos/2024/img.webp',
+      );
+      final url = buildPhotoShareUrl(
+        photo,
+        config(host: 'host', scheme: 'https', proxyPort: 443),
+      );
+      expect(url, 'https://host/v1/photos/bytes/photos/2024/img.webp');
+    });
+
+    test('falls back to objectId when webpObjectId is empty', () {
+      final photo = Photo(objectId: 'photos/2024/img.jpg', webpObjectId: '');
+      final url = buildPhotoShareUrl(
+        photo,
+        config(host: 'host', scheme: 'https', proxyPort: 443),
+      );
+      expect(url, 'https://host/v1/photos/bytes/photos/2024/img.jpg');
+    });
+
+    test('falls back to objectId when webpObjectId is unset', () {
+      final photo = Photo(objectId: 'photos/2024/img.jpg');
+      final url = buildPhotoShareUrl(
+        photo,
+        config(host: 'host', scheme: 'https', proxyPort: 443),
+      );
+      expect(url, 'https://host/v1/photos/bytes/photos/2024/img.jpg');
+    });
+
+    test('https with port 443 omits port part', () {
+      final photo = Photo(objectId: 'photos/2024/img.jpg');
+      final url = buildPhotoShareUrl(
+        photo,
+        config(host: 'host', scheme: 'https', proxyPort: 443),
+      );
+      expect(url, 'https://host/v1/photos/bytes/photos/2024/img.jpg');
+    });
+
+    test('https with non-default port appends port part', () {
+      final photo = Photo(objectId: 'photos/2024/img.jpg');
+      final url = buildPhotoShareUrl(
+        photo,
+        config(host: 'host', scheme: 'https', proxyPort: 8443),
+      );
+      expect(url, 'https://host:8443/v1/photos/bytes/photos/2024/img.jpg');
+    });
+
+    test('http with port 80 omits port part', () {
+      final photo = Photo(objectId: 'photos/2024/img.jpg');
+      final url = buildPhotoShareUrl(
+        photo,
+        config(host: 'host', scheme: 'http', proxyPort: 80),
+      );
+      expect(url, 'http://host/v1/photos/bytes/photos/2024/img.jpg');
+    });
+
+    test('http with non-default port appends port part', () {
+      final photo = Photo(objectId: 'photos/2024/img.jpg');
+      final url = buildPhotoShareUrl(
+        photo,
+        config(host: 'host', scheme: 'http', proxyPort: 8080),
+      );
+      expect(url, 'http://host:8080/v1/photos/bytes/photos/2024/img.jpg');
+    });
+
+    test('percent-encodes spaces in path segments', () {
+      final photo = Photo(objectId: 'photos/2024/my file.jpg');
+      final url = buildPhotoShareUrl(
+        photo,
+        config(host: 'host', scheme: 'https', proxyPort: 443),
+      );
+      expect(url, 'https://host/v1/photos/bytes/photos/2024/my%20file.jpg');
+    });
+
+    test('encodes special characters per segment but preserves slashes', () {
+      final photo = Photo(webpObjectId: 'a/b c/d%e.webp');
+      final url = buildPhotoShareUrl(
+        photo,
+        config(host: 'host', scheme: 'https', proxyPort: 443),
+      );
+      expect(url, 'https://host/v1/photos/bytes/a/b%20c/d%25e.webp');
+    });
+
+    test('preserves multi-segment object IDs in order', () {
+      final photo = Photo(objectId: 'users/alice/2024/img.jpg');
+      final url = buildPhotoShareUrl(
+        photo,
+        config(host: 'host', scheme: 'https', proxyPort: 443),
+      );
+      expect(url, 'https://host/v1/photos/bytes/users/alice/2024/img.jpg');
     });
   });
 }

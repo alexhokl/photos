@@ -15,6 +15,26 @@ import 'package:share_plus/share_plus.dart';
 
 enum CloudPhotoViewerAction { info, share, delete, download, copy, move, rename }
 
+/// Builds a share-able URL for [photo] that points at the raw-bytes HTTP
+/// endpoint (`/v1/photos/bytes/{object_id...}`).
+///
+/// Prefers the WebP variant ([Photo.webpObjectId]) when the server has
+/// generated one; otherwise falls back to the original [Photo.objectId].
+/// Each path segment is percent-encoded individually so multi-segment object
+/// IDs are preserved.
+String buildPhotoShareUrl(Photo photo, BackendConfig config) {
+  final objectId = photo.webpObjectId.isNotEmpty
+      ? photo.webpObjectId
+      : photo.objectId;
+  final scheme = config.scheme;
+  final portPart = (scheme == 'https' && config.proxyPort == 443) ||
+          (scheme == 'http' && config.proxyPort == 80)
+      ? ''
+      : ':${config.proxyPort}';
+  final encoded = objectId.split('/').map(Uri.encodeComponent).join('/');
+  return '$scheme://${config.host}$portPart/v1/photos/bytes/$encoded';
+}
+
 /// Result returned from CloudPhotoViewer when navigating back.
 /// Used to indicate what action was taken on the photo.
 class CloudPhotoViewerResult {
@@ -354,16 +374,7 @@ class _CloudPhotoViewerState extends State<CloudPhotoViewer> {
 
   Future<void> _shareLink() async {
     final config = await BackendConfig.load();
-    final scheme = config.scheme;
-    final portPart = (scheme == 'https' && config.proxyPort == 443) ||
-            (scheme == 'http' && config.proxyPort == 80)
-        ? ''
-        : ':${config.proxyPort}';
-    final encoded = _currentPhoto.objectId
-        .split('/')
-        .map(Uri.encodeComponent)
-        .join('/');
-    final url = '$scheme://${config.host}$portPart/v1/photos/bytes/$encoded';
+    final url = buildPhotoShareUrl(_currentPhoto, config);
     await SharePlus.instance.share(ShareParams(uri: Uri.parse(url)));
   }
 
