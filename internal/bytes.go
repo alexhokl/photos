@@ -16,6 +16,8 @@ import (
 	"cloud.google.com/go/storage"
 	"github.com/alexhokl/photos/database"
 	"github.com/alexhokl/photos/proto"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/metric"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -35,6 +37,7 @@ type BytesServer struct {
 func (s *BytesServer) Upload(ctx context.Context, req *proto.UploadRequest) (*proto.UploadResponse, error) {
 	userID, ok := ctx.Value(contextKeyUser{}).(uint)
 	if !ok {
+		recordError(ctx, "Upload", codes.Unauthenticated)
 		return nil, status.Errorf(codes.Unauthenticated, "authentication required")
 	}
 
@@ -69,11 +72,13 @@ func (s *BytesServer) Upload(ctx context.Context, req *proto.UploadRequest) (*pr
 
 	if _, err := writer.Write(data); err != nil {
 		recordSpanError(writeSpan, err)
+		recordError(ctx, "Upload", codes.Internal)
 		return nil, status.Errorf(codes.Internal, "failed to write data to GCS: %v", err)
 	}
 
 	if err := writer.Close(); err != nil {
 		recordSpanError(writeSpan, err)
+		recordError(ctx, "Upload", codes.Internal)
 		return nil, status.Errorf(codes.Internal, "failed to close GCS writer: %v", err)
 	}
 	endSpanOk(writeSpan)
@@ -83,6 +88,7 @@ func (s *BytesServer) Upload(ctx context.Context, req *proto.UploadRequest) (*pr
 	attrs, err := obj.Attrs(ctx)
 	if err != nil {
 		recordSpanError(attrsSpan, err)
+		recordError(ctx, "Upload", codes.Internal)
 		return nil, status.Errorf(codes.Internal, "failed to get object attributes: %v", err)
 	}
 	endSpanOk(attrsSpan)
@@ -107,6 +113,7 @@ func (s *BytesServer) Upload(ctx context.Context, req *proto.UploadRequest) (*pr
 	_, createSpan := startSpan(ctx, "db.create_or_restore_photo_object")
 	if err := database.CreateOrRestorePhotoObject(s.DB, photoObject); err != nil {
 		recordSpanError(createSpan, err)
+		recordError(ctx, "Upload", codes.Internal)
 		return nil, status.Errorf(codes.Internal, "failed to create photo object record: %v", err)
 	}
 	endSpanOk(createSpan)
@@ -117,6 +124,7 @@ func (s *BytesServer) Upload(ctx context.Context, req *proto.UploadRequest) (*pr
 		_, dirSpan := startSpan(ctx, "db.create_or_restore_photo_directory")
 		if err := database.CreateOrRestorePhotoDirectory(s.DB, dir); err != nil {
 			recordSpanError(dirSpan, err)
+			recordError(ctx, "Upload", codes.Internal)
 			return nil, status.Errorf(codes.Internal, "failed to create photo directory record: %v", err)
 		}
 		endSpanOk(dirSpan)
@@ -156,6 +164,9 @@ func (s *BytesServer) Upload(ctx context.Context, req *proto.UploadRequest) (*pr
 	if photoObject.WebpObjectID != nil {
 		photo.WebpObjectId = *photoObject.WebpObjectID
 	}
+
+	uploadedCounter.Add(ctx, 1, metric.WithAttributes(attribute.String("content_type", attrs.ContentType)))
+	uploadedSizeHist.Record(ctx, attrs.Size)
 
 	return &proto.UploadResponse{
 		Photo: photo,
@@ -292,6 +303,7 @@ func uploadWebP(ctx context.Context, bucket *storage.BucketHandle, data []byte, 
 func (s *BytesServer) Download(ctx context.Context, req *proto.DownloadRequest) (*proto.DownloadResponse, error) {
 	_, ok := ctx.Value(contextKeyUser{}).(uint)
 	if !ok {
+		recordError(ctx, "Download", codes.Unauthenticated)
 		return nil, status.Errorf(codes.Unauthenticated, "authentication required")
 	}
 
@@ -318,8 +330,10 @@ func (s *BytesServer) Download(ctx context.Context, req *proto.DownloadRequest) 
 	if err != nil {
 		recordSpanError(attrsSpan, err)
 		if err == storage.ErrObjectNotExist {
+			recordError(ctx, "Download", codes.NotFound)
 			return nil, status.Errorf(codes.NotFound, "object not found: %s", objectID)
 		}
+		recordError(ctx, "Download", codes.Internal)
 		return nil, status.Errorf(codes.Internal, "failed to get object attributes: %v", err)
 	}
 	endSpanOk(attrsSpan)
@@ -329,6 +343,7 @@ func (s *BytesServer) Download(ctx context.Context, req *proto.DownloadRequest) 
 	reader, err := obj.NewReader(ctx)
 	if err != nil {
 		recordSpanError(readSpan, err)
+		recordError(ctx, "Download", codes.Internal)
 		return nil, status.Errorf(codes.Internal, "failed to create reader for object: %v", err)
 	}
 	defer func() { _ = reader.Close() }()
@@ -336,6 +351,7 @@ func (s *BytesServer) Download(ctx context.Context, req *proto.DownloadRequest) 
 	data, err := io.ReadAll(reader)
 	if err != nil {
 		recordSpanError(readSpan, err)
+		recordError(ctx, "Download", codes.Internal)
 		return nil, status.Errorf(codes.Internal, "failed to read object data: %v", err)
 	}
 	endSpanOk(readSpan)
@@ -399,6 +415,9 @@ func (s *BytesServer) Download(ctx context.Context, req *proto.DownloadRequest) 
 		LensModel:        photoMetadata.LensModel,
 	}
 
+	downloadedCounter.Add(ctx, 1)
+	downloadedSizeHist.Record(ctx, int64(len(data)))
+
 	return &proto.DownloadResponse{
 		Photo: photo,
 		Data:  data,
@@ -423,21 +442,25 @@ func (s *BytesServer) StreamingUpload(stream grpc.ClientStreamingServer[proto.St
 
 	userID, ok := ctx.Value(contextKeyUser{}).(uint)
 	if !ok {
+		recordError(ctx, "StreamingUpload", codes.Unauthenticated)
 		return status.Errorf(codes.Unauthenticated, "authentication required")
 	}
 
 	// Receive the first message which must contain metadata
 	firstMsg, err := stream.Recv()
 	if err != nil {
+		recordError(ctx, "StreamingUpload", codes.InvalidArgument)
 		return status.Errorf(codes.InvalidArgument, "failed to receive first message: %v", err)
 	}
 
 	metadata := firstMsg.GetMetadata()
 	if metadata == nil {
+		recordError(ctx, "StreamingUpload", codes.InvalidArgument)
 		return status.Errorf(codes.InvalidArgument, "first message must contain metadata")
 	}
 
 	if metadata.GetFilename() == "" {
+		recordError(ctx, "StreamingUpload", codes.InvalidArgument)
 		return status.Errorf(codes.InvalidArgument, "filename is required in metadata")
 	}
 
@@ -465,6 +488,7 @@ func (s *BytesServer) StreamingUpload(stream grpc.ClientStreamingServer[proto.St
 			break
 		}
 		if err != nil {
+			recordError(ctx, "StreamingUpload", codes.Internal)
 			return status.Errorf(codes.Internal, "failed to receive chunk: %v", err)
 		}
 
@@ -496,11 +520,13 @@ func (s *BytesServer) StreamingUpload(stream grpc.ClientStreamingServer[proto.St
 	if _, err := writer.Write(allData); err != nil {
 		_ = writer.Close()
 		recordSpanError(writeSpan, err)
+		recordError(ctx, "StreamingUpload", codes.Internal)
 		return status.Errorf(codes.Internal, "failed to write data to GCS: %v", err)
 	}
 
 	if err := writer.Close(); err != nil {
 		recordSpanError(writeSpan, err)
+		recordError(ctx, "StreamingUpload", codes.Internal)
 		return status.Errorf(codes.Internal, "failed to close GCS writer: %v", err)
 	}
 	endSpanOk(writeSpan)
@@ -514,6 +540,7 @@ func (s *BytesServer) StreamingUpload(stream grpc.ClientStreamingServer[proto.St
 	attrs, err := obj.Attrs(ctx)
 	if err != nil {
 		recordSpanError(attrsSpan, err)
+		recordError(ctx, "StreamingUpload", codes.Internal)
 		return status.Errorf(codes.Internal, "failed to get object attributes: %v", err)
 	}
 	endSpanOk(attrsSpan)
@@ -538,6 +565,7 @@ func (s *BytesServer) StreamingUpload(stream grpc.ClientStreamingServer[proto.St
 	_, createSpan := startSpan(ctx, "db.create_or_restore_photo_object")
 	if err := database.CreateOrRestorePhotoObject(s.DB, photoObject); err != nil {
 		recordSpanError(createSpan, err)
+		recordError(ctx, "StreamingUpload", codes.Internal)
 		return status.Errorf(codes.Internal, "failed to create photo object record: %v", err)
 	}
 	endSpanOk(createSpan)
@@ -548,6 +576,7 @@ func (s *BytesServer) StreamingUpload(stream grpc.ClientStreamingServer[proto.St
 		_, dirSpan := startSpan(ctx, "db.create_or_restore_photo_directory")
 		if err := database.CreateOrRestorePhotoDirectory(s.DB, dir); err != nil {
 			recordSpanError(dirSpan, err)
+			recordError(ctx, "StreamingUpload", codes.Internal)
 			return status.Errorf(codes.Internal, "failed to create photo directory record: %v", err)
 		}
 		endSpanOk(dirSpan)
@@ -590,6 +619,9 @@ func (s *BytesServer) StreamingUpload(stream grpc.ClientStreamingServer[proto.St
 		photo.WebpObjectId = *photoObject.WebpObjectID
 	}
 
+	streamingUploadCounter.Add(ctx, 1, metric.WithAttributes(attribute.String("content_type", attrs.ContentType)))
+	streamingUploadSizeHist.Record(ctx, attrs.Size)
+
 	return stream.SendAndClose(&proto.UploadResponse{
 		Photo: photo,
 	})
@@ -604,6 +636,7 @@ func (s *BytesServer) BulkStreamingUpload(stream grpc.BidiStreamingServer[proto.
 
 	userID, ok := ctx.Value(contextKeyUser{}).(uint)
 	if !ok {
+		recordError(ctx, "BulkStreamingUpload", codes.Unauthenticated)
 		return status.Errorf(codes.Unauthenticated, "authentication required")
 	}
 
@@ -738,6 +771,10 @@ func (s *BytesServer) uploadSingleFile(
 			slog.String("object_id", objectID),
 			slog.String("error", msg),
 		)
+		bulkUploadFilesCounter.Add(ctx, 1, metric.WithAttributes(
+			attribute.String("result", "failure"),
+			attribute.String("content_type", contentType),
+		))
 		return &proto.BulkUploadFileResult{
 			ObjectId:     objectID,
 			Success:      false,
@@ -854,6 +891,12 @@ func (s *BytesServer) uploadSingleFile(
 		photo.WebpObjectId = *photoObject.WebpObjectID
 	}
 
+	bulkUploadFilesCounter.Add(ctx, 1, metric.WithAttributes(
+		attribute.String("result", "success"),
+		attribute.String("content_type", attrs.ContentType),
+	))
+	bulkUploadSizeHist.Record(ctx, attrs.Size)
+
 	return &proto.BulkUploadFileResult{
 		ObjectId: objectID,
 		Success:  true,
@@ -870,15 +913,18 @@ func (s *BytesServer) StreamingDownload(req *proto.StreamingDownloadRequest, str
 
 	_, ok := ctx.Value(contextKeyUser{}).(uint)
 	if !ok {
+		recordError(ctx, "StreamingDownload", codes.Unauthenticated)
 		return status.Errorf(codes.Unauthenticated, "authentication required")
 	}
 
 	if req == nil {
+		recordError(ctx, "StreamingDownload", codes.InvalidArgument)
 		return status.Errorf(codes.InvalidArgument, "request not specified")
 	}
 
 	objectID := req.GetObjectId()
 	if objectID == "" {
+		recordError(ctx, "StreamingDownload", codes.InvalidArgument)
 		return status.Errorf(codes.InvalidArgument, "object_id is required")
 	}
 
@@ -900,8 +946,10 @@ func (s *BytesServer) StreamingDownload(req *proto.StreamingDownloadRequest, str
 	if err != nil {
 		recordSpanError(attrsSpan, err)
 		if err == storage.ErrObjectNotExist {
+			recordError(ctx, "StreamingDownload", codes.NotFound)
 			return status.Errorf(codes.NotFound, "object not found: %s", objectID)
 		}
+		recordError(ctx, "StreamingDownload", codes.Internal)
 		return status.Errorf(codes.Internal, "failed to get object attributes: %v", err)
 	}
 	endSpanOk(attrsSpan)
@@ -911,6 +959,7 @@ func (s *BytesServer) StreamingDownload(req *proto.StreamingDownloadRequest, str
 	reader, err := obj.NewReader(ctx)
 	if err != nil {
 		recordSpanError(readSpan, err)
+		recordError(ctx, "StreamingDownload", codes.Internal)
 		return status.Errorf(codes.Internal, "failed to create reader for object: %v", err)
 	}
 	defer func() { _ = reader.Close() }()
@@ -1020,6 +1069,9 @@ func (s *BytesServer) streamDownloadDirect(
 		slog.Int64("size_bytes", totalBytes),
 	)
 
+	streamingDownloadCounter.Add(stream.Context(), 1)
+	streamingDownloadSizeHist.Record(stream.Context(), totalBytes)
+
 	return nil
 }
 
@@ -1128,6 +1180,9 @@ func (s *BytesServer) streamDownloadWithLocationStripped(
 		slog.String("object_id", objectID),
 		slog.Int64("size_bytes", totalBytes),
 	)
+
+	streamingDownloadCounter.Add(stream.Context(), 1)
+	streamingDownloadSizeHist.Record(stream.Context(), totalBytes)
 
 	return nil
 }

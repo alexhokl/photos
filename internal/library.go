@@ -15,6 +15,8 @@ import (
 	"cloud.google.com/go/storage"
 	"github.com/alexhokl/photos/database"
 	"github.com/alexhokl/photos/proto"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/metric"
 	"google.golang.org/api/iterator"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -35,6 +37,7 @@ type LibraryServer struct {
 func (s *LibraryServer) ListDirectories(ctx context.Context, req *proto.ListDirectoriesRequest) (*proto.ListDirectoriesResponse, error) {
 	_, ok := ctx.Value(contextKeyUser{}).(uint)
 	if !ok {
+		recordError(ctx, "ListDirectories", codes.Unauthenticated)
 		return nil, status.Errorf(codes.Unauthenticated, "authentication required")
 	}
 
@@ -49,6 +52,7 @@ func (s *LibraryServer) ListDirectories(ctx context.Context, req *proto.ListDire
 	_, dbSpan := startSpan(ctx, "db.list_directories")
 	if err := query.Order("path ASC").Find(&directories).Error; err != nil {
 		recordSpanError(dbSpan, err)
+		recordError(ctx, "ListDirectories", codes.Internal)
 		return nil, status.Errorf(codes.Internal, "failed to list directories: %v", err)
 	}
 	endSpanOk(dbSpan)
@@ -82,6 +86,9 @@ func (s *LibraryServer) ListDirectories(ctx context.Context, req *proto.ListDire
 		}
 	}
 
+	directoriesListCounter.Add(ctx, 1, metric.WithAttributes(attribute.Bool("recursive", req.GetRecursive())))
+	directoriesListResultsHist.Record(ctx, int64(len(prefixes)))
+
 	return &proto.ListDirectoriesResponse{
 		Prefixes: prefixes,
 	}, nil
@@ -91,11 +98,13 @@ func (s *LibraryServer) ListDirectories(ctx context.Context, req *proto.ListDire
 func (s *LibraryServer) GetPhoto(ctx context.Context, req *proto.GetPhotoRequest) (*proto.GetPhotoResponse, error) {
 	userID, ok := ctx.Value(contextKeyUser{}).(uint)
 	if !ok {
+		recordError(ctx, "GetPhoto", codes.Unauthenticated)
 		return nil, status.Errorf(codes.Unauthenticated, "authentication required")
 	}
 
 	objectID := req.GetObjectId()
 	if objectID == "" {
+		recordError(ctx, "GetPhoto", codes.InvalidArgument)
 		return nil, status.Errorf(codes.InvalidArgument, "object_id is required")
 	}
 
@@ -105,8 +114,10 @@ func (s *LibraryServer) GetPhoto(ctx context.Context, req *proto.GetPhotoRequest
 	if err := s.DB.Where("object_id = ? AND user_id = ?", objectID, userID).First(&photoObject).Error; err != nil {
 		recordSpanError(dbSpan, err)
 		if err == gorm.ErrRecordNotFound {
+			recordError(ctx, "GetPhoto", codes.NotFound)
 			return nil, status.Errorf(codes.NotFound, "photo not found: %s", objectID)
 		}
+		recordError(ctx, "GetPhoto", codes.Internal)
 		return nil, status.Errorf(codes.Internal, "failed to query photo: %v", err)
 	}
 	endSpanOk(dbSpan)
@@ -120,8 +131,10 @@ func (s *LibraryServer) GetPhoto(ctx context.Context, req *proto.GetPhotoRequest
 	if err != nil {
 		recordSpanError(gcsSpan, err)
 		if err == storage.ErrObjectNotExist {
+			recordError(ctx, "GetPhoto", codes.NotFound)
 			return nil, status.Errorf(codes.NotFound, "photo not found in storage: %s", objectID)
 		}
+		recordError(ctx, "GetPhoto", codes.Internal)
 		return nil, status.Errorf(codes.Internal, "failed to get photo attributes: %v", err)
 	}
 	endSpanOk(gcsSpan)
@@ -186,6 +199,8 @@ func (s *LibraryServer) GetPhoto(ctx context.Context, req *proto.GetPhotoRequest
 		slog.Uint64("user_id", uint64(userID)),
 	)
 
+	metadataReadsCounter.Add(ctx, 1)
+
 	return &proto.GetPhotoResponse{
 		Photo: photo,
 	}, nil
@@ -195,11 +210,13 @@ func (s *LibraryServer) GetPhoto(ctx context.Context, req *proto.GetPhotoRequest
 func (s *LibraryServer) PhotoExists(ctx context.Context, req *proto.PhotoExistsRequest) (*proto.PhotoExistsResponse, error) {
 	userID, ok := ctx.Value(contextKeyUser{}).(uint)
 	if !ok {
+		recordError(ctx, "PhotoExists", codes.Unauthenticated)
 		return nil, status.Errorf(codes.Unauthenticated, "authentication required")
 	}
 
 	objectID := req.GetObjectId()
 	if objectID == "" {
+		recordError(ctx, "PhotoExists", codes.InvalidArgument)
 		return nil, status.Errorf(codes.InvalidArgument, "object_id is required")
 	}
 
@@ -210,6 +227,7 @@ func (s *LibraryServer) PhotoExists(ctx context.Context, req *proto.PhotoExistsR
 		Where("object_id = ? AND user_id = ?", objectID, userID).
 		Count(&count).Error; err != nil {
 		recordSpanError(dbSpan, err)
+		recordError(ctx, "PhotoExists", codes.Internal)
 		return nil, status.Errorf(codes.Internal, "failed to check photo existence: %v", err)
 	}
 	endSpanOk(dbSpan)
@@ -224,6 +242,8 @@ func (s *LibraryServer) PhotoExists(ctx context.Context, req *proto.PhotoExistsR
 		slog.Uint64("user_id", uint64(userID)),
 	)
 
+	existsCheckCounter.Add(ctx, 1, metric.WithAttributes(attribute.Bool("found", exists)))
+
 	return &proto.PhotoExistsResponse{
 		Exists: exists,
 	}, nil
@@ -233,6 +253,7 @@ func (s *LibraryServer) PhotoExists(ctx context.Context, req *proto.PhotoExistsR
 func (s *LibraryServer) CopyPhoto(ctx context.Context, req *proto.CopyPhotoRequest) (*proto.CopyPhotoResponse, error) {
 	userID, ok := ctx.Value(contextKeyUser{}).(uint)
 	if !ok {
+		recordError(ctx, "CopyPhoto", codes.Unauthenticated)
 		return nil, status.Errorf(codes.Unauthenticated, "authentication required")
 	}
 
@@ -240,12 +261,15 @@ func (s *LibraryServer) CopyPhoto(ctx context.Context, req *proto.CopyPhotoReque
 	destObjectID := req.GetDestinationObjectId()
 
 	if sourceObjectID == "" {
+		recordError(ctx, "CopyPhoto", codes.InvalidArgument)
 		return nil, status.Errorf(codes.InvalidArgument, "source_object_id is required")
 	}
 	if destObjectID == "" {
+		recordError(ctx, "CopyPhoto", codes.InvalidArgument)
 		return nil, status.Errorf(codes.InvalidArgument, "destination_object_id is required")
 	}
 	if sourceObjectID == destObjectID {
+		recordError(ctx, "CopyPhoto", codes.InvalidArgument)
 		return nil, status.Errorf(codes.InvalidArgument, "source and destination cannot be the same")
 	}
 
@@ -255,8 +279,10 @@ func (s *LibraryServer) CopyPhoto(ctx context.Context, req *proto.CopyPhotoReque
 	if err := s.DB.Where("object_id = ? AND user_id = ?", sourceObjectID, userID).First(&sourcePhoto).Error; err != nil {
 		recordSpanError(dbSpan, err)
 		if err == gorm.ErrRecordNotFound {
+			recordError(ctx, "CopyPhoto", codes.NotFound)
 			return nil, status.Errorf(codes.NotFound, "source photo not found: %s", sourceObjectID)
 		}
+		recordError(ctx, "CopyPhoto", codes.Internal)
 		return nil, status.Errorf(codes.Internal, "failed to query source photo: %v", err)
 	}
 	endSpanOk(dbSpan)
@@ -268,10 +294,12 @@ func (s *LibraryServer) CopyPhoto(ctx context.Context, req *proto.CopyPhotoReque
 		Where("object_id = ? AND user_id = ?", destObjectID, userID).
 		Count(&destCount).Error; err != nil {
 		recordSpanError(destSpan, err)
+		recordError(ctx, "CopyPhoto", codes.Internal)
 		return nil, status.Errorf(codes.Internal, "failed to check destination: %v", err)
 	}
 	endSpanOk(destSpan)
 	if destCount > 0 {
+		recordError(ctx, "CopyPhoto", codes.AlreadyExists)
 		return nil, status.Errorf(codes.AlreadyExists, "destination photo already exists: %s", destObjectID)
 	}
 
@@ -286,8 +314,10 @@ func (s *LibraryServer) CopyPhoto(ctx context.Context, req *proto.CopyPhotoReque
 	if err != nil {
 		recordSpanError(copySpan, err)
 		if err == storage.ErrObjectNotExist {
+			recordError(ctx, "CopyPhoto", codes.NotFound)
 			return nil, status.Errorf(codes.NotFound, "source photo not found in storage: %s", sourceObjectID)
 		}
+		recordError(ctx, "CopyPhoto", codes.Internal)
 		return nil, status.Errorf(codes.Internal, "failed to copy photo in storage: %v", err)
 	}
 	endSpanOk(copySpan)
@@ -310,6 +340,7 @@ func (s *LibraryServer) CopyPhoto(ctx context.Context, req *proto.CopyPhotoReque
 		_, delSpan := startSpan(ctx, "gcs.delete_object")
 		_ = dstObj.Delete(ctx)
 		endSpanOk(delSpan)
+		recordError(ctx, "CopyPhoto", codes.Internal)
 		return nil, status.Errorf(codes.Internal, "failed to create photo record: %v", err)
 	}
 	endSpanOk(createSpan)
@@ -349,6 +380,8 @@ func (s *LibraryServer) CopyPhoto(ctx context.Context, req *proto.CopyPhotoReque
 		IsVideo:     IsVideoContentType(attrs.ContentType),
 	}
 
+	copiedCounter.Add(ctx, 1)
+
 	return &proto.CopyPhotoResponse{
 		Photo: photo,
 	}, nil
@@ -359,6 +392,7 @@ func (s *LibraryServer) CopyPhoto(ctx context.Context, req *proto.CopyPhotoReque
 func (s *LibraryServer) RenamePhoto(ctx context.Context, req *proto.RenamePhotoRequest) (*proto.RenamePhotoResponse, error) {
 	userID, ok := ctx.Value(contextKeyUser{}).(uint)
 	if !ok {
+		recordError(ctx, "RenamePhoto", codes.Unauthenticated)
 		return nil, status.Errorf(codes.Unauthenticated, "authentication required")
 	}
 
@@ -366,12 +400,15 @@ func (s *LibraryServer) RenamePhoto(ctx context.Context, req *proto.RenamePhotoR
 	destObjectID := req.GetDestinationObjectId()
 
 	if sourceObjectID == "" {
+		recordError(ctx, "RenamePhoto", codes.InvalidArgument)
 		return nil, status.Errorf(codes.InvalidArgument, "source_object_id is required")
 	}
 	if destObjectID == "" {
+		recordError(ctx, "RenamePhoto", codes.InvalidArgument)
 		return nil, status.Errorf(codes.InvalidArgument, "destination_object_id is required")
 	}
 	if sourceObjectID == destObjectID {
+		recordError(ctx, "RenamePhoto", codes.InvalidArgument)
 		return nil, status.Errorf(codes.InvalidArgument, "source and destination cannot be the same")
 	}
 
@@ -381,8 +418,10 @@ func (s *LibraryServer) RenamePhoto(ctx context.Context, req *proto.RenamePhotoR
 	if err := s.DB.Where("object_id = ? AND user_id = ?", sourceObjectID, userID).First(&sourcePhoto).Error; err != nil {
 		recordSpanError(dbSpan, err)
 		if err == gorm.ErrRecordNotFound {
+			recordError(ctx, "RenamePhoto", codes.NotFound)
 			return nil, status.Errorf(codes.NotFound, "source photo not found: %s", sourceObjectID)
 		}
+		recordError(ctx, "RenamePhoto", codes.Internal)
 		return nil, status.Errorf(codes.Internal, "failed to query source photo: %v", err)
 	}
 	endSpanOk(dbSpan)
@@ -394,10 +433,12 @@ func (s *LibraryServer) RenamePhoto(ctx context.Context, req *proto.RenamePhotoR
 		Where("object_id = ? AND user_id = ?", destObjectID, userID).
 		Count(&destCount).Error; err != nil {
 		recordSpanError(destSpan, err)
+		recordError(ctx, "RenamePhoto", codes.Internal)
 		return nil, status.Errorf(codes.Internal, "failed to check destination: %v", err)
 	}
 	endSpanOk(destSpan)
 	if destCount > 0 {
+		recordError(ctx, "RenamePhoto", codes.AlreadyExists)
 		return nil, status.Errorf(codes.AlreadyExists, "destination photo already exists: %s", destObjectID)
 	}
 
@@ -412,8 +453,10 @@ func (s *LibraryServer) RenamePhoto(ctx context.Context, req *proto.RenamePhotoR
 	if err != nil {
 		recordSpanError(copySpan, err)
 		if err == storage.ErrObjectNotExist {
+			recordError(ctx, "RenamePhoto", codes.NotFound)
 			return nil, status.Errorf(codes.NotFound, "source photo not found in storage: %s", sourceObjectID)
 		}
+		recordError(ctx, "RenamePhoto", codes.Internal)
 		return nil, status.Errorf(codes.Internal, "failed to copy photo in storage: %v", err)
 	}
 	endSpanOk(copySpan)
@@ -436,6 +479,7 @@ func (s *LibraryServer) RenamePhoto(ctx context.Context, req *proto.RenamePhotoR
 		_, delSpan := startSpan(ctx, "gcs.delete_object")
 		_ = dstObj.Delete(ctx)
 		endSpanOk(delSpan)
+		recordError(ctx, "RenamePhoto", codes.Internal)
 		return nil, status.Errorf(codes.Internal, "failed to create photo record: %v", err)
 	}
 	endSpanOk(createSpan)
@@ -475,6 +519,7 @@ func (s *LibraryServer) RenamePhoto(ctx context.Context, req *proto.RenamePhotoR
 	_, srcDbDelSpan := startSpan(ctx, "db.delete_source_photo")
 	if err := s.DB.Delete(&sourcePhoto).Error; err != nil {
 		recordSpanError(srcDbDelSpan, err)
+		recordError(ctx, "RenamePhoto", codes.Internal)
 		return nil, status.Errorf(codes.Internal, "failed to delete source photo from database: %v", err)
 	}
 	endSpanOk(srcDbDelSpan)
@@ -537,6 +582,8 @@ func (s *LibraryServer) RenamePhoto(ctx context.Context, req *proto.RenamePhotoR
 		IsVideo:     IsVideoContentType(attrs.ContentType),
 	}
 
+	renamedCounter.Add(ctx, 1)
+
 	return &proto.RenamePhotoResponse{
 		Photo: photo,
 	}, nil
@@ -546,11 +593,13 @@ func (s *LibraryServer) RenamePhoto(ctx context.Context, req *proto.RenamePhotoR
 func (s *LibraryServer) GenerateSignedUrl(ctx context.Context, req *proto.GenerateSignedUrlRequest) (*proto.GenerateSignedUrlResponse, error) {
 	userID, ok := ctx.Value(contextKeyUser{}).(uint)
 	if !ok {
+		recordError(ctx, "GenerateSignedUrl", codes.Unauthenticated)
 		return nil, status.Errorf(codes.Unauthenticated, "authentication required")
 	}
 
 	objectID := req.GetObjectId()
 	if objectID == "" {
+		recordError(ctx, "GenerateSignedUrl", codes.InvalidArgument)
 		return nil, status.Errorf(codes.InvalidArgument, "object_id is required")
 	}
 
@@ -559,6 +608,7 @@ func (s *LibraryServer) GenerateSignedUrl(ctx context.Context, req *proto.Genera
 		expirationSeconds = 3600 // Default to 1 hour
 	}
 	if expirationSeconds > 604800 { // 7 days max
+		recordError(ctx, "GenerateSignedUrl", codes.InvalidArgument)
 		return nil, status.Errorf(codes.InvalidArgument, "expiration_seconds cannot exceed 604800 (7 days)")
 	}
 
@@ -571,6 +621,7 @@ func (s *LibraryServer) GenerateSignedUrl(ctx context.Context, req *proto.Genera
 	case "GET", "PUT", "DELETE", "HEAD":
 		// Valid methods
 	default:
+		recordError(ctx, "GenerateSignedUrl", codes.InvalidArgument)
 		return nil, status.Errorf(codes.InvalidArgument, "invalid method: %s (must be GET, PUT, DELETE, or HEAD)", method)
 	}
 
@@ -581,10 +632,12 @@ func (s *LibraryServer) GenerateSignedUrl(ctx context.Context, req *proto.Genera
 		Where("object_id = ? AND user_id = ?", objectID, userID).
 		Count(&count).Error; err != nil {
 		recordSpanError(dbSpan, err)
+		recordError(ctx, "GenerateSignedUrl", codes.Internal)
 		return nil, status.Errorf(codes.Internal, "failed to verify photo ownership: %v", err)
 	}
 	endSpanOk(dbSpan)
 	if count == 0 {
+		recordError(ctx, "GenerateSignedUrl", codes.NotFound)
 		return nil, status.Errorf(codes.NotFound, "photo not found: %s", objectID)
 	}
 
@@ -599,6 +652,7 @@ func (s *LibraryServer) GenerateSignedUrl(ctx context.Context, req *proto.Genera
 	})
 	if err != nil {
 		recordSpanError(gcsSpan, err)
+		recordError(ctx, "GenerateSignedUrl", codes.Internal)
 		return nil, status.Errorf(codes.Internal, "failed to generate signed URL: %v", err)
 	}
 	endSpanOk(gcsSpan)
@@ -611,6 +665,8 @@ func (s *LibraryServer) GenerateSignedUrl(ctx context.Context, req *proto.Genera
 		slog.Int64("expiration_seconds", expirationSeconds),
 		slog.Uint64("user_id", uint64(userID)),
 	)
+
+	signedURLCounter.Add(ctx, 1, metric.WithAttributes(attribute.String("action", method)))
 
 	return &proto.GenerateSignedUrlResponse{
 		SignedUrl: signedURL,
@@ -625,6 +681,7 @@ func (s *LibraryServer) GenerateSignedUrl(ctx context.Context, req *proto.Genera
 func (s *LibraryServer) ListPhotos(ctx context.Context, req *proto.ListPhotosRequest) (*proto.ListPhotosResponse, error) {
 	userID, ok := ctx.Value(contextKeyUser{}).(uint)
 	if !ok {
+		recordError(ctx, "ListPhotos", codes.Unauthenticated)
 		return nil, status.Errorf(codes.Unauthenticated, "authentication required")
 	}
 
@@ -672,6 +729,7 @@ func (s *LibraryServer) ListPhotos(ctx context.Context, req *proto.ListPhotosReq
 	_, countSpan := startSpan(ctx, "db.count_photos")
 	if err := query.Model(&database.PhotoObject{}).Count(&totalCount).Error; err != nil {
 		recordSpanError(countSpan, err)
+		recordError(ctx, "ListPhotos", codes.Internal)
 		return nil, status.Errorf(codes.Internal, "failed to count photos: %v", err)
 	}
 	endSpanOk(countSpan)
@@ -681,10 +739,12 @@ func (s *LibraryServer) ListPhotos(ctx context.Context, req *proto.ListPhotosReq
 	if pageToken != "" {
 		decodedToken, err := base64.StdEncoding.DecodeString(pageToken)
 		if err != nil {
+			recordError(ctx, "ListPhotos", codes.InvalidArgument)
 			return nil, status.Errorf(codes.InvalidArgument, "invalid page token")
 		}
 		tokenParts := strings.SplitN(string(decodedToken), "|", 2)
 		if len(tokenParts) != 2 {
+			recordError(ctx, "ListPhotos", codes.InvalidArgument)
 			return nil, status.Errorf(codes.InvalidArgument, "invalid page token format")
 		}
 		tokenTimeTakenStr := tokenParts[0]
@@ -699,6 +759,7 @@ func (s *LibraryServer) ListPhotos(ctx context.Context, req *proto.ListPhotosReq
 				// Parse the time string back to time.Time for proper comparison
 				tokenTimeTaken, err := time.Parse(time.RFC3339, tokenTimeTakenStr)
 				if err != nil {
+					recordError(ctx, "ListPhotos", codes.InvalidArgument)
 					return nil, status.Errorf(codes.InvalidArgument, "invalid time format in page token")
 				}
 				// For photos with time_taken, get newer photos or same time with greater object_id
@@ -716,6 +777,7 @@ func (s *LibraryServer) ListPhotos(ctx context.Context, req *proto.ListPhotosReq
 				// Parse the time string back to time.Time for proper comparison
 				tokenTimeTaken, err := time.Parse(time.RFC3339, tokenTimeTakenStr)
 				if err != nil {
+					recordError(ctx, "ListPhotos", codes.InvalidArgument)
 					return nil, status.Errorf(codes.InvalidArgument, "invalid time format in page token")
 				}
 				// For photos with time_taken, get older photos or same time with greater object_id
@@ -741,6 +803,7 @@ func (s *LibraryServer) ListPhotos(ctx context.Context, req *proto.ListPhotosReq
 	_, listSpan := startSpan(ctx, "db.list_photos")
 	if err := query.Order(orderClause).Limit(int(pageSize) + 1).Find(&photoObjects).Error; err != nil {
 		recordSpanError(listSpan, err)
+		recordError(ctx, "ListPhotos", codes.Internal)
 		return nil, status.Errorf(codes.Internal, "failed to list photos: %v", err)
 	}
 	endSpanOk(listSpan)
@@ -821,6 +884,9 @@ func (s *LibraryServer) ListPhotos(ctx context.Context, req *proto.ListPhotosReq
 		slog.String("page_size", strconv.Itoa(int(pageSize))),
 	)
 
+	listCounter.Add(ctx, 1, metric.WithAttributes(attribute.Bool("has_prefix", prefix != "")))
+	listResultsHist.Record(ctx, int64(count))
+
 	return &proto.ListPhotosResponse{
 		Photos:        photos,
 		NextPageToken: nextPageToken,
@@ -832,11 +898,13 @@ func (s *LibraryServer) ListPhotos(ctx context.Context, req *proto.ListPhotosReq
 func (s *LibraryServer) DeletePhoto(ctx context.Context, req *proto.DeletePhotoRequest) (*proto.DeletePhotoResponse, error) {
 	userID, ok := ctx.Value(contextKeyUser{}).(uint)
 	if !ok {
+		recordError(ctx, "DeletePhoto", codes.Unauthenticated)
 		return nil, status.Errorf(codes.Unauthenticated, "authentication required")
 	}
 
 	objectID := req.GetObjectId()
 	if objectID == "" {
+		recordError(ctx, "DeletePhoto", codes.InvalidArgument)
 		return nil, status.Errorf(codes.InvalidArgument, "object_id is required")
 	}
 
@@ -846,8 +914,10 @@ func (s *LibraryServer) DeletePhoto(ctx context.Context, req *proto.DeletePhotoR
 	if err := s.DB.Where("object_id = ? AND user_id = ?", objectID, userID).First(&photoObject).Error; err != nil {
 		recordSpanError(dbSpan, err)
 		if err == gorm.ErrRecordNotFound {
+			recordError(ctx, "DeletePhoto", codes.NotFound)
 			return nil, status.Errorf(codes.NotFound, "photo not found: %s", objectID)
 		}
+		recordError(ctx, "DeletePhoto", codes.Internal)
 		return nil, status.Errorf(codes.Internal, "failed to query photo: %v", err)
 	}
 	endSpanOk(dbSpan)
@@ -866,6 +936,7 @@ func (s *LibraryServer) DeletePhoto(ctx context.Context, req *proto.DeletePhotoR
 				slog.String("object_id", objectID),
 			)
 		} else {
+			recordError(ctx, "DeletePhoto", codes.Internal)
 			return nil, status.Errorf(codes.Internal, "failed to delete photo from storage: %v", err)
 		}
 	}
@@ -875,6 +946,7 @@ func (s *LibraryServer) DeletePhoto(ctx context.Context, req *proto.DeletePhotoR
 	_, dbDelSpan := startSpan(ctx, "db.delete_photo")
 	if err := s.DB.Delete(&photoObject).Error; err != nil {
 		recordSpanError(dbDelSpan, err)
+		recordError(ctx, "DeletePhoto", codes.Internal)
 		return nil, status.Errorf(codes.Internal, "failed to delete photo from database: %v", err)
 	}
 	endSpanOk(dbDelSpan)
@@ -888,6 +960,7 @@ func (s *LibraryServer) DeletePhoto(ctx context.Context, req *proto.DeletePhotoR
 			Where("object_id LIKE ? AND object_id != ?", directoryPath+"/%", objectID).
 			Count(&count).Error; err != nil {
 			recordSpanError(countSpan, err)
+			recordError(ctx, "DeletePhoto", codes.Internal)
 			return nil, status.Errorf(codes.Internal, "failed to count photos in directory: %v", err)
 		}
 		endSpanOk(countSpan)
@@ -919,6 +992,8 @@ func (s *LibraryServer) DeletePhoto(ctx context.Context, req *proto.DeletePhotoR
 		slog.String("object_id", objectID),
 		slog.Uint64("user_id", uint64(userID)),
 	)
+
+	deletedCounter.Add(ctx, 1)
 
 	return &proto.DeletePhotoResponse{
 		Success: true,
@@ -952,6 +1027,7 @@ func (s *LibraryServer) SyncDatabase(req *proto.SyncDatabaseRequest, stream grpc
 	ctx := stream.Context()
 	userID, ok := ctx.Value(contextKeyUser{}).(uint)
 	if !ok {
+		recordError(ctx, "SyncDatabase", codes.Unauthenticated)
 		return status.Errorf(codes.Unauthenticated, "authentication required")
 	}
 
@@ -962,6 +1038,7 @@ func (s *LibraryServer) SyncDatabase(req *proto.SyncDatabaseRequest, stream grpc
 	gcsObjects, err := getGCSNonDerivedObjectsMap(ctx, s.GCSClient, s.BucketName)
 	if err != nil {
 		recordSpanError(gcsListSpan, err)
+		recordError(ctx, "SyncDatabase", codes.Internal)
 		return status.Errorf(codes.Internal, "failed to list GCS objects: %v", err)
 	}
 	endSpanOk(gcsListSpan)
@@ -971,6 +1048,7 @@ func (s *LibraryServer) SyncDatabase(req *proto.SyncDatabaseRequest, stream grpc
 	_, dbListSpan := startSpan(ctx, "db.list_photo_objects")
 	if err := s.DB.Where("user_id = ?", userID).Find(&dbObjects).Error; err != nil {
 		recordSpanError(dbListSpan, err)
+		recordError(ctx, "SyncDatabase", codes.Internal)
 		return status.Errorf(codes.Internal, "failed to list database objects: %v", err)
 	}
 	endSpanOk(dbListSpan)
@@ -1209,6 +1287,11 @@ func (s *LibraryServer) SyncDatabase(req *proto.SyncDatabaseRequest, stream grpc
 		slog.Uint64("user_id", uint64(userID)),
 	)
 
+	syncRunsCounter.Add(ctx, 1)
+	syncPhotosAddedCounter.Add(ctx, int64(added))
+	syncPhotosRemovedCounter.Add(ctx, int64(removed))
+	syncPhotosMetadataRefreshedCounter.Add(ctx, int64(metadataUpdated))
+
 	return stream.Send(&proto.SyncDatabaseProgress{
 		Phase:           proto.SyncDatabaseProgress_PHASE_UNSPECIFIED,
 		Added:           uint32(added),
@@ -1242,6 +1325,7 @@ func (s *LibraryServer) UpdateWebp(req *proto.UpdateWebpRequest, stream grpc.Ser
 	ctx := stream.Context()
 	userID, ok := ctx.Value(contextKeyUser{}).(uint)
 	if !ok {
+		recordError(ctx, "UpdateWebp", codes.Unauthenticated)
 		return status.Errorf(codes.Unauthenticated, "authentication required")
 	}
 
@@ -1250,6 +1334,7 @@ func (s *LibraryServer) UpdateWebp(req *proto.UpdateWebpRequest, stream grpc.Ser
 	gcsObjects, err := getGCSObjectsMap(ctx, s.GCSClient, s.BucketName)
 	if err != nil {
 		recordSpanError(gcsListSpan, err)
+		recordError(ctx, "UpdateWebp", codes.Internal)
 		return status.Errorf(codes.Internal, "failed to list GCS objects: %v", err)
 	}
 	endSpanOk(gcsListSpan)
@@ -1261,6 +1346,7 @@ func (s *LibraryServer) UpdateWebp(req *proto.UpdateWebpRequest, stream grpc.Ser
 	_, dbListSpan := startSpan(ctx, "db.list_photo_objects")
 	if err := s.DB.Where("user_id = ?", userID).Find(&databasePhotos).Error; err != nil {
 		recordSpanError(dbListSpan, err)
+		recordError(ctx, "UpdateWebp", codes.Internal)
 		return status.Errorf(codes.Internal, "failed to list database objects: %v", err)
 	}
 	endSpanOk(dbListSpan)
@@ -1381,6 +1467,10 @@ func (s *LibraryServer) UpdateWebp(req *proto.UpdateWebpRequest, stream grpc.Ser
 		slog.Int("gcs_only", len(objectsMissingWebp)),
 		slog.Uint64("user_id", uint64(userID)),
 	)
+
+	webpGeneratedCounter.Add(ctx, int64(generated))
+	webpSkippedCounter.Add(ctx, int64(skipped))
+	webpFailedCounter.Add(ctx, int64(failed))
 
 	return stream.Send(&proto.UpdateWebpProgress{
 		Processed: total,
@@ -1983,11 +2073,13 @@ func (s *LibraryServer) updateObjectMetadata(ctx context.Context, objectID strin
 func (s *LibraryServer) UpdatePhotoMetadata(ctx context.Context, req *proto.UpdatePhotoMetadataRequest) (*proto.UpdatePhotoMetadataResponse, error) {
 	userID, ok := ctx.Value(contextKeyUser{}).(uint)
 	if !ok {
+		recordError(ctx, "UpdatePhotoMetadata", codes.Unauthenticated)
 		return nil, status.Errorf(codes.Unauthenticated, "authentication required")
 	}
 
 	objectID := req.GetObjectId()
 	if objectID == "" {
+		recordError(ctx, "UpdatePhotoMetadata", codes.InvalidArgument)
 		return nil, status.Errorf(codes.InvalidArgument, "object_id is required")
 	}
 
@@ -1996,6 +2088,7 @@ func (s *LibraryServer) UpdatePhotoMetadata(ctx context.Context, req *proto.Upda
 
 	// Check if there's anything to update
 	if len(customMetadata) == 0 && contentType == "" {
+		recordError(ctx, "UpdatePhotoMetadata", codes.InvalidArgument)
 		return nil, status.Errorf(codes.InvalidArgument, "at least one of custom_metadata or content_type must be provided")
 	}
 
@@ -2005,8 +2098,10 @@ func (s *LibraryServer) UpdatePhotoMetadata(ctx context.Context, req *proto.Upda
 	if err := s.DB.Where("object_id = ? AND user_id = ?", objectID, userID).First(&photoObject).Error; err != nil {
 		recordSpanError(dbSpan, err)
 		if err == gorm.ErrRecordNotFound {
+			recordError(ctx, "UpdatePhotoMetadata", codes.NotFound)
 			return nil, status.Errorf(codes.NotFound, "photo not found: %s", objectID)
 		}
+		recordError(ctx, "UpdatePhotoMetadata", codes.Internal)
 		return nil, status.Errorf(codes.Internal, "failed to query photo: %v", err)
 	}
 	endSpanOk(dbSpan)
@@ -2030,8 +2125,10 @@ func (s *LibraryServer) UpdatePhotoMetadata(ctx context.Context, req *proto.Upda
 	if err != nil {
 		recordSpanError(gcsUpdateSpan, err)
 		if err == storage.ErrObjectNotExist {
+			recordError(ctx, "UpdatePhotoMetadata", codes.NotFound)
 			return nil, status.Errorf(codes.NotFound, "photo not found in storage: %s", objectID)
 		}
+		recordError(ctx, "UpdatePhotoMetadata", codes.Internal)
 		return nil, status.Errorf(codes.Internal, "failed to update object metadata: %v", err)
 	}
 	endSpanOk(gcsUpdateSpan)
@@ -2041,6 +2138,7 @@ func (s *LibraryServer) UpdatePhotoMetadata(ctx context.Context, req *proto.Upda
 		_, dbContentSpan := startSpan(ctx, "db.update_content_type")
 		if err := s.DB.Model(&photoObject).Update("content_type", contentType).Error; err != nil {
 			recordSpanError(dbContentSpan, err)
+			recordError(ctx, "UpdatePhotoMetadata", codes.Internal)
 			return nil, status.Errorf(codes.Internal, "failed to update database: %v", err)
 		}
 		endSpanOk(dbContentSpan)
@@ -2052,6 +2150,7 @@ func (s *LibraryServer) UpdatePhotoMetadata(ctx context.Context, req *proto.Upda
 	attrs, err := obj.Attrs(ctx)
 	if err != nil {
 		recordSpanError(gcsAttrsSpan, err)
+		recordError(ctx, "UpdatePhotoMetadata", codes.Internal)
 		return nil, status.Errorf(codes.Internal, "failed to get updated attributes: %v", err)
 	}
 	endSpanOk(gcsAttrsSpan)
@@ -2075,6 +2174,8 @@ func (s *LibraryServer) UpdatePhotoMetadata(ctx context.Context, req *proto.Upda
 		slog.Int("custom_metadata_count", len(customMetadata)),
 		slog.Uint64("user_id", uint64(userID)),
 	)
+
+	metadataUpdatesCounter.Add(ctx, 1)
 
 	return &proto.UpdatePhotoMetadataResponse{
 		Photo: photo,
@@ -2192,21 +2293,25 @@ func (s *LibraryServer) getDirectoryConfiguration(ctx context.Context, prefix st
 func (s *LibraryServer) CreateMarkdown(ctx context.Context, req *proto.CreateMarkdownRequest) (*proto.CreateMarkdownResponse, error) {
 	userID, ok := ctx.Value(contextKeyUser{}).(uint)
 	if !ok {
+		recordError(ctx, "CreateMarkdown", codes.Unauthenticated)
 		return nil, status.Errorf(codes.Unauthenticated, "authentication required")
 	}
 
 	prefix := req.GetPrefix()
 	if prefix == "" {
+		recordError(ctx, "CreateMarkdown", codes.InvalidArgument)
 		return nil, status.Errorf(codes.InvalidArgument, "prefix is required")
 	}
 
 	markdown := req.GetMarkdown()
 	if markdown == "" {
+		recordError(ctx, "CreateMarkdown", codes.InvalidArgument)
 		return nil, status.Errorf(codes.InvalidArgument, "markdown is required")
 	}
 
 	// Validate that the markdown has valid YAML frontmatter matching DirectoryConfiguration schema
 	if _, err := ParseMarkdownFrontmatter(markdown); err != nil {
+		recordError(ctx, "CreateMarkdown", codes.InvalidArgument)
 		return nil, status.Errorf(codes.InvalidArgument, "invalid markdown frontmatter: %v", err)
 	}
 
@@ -2223,11 +2328,13 @@ func (s *LibraryServer) CreateMarkdown(ctx context.Context, req *proto.CreateMar
 
 	if _, err := writer.Write([]byte(markdown)); err != nil {
 		recordSpanError(writeSpan, err)
+		recordError(ctx, "CreateMarkdown", codes.Internal)
 		return nil, status.Errorf(codes.Internal, "failed to write markdown to GCS: %v", err)
 	}
 
 	if err := writer.Close(); err != nil {
 		recordSpanError(writeSpan, err)
+		recordError(ctx, "CreateMarkdown", codes.Internal)
 		return nil, status.Errorf(codes.Internal, "failed to close GCS writer: %v", err)
 	}
 	endSpanOk(writeSpan)
@@ -2256,6 +2363,9 @@ func (s *LibraryServer) CreateMarkdown(ctx context.Context, req *proto.CreateMar
 		slog.Uint64("user_id", uint64(userID)),
 	)
 
+	markdownOperationsCounter.Add(ctx, 1, metric.WithAttributes(attribute.String("operation", "create")))
+	markdownSizeHist.Record(ctx, int64(len(markdown)))
+
 	return &proto.CreateMarkdownResponse{
 		ObjectId: objectID,
 	}, nil
@@ -2265,11 +2375,13 @@ func (s *LibraryServer) CreateMarkdown(ctx context.Context, req *proto.CreateMar
 func (s *LibraryServer) GetMarkdown(ctx context.Context, req *proto.GetMarkdownRequest) (*proto.GetMarkdownResponse, error) {
 	userID, ok := ctx.Value(contextKeyUser{}).(uint)
 	if !ok {
+		recordError(ctx, "GetMarkdown", codes.Unauthenticated)
 		return nil, status.Errorf(codes.Unauthenticated, "authentication required")
 	}
 
 	prefix := req.GetPrefix()
 	if prefix == "" {
+		recordError(ctx, "GetMarkdown", codes.InvalidArgument)
 		return nil, status.Errorf(codes.InvalidArgument, "prefix is required")
 	}
 
@@ -2283,8 +2395,10 @@ func (s *LibraryServer) GetMarkdown(ctx context.Context, req *proto.GetMarkdownR
 	if err := s.DB.Where("path = ?", dir).First(&photoDir).Error; err != nil {
 		recordSpanError(dbSpan, err)
 		if err == gorm.ErrRecordNotFound {
+			recordError(ctx, "GetMarkdown", codes.NotFound)
 			return nil, status.Errorf(codes.NotFound, "directory not found: %s", dir)
 		}
+		recordError(ctx, "GetMarkdown", codes.Internal)
 		return nil, status.Errorf(codes.Internal, "failed to query directory: %v", err)
 	}
 	endSpanOk(dbSpan)
@@ -2298,8 +2412,10 @@ func (s *LibraryServer) GetMarkdown(ctx context.Context, req *proto.GetMarkdownR
 	if err != nil {
 		recordSpanError(readSpan, err)
 		if err == storage.ErrObjectNotExist {
+			recordError(ctx, "GetMarkdown", codes.NotFound)
 			return nil, status.Errorf(codes.NotFound, "markdown file not found in storage: %s", objectID)
 		}
+		recordError(ctx, "GetMarkdown", codes.Internal)
 		return nil, status.Errorf(codes.Internal, "failed to read markdown file: %v", err)
 	}
 	defer func() { _ = reader.Close() }()
@@ -2307,6 +2423,7 @@ func (s *LibraryServer) GetMarkdown(ctx context.Context, req *proto.GetMarkdownR
 	data, err := io.ReadAll(reader)
 	if err != nil {
 		recordSpanError(readSpan, err)
+		recordError(ctx, "GetMarkdown", codes.Internal)
 		return nil, status.Errorf(codes.Internal, "failed to read markdown content: %v", err)
 	}
 	endSpanOk(readSpan)
@@ -2319,6 +2436,9 @@ func (s *LibraryServer) GetMarkdown(ctx context.Context, req *proto.GetMarkdownR
 		slog.Uint64("user_id", uint64(userID)),
 	)
 
+	markdownOperationsCounter.Add(ctx, 1, metric.WithAttributes(attribute.String("operation", "get")))
+	markdownSizeHist.Record(ctx, int64(len(data)))
+
 	return &proto.GetMarkdownResponse{
 		ObjectId: objectID,
 		Markdown: string(data),
@@ -2329,21 +2449,25 @@ func (s *LibraryServer) GetMarkdown(ctx context.Context, req *proto.GetMarkdownR
 func (s *LibraryServer) UpdateMarkdown(ctx context.Context, req *proto.UpdateMarkdownRequest) (*proto.UpdateMarkdownResponse, error) {
 	userID, ok := ctx.Value(contextKeyUser{}).(uint)
 	if !ok {
+		recordError(ctx, "UpdateMarkdown", codes.Unauthenticated)
 		return nil, status.Errorf(codes.Unauthenticated, "authentication required")
 	}
 
 	prefix := req.GetPrefix()
 	if prefix == "" {
+		recordError(ctx, "UpdateMarkdown", codes.InvalidArgument)
 		return nil, status.Errorf(codes.InvalidArgument, "prefix is required")
 	}
 
 	markdown := req.GetMarkdown()
 	if markdown == "" {
+		recordError(ctx, "UpdateMarkdown", codes.InvalidArgument)
 		return nil, status.Errorf(codes.InvalidArgument, "markdown is required")
 	}
 
 	// Validate that the markdown has valid YAML frontmatter matching DirectoryConfiguration schema
 	if _, err := ParseMarkdownFrontmatter(markdown); err != nil {
+		recordError(ctx, "UpdateMarkdown", codes.InvalidArgument)
 		return nil, status.Errorf(codes.InvalidArgument, "invalid markdown frontmatter: %v", err)
 	}
 
@@ -2357,8 +2481,10 @@ func (s *LibraryServer) UpdateMarkdown(ctx context.Context, req *proto.UpdateMar
 	if err := s.DB.Where("path = ?", dir).First(&photoDir).Error; err != nil {
 		recordSpanError(dbSpan, err)
 		if err == gorm.ErrRecordNotFound {
+			recordError(ctx, "UpdateMarkdown", codes.NotFound)
 			return nil, status.Errorf(codes.NotFound, "directory not found: %s", dir)
 		}
+		recordError(ctx, "UpdateMarkdown", codes.Internal)
 		return nil, status.Errorf(codes.Internal, "failed to query directory: %v", err)
 	}
 	endSpanOk(dbSpan)
@@ -2373,11 +2499,13 @@ func (s *LibraryServer) UpdateMarkdown(ctx context.Context, req *proto.UpdateMar
 
 	if _, err := writer.Write([]byte(markdown)); err != nil {
 		recordSpanError(writeSpan, err)
+		recordError(ctx, "UpdateMarkdown", codes.Internal)
 		return nil, status.Errorf(codes.Internal, "failed to write markdown to GCS: %v", err)
 	}
 
 	if err := writer.Close(); err != nil {
 		recordSpanError(writeSpan, err)
+		recordError(ctx, "UpdateMarkdown", codes.Internal)
 		return nil, status.Errorf(codes.Internal, "failed to close GCS writer: %v", err)
 	}
 	endSpanOk(writeSpan)
@@ -2390,6 +2518,9 @@ func (s *LibraryServer) UpdateMarkdown(ctx context.Context, req *proto.UpdateMar
 		slog.Uint64("user_id", uint64(userID)),
 	)
 
+	markdownOperationsCounter.Add(ctx, 1, metric.WithAttributes(attribute.String("operation", "update")))
+	markdownSizeHist.Record(ctx, int64(len(markdown)))
+
 	return &proto.UpdateMarkdownResponse{
 		ObjectId: objectID,
 	}, nil
@@ -2399,11 +2530,13 @@ func (s *LibraryServer) UpdateMarkdown(ctx context.Context, req *proto.UpdateMar
 func (s *LibraryServer) DeleteMarkdown(ctx context.Context, req *proto.DeleteMarkdownRequest) (*proto.DeleteMarkdownResponse, error) {
 	userID, ok := ctx.Value(contextKeyUser{}).(uint)
 	if !ok {
+		recordError(ctx, "DeleteMarkdown", codes.Unauthenticated)
 		return nil, status.Errorf(codes.Unauthenticated, "authentication required")
 	}
 
 	prefix := req.GetPrefix()
 	if prefix == "" {
+		recordError(ctx, "DeleteMarkdown", codes.InvalidArgument)
 		return nil, status.Errorf(codes.InvalidArgument, "prefix is required")
 	}
 
@@ -2417,8 +2550,10 @@ func (s *LibraryServer) DeleteMarkdown(ctx context.Context, req *proto.DeleteMar
 	if err := s.DB.Where("path = ?", dir).First(&photoDir).Error; err != nil {
 		recordSpanError(dbSpan, err)
 		if err == gorm.ErrRecordNotFound {
+			recordError(ctx, "DeleteMarkdown", codes.NotFound)
 			return nil, status.Errorf(codes.NotFound, "directory not found: %s", dir)
 		}
+		recordError(ctx, "DeleteMarkdown", codes.Internal)
 		return nil, status.Errorf(codes.Internal, "failed to query directory: %v", err)
 	}
 	endSpanOk(dbSpan)
@@ -2437,6 +2572,7 @@ func (s *LibraryServer) DeleteMarkdown(ctx context.Context, req *proto.DeleteMar
 				slog.String("object_id", objectID),
 			)
 		} else {
+			recordError(ctx, "DeleteMarkdown", codes.Internal)
 			return nil, status.Errorf(codes.Internal, "failed to delete markdown from storage: %v", err)
 		}
 	}
@@ -2450,6 +2586,8 @@ func (s *LibraryServer) DeleteMarkdown(ctx context.Context, req *proto.DeleteMar
 		slog.Uint64("user_id", uint64(userID)),
 	)
 
+	markdownOperationsCounter.Add(ctx, 1, metric.WithAttributes(attribute.String("operation", "delete")))
+
 	return &proto.DeleteMarkdownResponse{
 		Success: true,
 	}, nil
@@ -2459,11 +2597,13 @@ func (s *LibraryServer) DeleteMarkdown(ctx context.Context, req *proto.DeleteMar
 func (s *LibraryServer) GenerateVideoThumbnail(ctx context.Context, req *proto.GenerateVideoThumbnailRequest) (*proto.GenerateVideoThumbnailResponse, error) {
 	userID, ok := ctx.Value(contextKeyUser{}).(uint)
 	if !ok {
+		recordError(ctx, "GenerateVideoThumbnail", codes.Unauthenticated)
 		return nil, status.Errorf(codes.Unauthenticated, "authentication required")
 	}
 
 	objectID := req.GetObjectId()
 	if objectID == "" {
+		recordError(ctx, "GenerateVideoThumbnail", codes.InvalidArgument)
 		return nil, status.Errorf(codes.InvalidArgument, "object_id is required")
 	}
 
@@ -2473,14 +2613,17 @@ func (s *LibraryServer) GenerateVideoThumbnail(ctx context.Context, req *proto.G
 	if err := s.DB.Where("object_id = ? AND user_id = ?", objectID, userID).First(&photoObject).Error; err != nil {
 		recordSpanError(dbSpan, err)
 		if err == gorm.ErrRecordNotFound {
+			recordError(ctx, "GenerateVideoThumbnail", codes.NotFound)
 			return nil, status.Errorf(codes.NotFound, "photo not found: %s", objectID)
 		}
+		recordError(ctx, "GenerateVideoThumbnail", codes.Internal)
 		return nil, status.Errorf(codes.Internal, "failed to query photo: %v", err)
 	}
 	endSpanOk(dbSpan)
 
 	// Verify this is a video
 	if !IsVideoContentType(photoObject.ContentType) {
+		recordError(ctx, "GenerateVideoThumbnail", codes.InvalidArgument)
 		return nil, status.Errorf(codes.InvalidArgument, "object is not a video: %s", photoObject.ContentType)
 	}
 
@@ -2504,6 +2647,7 @@ func (s *LibraryServer) GenerateVideoThumbnail(ctx context.Context, req *proto.G
 			})
 			if err != nil {
 				recordSpanError(signSpan, err)
+				recordError(ctx, "GenerateVideoThumbnail", codes.Internal)
 				return nil, status.Errorf(codes.Internal, "failed to generate signed URL for existing thumbnail: %v", err)
 			}
 			endSpanOk(signSpan)
@@ -2515,6 +2659,8 @@ func (s *LibraryServer) GenerateVideoThumbnail(ctx context.Context, req *proto.G
 				slog.String("thumbnail_object_id", *photoObject.ThumbnailObjectID),
 				slog.Uint64("user_id", uint64(userID)),
 			)
+
+			videoThumbnailGeneratedCounter.Add(ctx, 1, metric.WithAttributes(attribute.Bool("cache_hit", true)))
 
 			return &proto.GenerateVideoThumbnailResponse{
 				ThumbnailObjectId: *photoObject.ThumbnailObjectID,
@@ -2534,8 +2680,10 @@ func (s *LibraryServer) GenerateVideoThumbnail(ctx context.Context, req *proto.G
 	if err != nil {
 		recordSpanError(readSpan, err)
 		if err == storage.ErrObjectNotExist {
+			recordError(ctx, "GenerateVideoThumbnail", codes.NotFound)
 			return nil, status.Errorf(codes.NotFound, "video not found in storage: %s", objectID)
 		}
+		recordError(ctx, "GenerateVideoThumbnail", codes.Internal)
 		return nil, status.Errorf(codes.Internal, "failed to open video: %v", err)
 	}
 	defer func() { _ = reader.Close() }()
@@ -2543,6 +2691,7 @@ func (s *LibraryServer) GenerateVideoThumbnail(ctx context.Context, req *proto.G
 	videoData, err := io.ReadAll(reader)
 	if err != nil {
 		recordSpanError(readSpan, err)
+		recordError(ctx, "GenerateVideoThumbnail", codes.Internal)
 		return nil, status.Errorf(codes.Internal, "failed to read video: %v", err)
 	}
 	endSpanOk(readSpan)
@@ -2551,6 +2700,7 @@ func (s *LibraryServer) GenerateVideoThumbnail(ctx context.Context, req *proto.G
 	timeOffsetMs := req.GetTimeOffsetMs()
 	thumbnailData, err := GenerateVideoThumbnail(videoData, timeOffsetMs)
 	if err != nil {
+		recordError(ctx, "GenerateVideoThumbnail", codes.Internal)
 		return nil, status.Errorf(codes.Internal, "failed to generate thumbnail: %v", err)
 	}
 
@@ -2564,11 +2714,13 @@ func (s *LibraryServer) GenerateVideoThumbnail(ctx context.Context, req *proto.G
 
 	if _, err := thumbWriter.Write(thumbnailData); err != nil {
 		recordSpanError(writeSpan, err)
+		recordError(ctx, "GenerateVideoThumbnail", codes.Internal)
 		return nil, status.Errorf(codes.Internal, "failed to write thumbnail to GCS: %v", err)
 	}
 
 	if err := thumbWriter.Close(); err != nil {
 		recordSpanError(writeSpan, err)
+		recordError(ctx, "GenerateVideoThumbnail", codes.Internal)
 		return nil, status.Errorf(codes.Internal, "failed to close thumbnail writer: %v", err)
 	}
 	endSpanOk(writeSpan)
@@ -2577,6 +2729,7 @@ func (s *LibraryServer) GenerateVideoThumbnail(ctx context.Context, req *proto.G
 	_, dbThumbSpan := startSpan(ctx, "db.update_thumbnail_object_id")
 	if err := s.DB.Model(&photoObject).Update("thumbnail_object_id", thumbnailObjectID).Error; err != nil {
 		recordSpanError(dbThumbSpan, err)
+		recordError(ctx, "GenerateVideoThumbnail", codes.Internal)
 		return nil, status.Errorf(codes.Internal, "failed to update photo with thumbnail: %v", err)
 	}
 	endSpanOk(dbThumbSpan)
@@ -2590,6 +2743,7 @@ func (s *LibraryServer) GenerateVideoThumbnail(ctx context.Context, req *proto.G
 	})
 	if err != nil {
 		recordSpanError(signSpan, err)
+		recordError(ctx, "GenerateVideoThumbnail", codes.Internal)
 		return nil, status.Errorf(codes.Internal, "failed to generate signed URL: %v", err)
 	}
 	endSpanOk(signSpan)
@@ -2603,6 +2757,9 @@ func (s *LibraryServer) GenerateVideoThumbnail(ctx context.Context, req *proto.G
 		slog.Uint64("user_id", uint64(userID)),
 	)
 
+	videoThumbnailGeneratedCounter.Add(ctx, 1, metric.WithAttributes(attribute.Bool("cache_hit", false)))
+	videoThumbnailSizeHist.Record(ctx, int64(len(thumbnailData)))
+
 	return &proto.GenerateVideoThumbnailResponse{
 		ThumbnailObjectId: thumbnailObjectID,
 		SignedUrl:         signedURL,
@@ -2614,11 +2771,13 @@ func (s *LibraryServer) GenerateVideoThumbnail(ctx context.Context, req *proto.G
 func (s *LibraryServer) GenerateDNGPreview(ctx context.Context, req *proto.GenerateDNGPreviewRequest) (*proto.GenerateDNGPreviewResponse, error) {
 	userID, ok := ctx.Value(contextKeyUser{}).(uint)
 	if !ok {
+		recordError(ctx, "GenerateDNGPreview", codes.Unauthenticated)
 		return nil, status.Errorf(codes.Unauthenticated, "authentication required")
 	}
 
 	objectID := req.GetObjectId()
 	if objectID == "" {
+		recordError(ctx, "GenerateDNGPreview", codes.InvalidArgument)
 		return nil, status.Errorf(codes.InvalidArgument, "object_id is required")
 	}
 
@@ -2628,14 +2787,17 @@ func (s *LibraryServer) GenerateDNGPreview(ctx context.Context, req *proto.Gener
 	if err := s.DB.Where("object_id = ? AND user_id = ?", objectID, userID).First(&photoObject).Error; err != nil {
 		recordSpanError(dbSpan, err)
 		if err == gorm.ErrRecordNotFound {
+			recordError(ctx, "GenerateDNGPreview", codes.NotFound)
 			return nil, status.Errorf(codes.NotFound, "photo not found: %s", objectID)
 		}
+		recordError(ctx, "GenerateDNGPreview", codes.Internal)
 		return nil, status.Errorf(codes.Internal, "failed to query photo: %v", err)
 	}
 	endSpanOk(dbSpan)
 
 	// Verify this is a DNG file
 	if !IsDNGContentType(photoObject.ContentType) {
+		recordError(ctx, "GenerateDNGPreview", codes.InvalidArgument)
 		return nil, status.Errorf(codes.InvalidArgument, "object is not a DNG file: %s", photoObject.ContentType)
 	}
 
@@ -2659,6 +2821,7 @@ func (s *LibraryServer) GenerateDNGPreview(ctx context.Context, req *proto.Gener
 			})
 			if err != nil {
 				recordSpanError(signSpan, err)
+				recordError(ctx, "GenerateDNGPreview", codes.Internal)
 				return nil, status.Errorf(codes.Internal, "failed to generate signed URL for existing preview: %v", err)
 			}
 			endSpanOk(signSpan)
@@ -2670,6 +2833,8 @@ func (s *LibraryServer) GenerateDNGPreview(ctx context.Context, req *proto.Gener
 				slog.String("thumbnail_object_id", *photoObject.ThumbnailObjectID),
 				slog.Uint64("user_id", uint64(userID)),
 			)
+
+			dngPreviewGeneratedCounter.Add(ctx, 1, metric.WithAttributes(attribute.Bool("cache_hit", true)))
 
 			return &proto.GenerateDNGPreviewResponse{
 				ThumbnailObjectId: *photoObject.ThumbnailObjectID,
@@ -2688,8 +2853,10 @@ func (s *LibraryServer) GenerateDNGPreview(ctx context.Context, req *proto.Gener
 	if err != nil {
 		recordSpanError(readSpan, err)
 		if err == storage.ErrObjectNotExist {
+			recordError(ctx, "GenerateDNGPreview", codes.NotFound)
 			return nil, status.Errorf(codes.NotFound, "DNG not found in storage: %s", objectID)
 		}
+		recordError(ctx, "GenerateDNGPreview", codes.Internal)
 		return nil, status.Errorf(codes.Internal, "failed to open DNG: %v", err)
 	}
 	defer func() { _ = reader.Close() }()
@@ -2697,6 +2864,7 @@ func (s *LibraryServer) GenerateDNGPreview(ctx context.Context, req *proto.Gener
 	dngData, err := io.ReadAll(reader)
 	if err != nil {
 		recordSpanError(readSpan, err)
+		recordError(ctx, "GenerateDNGPreview", codes.Internal)
 		return nil, status.Errorf(codes.Internal, "failed to read DNG: %v", err)
 	}
 	endSpanOk(readSpan)
@@ -2704,6 +2872,7 @@ func (s *LibraryServer) GenerateDNGPreview(ctx context.Context, req *proto.Gener
 	// Generate JPEG preview using dcraw
 	previewData, err := GenerateDNGPreview(dngData)
 	if err != nil {
+		recordError(ctx, "GenerateDNGPreview", codes.Internal)
 		return nil, status.Errorf(codes.Internal, "failed to generate DNG preview: %v", err)
 	}
 
@@ -2717,11 +2886,13 @@ func (s *LibraryServer) GenerateDNGPreview(ctx context.Context, req *proto.Gener
 
 	if _, err := previewWriter.Write(previewData); err != nil {
 		recordSpanError(writeSpan, err)
+		recordError(ctx, "GenerateDNGPreview", codes.Internal)
 		return nil, status.Errorf(codes.Internal, "failed to write DNG preview to GCS: %v", err)
 	}
 
 	if err := previewWriter.Close(); err != nil {
 		recordSpanError(writeSpan, err)
+		recordError(ctx, "GenerateDNGPreview", codes.Internal)
 		return nil, status.Errorf(codes.Internal, "failed to close DNG preview writer: %v", err)
 	}
 	endSpanOk(writeSpan)
@@ -2730,6 +2901,7 @@ func (s *LibraryServer) GenerateDNGPreview(ctx context.Context, req *proto.Gener
 	_, dbThumbSpan := startSpan(ctx, "db.update_thumbnail_object_id")
 	if err := s.DB.Model(&photoObject).Update("thumbnail_object_id", previewObjectID).Error; err != nil {
 		recordSpanError(dbThumbSpan, err)
+		recordError(ctx, "GenerateDNGPreview", codes.Internal)
 		return nil, status.Errorf(codes.Internal, "failed to update photo with preview: %v", err)
 	}
 	endSpanOk(dbThumbSpan)
@@ -2743,6 +2915,7 @@ func (s *LibraryServer) GenerateDNGPreview(ctx context.Context, req *proto.Gener
 	})
 	if err != nil {
 		recordSpanError(signSpan, err)
+		recordError(ctx, "GenerateDNGPreview", codes.Internal)
 		return nil, status.Errorf(codes.Internal, "failed to generate signed URL: %v", err)
 	}
 	endSpanOk(signSpan)
@@ -2754,6 +2927,9 @@ func (s *LibraryServer) GenerateDNGPreview(ctx context.Context, req *proto.Gener
 		slog.String("thumbnail_object_id", previewObjectID),
 		slog.Uint64("user_id", uint64(userID)),
 	)
+
+	dngPreviewGeneratedCounter.Add(ctx, 1, metric.WithAttributes(attribute.Bool("cache_hit", false)))
+	dngPreviewSizeHist.Record(ctx, int64(len(previewData)))
 
 	return &proto.GenerateDNGPreviewResponse{
 		ThumbnailObjectId: previewObjectID,
