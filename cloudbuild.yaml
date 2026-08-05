@@ -69,10 +69,12 @@ steps:
       - --dart-define=GIT_COMMIT=$SHORT_SHA
     dir: mobile
 
-  - name: "gcr.io/cloud-builders/gsutil"
+  - name: "gcr.io/cloud-builders/gcloud"
     id: Upload APK
     waitFor: [Build APK]
+    entrypoint: gcloud
     args:
+      - storage
       - cp
       - mobile/build/app/outputs/flutter-apk/app-release.apk
       - gs://alexhokl_public/apk/photos-$TAG_NAME-$SHORT_SHA.apk
