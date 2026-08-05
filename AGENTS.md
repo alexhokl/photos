@@ -127,6 +127,16 @@ slog.Warn("failed to create directory", slog.String("path", dir), slog.String("e
 slog.Info("server started", slog.Int("port", port))
 ```
 
+Prefer the `Context` variants (`slog.InfoContext`, `slog.ErrorContext`, ...)
+inside the server, so records are correlated with the active trace.
+
+Once `serve` has initialised OpenTelemetry, the default logger fans out to two
+sinks: the console (JSON on stdout when running on GCP, otherwise the existing
+text handler) and the OTLP log exporter. Logs therefore remain visible in the
+container output even when telemetry export is failing -- never replace the
+default handler with a single sink. Set `OTEL_SDK_DISABLED=true` to run without
+telemetry, for example locally without ADC.
+
 #### Testing
 
 - Use standard `testing` package (no testify or other assertion libraries)

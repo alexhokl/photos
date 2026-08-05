@@ -6,7 +6,10 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"strconv"
+	"strings"
 
+	slogmulti "github.com/samber/slog-multi"
 	"go.opentelemetry.io/contrib/bridges/otelslog"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -25,6 +28,9 @@ import (
 )
 
 const gcpOTLPEndpoint = "telemetry.googleapis.com:443"
+
+// DefaultServiceName is used when OTEL_SERVICE_NAME is not set.
+const DefaultServiceName = "photos"
 
 // SetupOTel initialises the global OpenTelemetry TracerProvider, MeterProvider,
 // and LoggerProvider. All three signals are exported via a single shared
@@ -52,14 +58,23 @@ const gcpOTLPEndpoint = "telemetry.googleapis.com:443"
 // Metrics are pushed to GCP Cloud Monitoring at the SDK default interval (60 s),
 // or overridden via OTEL_METRIC_EXPORT_INTERVAL.
 //
-// Logs: the default slog logger is replaced with a handler backed by the
-// LoggerProvider so that all existing slog.InfoContext / slog.WarnContext /
-// slog.ErrorContext calls emit structured OTLP log records that carry the
-// active trace_id and span_id — enabling log-trace correlation in GCP
-// Cloud Logging / Cloud Trace.
+// Logs: the default slog logger is replaced with one that fans out to both the
+// console (see newConsoleHandler) and a handler backed by the LoggerProvider,
+// so that all existing slog.InfoContext / slog.WarnContext / slog.ErrorContext
+// calls emit structured OTLP log records carrying the active trace_id and
+// span_id — enabling log-trace correlation in GCP Cloud Logging / Cloud Trace —
+// while remaining visible in the container logs. Fanning out rather than
+// replacing matters because a rejected or unreachable OTLP endpoint would
+// otherwise silently discard every log record the process produces.
+//
+// The default logger is only swapped once every provider has been constructed
+// successfully. An error returned from this function therefore always leaves
+// logging untouched, so the caller can report the failure through slog and be
+// certain the message is seen.
 //
 // The returned shutdown function must be deferred by the caller; it flushes
-// and shuts down all three providers and closes the shared gRPC connection.
+// and shuts down all three providers and closes the shared gRPC connection. It
+// is always non-nil, including on the error paths.
 //
 // Required environment variables:
 //
@@ -67,6 +82,7 @@ const gcpOTLPEndpoint = "telemetry.googleapis.com:443"
 //
 // Optional:
 //
+//	OTEL_SDK_DISABLED               – set to "true" to disable telemetry entirely
 //	GOOGLE_APPLICATION_CREDENTIALS – path to service account key JSON (non-GCE only)
 //	GOOGLE_CLOUD_PROJECT            – GCP project ID (included in OTel resource)
 //	OTEL_TRACES_SAMPLER             – e.g. parentbased_always_on (SDK default)
@@ -87,6 +103,15 @@ func SetupOTel(ctx context.Context) (shutdown func(context.Context) error, err e
 	res, err := buildResource(ctx)
 	if err != nil {
 		return shutdown, err
+	}
+
+	// Honour the standard OTEL_SDK_DISABLED escape hatch. Returning before any
+	// exporter is constructed leaves the default slog logger in place, which is
+	// what makes it possible to run the server locally without ADC and still
+	// see its logs.
+	if isSDKDisabled() {
+		slog.Debug("OpenTelemetry is disabled via OTEL_SDK_DISABLED")
+		return shutdown, nil
 	}
 
 	// ── Shared gRPC connection ─────────────────────────────────────────────────
@@ -142,16 +167,10 @@ func SetupOTel(ctx context.Context) (shutdown func(context.Context) error, err e
 	)
 	shutdownFuncs = append(shutdownFuncs, lp.Shutdown)
 
-	// Replace the default slog logger.  The otelslog bridge handler reads the
-	// active span from the context passed to slog.XxxContext calls and
-	// populates the OTLP LogRecord's trace_id, span_id, and trace_flags fields
-	// automatically — no custom handler code is required.
-	serviceName := os.Getenv("OTEL_SERVICE_NAME")
-	if serviceName == "" {
-		serviceName = "photos"
-	}
-	handler := otelslog.NewHandler(serviceName, otelslog.WithLoggerProvider(lp))
-	slog.SetDefault(slog.New(handler))
+	// The default logger is not swapped here: that happens at the end of this
+	// function, once the metric exporter has been constructed too, so that a
+	// later failure cannot leave logging pointed at a half-initialised
+	// pipeline.
 
 	// ── Metrics ───────────────────────────────────────────────────────────────
 
@@ -186,7 +205,44 @@ func SetupOTel(ctx context.Context) (shutdown func(context.Context) error, err e
 		fmt.Fprintf(os.Stderr, "OpenTelemetry error: %v\n", err)
 	}))
 
+	// ── Default logger ────────────────────────────────────────────────────────
+	//
+	// Every provider has now been constructed, so it is safe to take over the
+	// default logger. Records are fanned out to two sinks:
+	//
+	//   - the console handler, so logs survive in the container output even if
+	//     OTLP export is rejected, throttled, or unreachable
+	//   - the otelslog bridge, which reads the active span from the context
+	//     passed to slog.XxxContext calls and populates the OTLP LogRecord's
+	//     trace_id, span_id, and trace_flags fields automatically
+	//
+	// slogmulti.Fanout clones the record per handler and joins their errors, so
+	// one failing sink cannot suppress the other.
+	slog.SetDefault(slog.New(slogmulti.Fanout(
+		newConsoleHandler(),
+		otelslog.NewHandler(serviceName(), otelslog.WithLoggerProvider(lp)),
+	)))
+
 	return shutdown, nil
+}
+
+// isSDKDisabled reports whether telemetry has been switched off through the
+// standard OTEL_SDK_DISABLED environment variable.
+func isSDKDisabled() bool {
+	disabled, err := strconv.ParseBool(strings.TrimSpace(os.Getenv("OTEL_SDK_DISABLED")))
+	if err != nil {
+		return false
+	}
+	return disabled
+}
+
+// serviceName resolves the service name from the environment, falling back to
+// DefaultServiceName.
+func serviceName() string {
+	if name := os.Getenv("OTEL_SERVICE_NAME"); name != "" {
+		return name
+	}
+	return DefaultServiceName
 }
 
 // buildGCPGRPCConn creates a single gRPC client connection to GCP's managed
@@ -204,18 +260,13 @@ func buildGCPGRPCConn(ctx context.Context) (*grpc.ClientConn, error) {
 }
 
 func buildResource(ctx context.Context) (*resource.Resource, error) {
-	serviceName := os.Getenv("OTEL_SERVICE_NAME")
-	if serviceName == "" {
-		serviceName = "photos"
-	}
-
 	hostname, err := os.Hostname()
 	if err != nil {
 		hostname = "unknown"
 	}
 
 	extraAttrs := []attribute.KeyValue{
-		semconv.ServiceName(serviceName),
+		semconv.ServiceName(serviceName()),
 		semconv.ServiceInstanceID(hostname),
 	}
 	if project := os.Getenv("GOOGLE_CLOUD_PROJECT"); project != "" {

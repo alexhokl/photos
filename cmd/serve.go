@@ -137,25 +137,28 @@ func runServe(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	// Initialise OpenTelemetry (TracerProvider + LoggerProvider + default slog).
-	// This must happen before any slog calls so all log output is routed through
-	// the OTLP log exporter and carries trace correlation fields.
+	// Initialise OpenTelemetry (TracerProvider + MeterProvider + LoggerProvider
+	// + default slog). SetupOTel only takes over the default logger once every
+	// provider has been built, so an error here is still reported through the
+	// original slog handler and remains visible in the console output.
 	ctx := cmd.Context()
 	if ctx == nil {
 		ctx = context.Background()
 	}
 	otelShutdown, err := internal.SetupOTel(ctx)
 	if err != nil {
-		// Non-fatal: log to stderr and continue without OTel rather than
+		// Non-fatal: report the failure and continue without OTel rather than
 		// refusing to start the server.
 		slog.Error("failed to set up OpenTelemetry", slog.String("error", err.Error()))
-	} else {
-		defer func() {
-			if shutdownErr := otelShutdown(context.Background()); shutdownErr != nil {
-				slog.Error("error shutting down OpenTelemetry", slog.String("error", shutdownErr.Error()))
-			}
-		}()
 	}
+	// Deferred unconditionally: SetupOTel always returns a usable shutdown
+	// function, and on a partial failure there may already be providers and a
+	// gRPC connection to tear down.
+	defer func() {
+		if shutdownErr := otelShutdown(context.Background()); shutdownErr != nil {
+			slog.Error("error shutting down OpenTelemetry", slog.String("error", shutdownErr.Error()))
+		}
+	}()
 
 	dbConn, err := getDatabaseConnection(serveOpts.DatebaseFilePath)
 	if err != nil {
