@@ -2,8 +2,8 @@ package internal
 
 import (
 	"context"
-	"log/slog"
 
+	"github.com/alexhokl/helper/telemetry"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
@@ -16,29 +16,17 @@ var meter = otel.Meter(meterName)
 
 // mustInt64Counter creates an Int64Counter, logging (but not panicking) on error.
 func mustInt64Counter(name, description string) metric.Int64Counter {
-	c, err := meter.Int64Counter(name, metric.WithDescription(description))
-	if err != nil {
-		slog.Error("failed to create metric counter", slog.String("name", name), slog.String("error", err.Error()))
-	}
-	return c
+	return telemetry.NewInt64Counter(meter, name, description)
 }
 
 // mustInt64Histogram creates a byte-sized Int64Histogram, logging (but not panicking) on error.
 func mustInt64Histogram(name, description string) metric.Int64Histogram {
-	h, err := meter.Int64Histogram(name, metric.WithDescription(description), metric.WithUnit("By"))
-	if err != nil {
-		slog.Error("failed to create metric histogram", slog.String("name", name), slog.String("error", err.Error()))
-	}
-	return h
+	return telemetry.NewInt64Histogram(meter, name, description, metric.WithUnit("By"))
 }
 
 // mustInt64CountHistogram creates a unitless Int64Histogram (for counting items rather than bytes).
 func mustInt64CountHistogram(name, description string) metric.Int64Histogram {
-	h, err := meter.Int64Histogram(name, metric.WithDescription(description))
-	if err != nil {
-		slog.Error("failed to create metric histogram", slog.String("name", name), slog.String("error", err.Error()))
-	}
-	return h
+	return telemetry.NewInt64Histogram(meter, name, description)
 }
 
 var (
