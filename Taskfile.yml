@@ -118,6 +118,7 @@ tasks:
     desc: Build MacOS
     cmds:
       - cd mobile && flutter build macos --dart-define=GIT_COMMIT=$(git rev-parse --short HEAD)
+      - cp -r mobile/build/macos/Build/Products/Release/photos.app /Applications/
 
   apk:
     desc: Build APK
@@ -141,11 +142,6 @@ tasks:
     desc: Copy APK to Desktop
     platforms: [darwin]
     cmd: cp mobile/build/app/outputs/flutter-apk/app-release.apk ~/Desktop/photos.apk
-
-  deploy-mac:
-    desc: Deploy MacOS app locally
-    platforms: [darwin]
-    cmd: cp -r mobile/build/macos/Build/Products/Release/photos.app /Applications/
 
   generate-apk-signing-key:
     desc: Generate a release keystore for APK signing
