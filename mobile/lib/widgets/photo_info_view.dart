@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:photos/widgets/exif_format.dart';
 import 'package:photo_manager/photo_manager.dart';
 import 'package:photos/services/exif_service.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -101,25 +102,8 @@ class _PhotoInfoViewState extends State<PhotoInfoView> {
     await launchUrl(url, mode: LaunchMode.externalApplication);
   }
 
-  String _formatExposureTime(double exposureTime) {
-    if (exposureTime <= 0) return '';
-    if (exposureTime >= 1) {
-      return '${exposureTime.toStringAsFixed(1)}s';
-    }
-    // Convert to fraction (e.g., 0.001 -> 1/1000)
-    final denominator = (1 / exposureTime).round();
-    return '1/${denominator}s';
-  }
 
-  String _formatAperture(double aperture) {
-    if (aperture <= 0) return '';
-    return 'f/${aperture.toStringAsFixed(1)}';
-  }
 
-  String _formatFocalLength(double focalLength) {
-    if (focalLength <= 0) return '';
-    return '${focalLength.toStringAsFixed(1)}mm';
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -215,19 +199,19 @@ class _PhotoInfoViewState extends State<PhotoInfoView> {
           _InfoTile(
             icon: Icons.straighten,
             title: 'Focal Length',
-            value: _formatFocalLength(exif!.focalLength!),
+            value: formatFocalLength(exif!.focalLength!),
           ),
         if (!_isLoadingExif && (exif?.aperture ?? 0) > 0)
           _InfoTile(
             icon: Icons.camera,
             title: 'Aperture',
-            value: _formatAperture(exif!.aperture!),
+            value: formatAperture(exif!.aperture!),
           ),
         if (!_isLoadingExif && (exif?.exposureTime ?? 0) > 0)
           _InfoTile(
             icon: Icons.shutter_speed,
             title: 'Shutter Speed',
-            value: _formatExposureTime(exif!.exposureTime!),
+            value: formatExposureTime(exif!.exposureTime!),
           ),
         if (!_isLoadingExif && (exif?.iso ?? 0) > 0)
           _InfoTile(icon: Icons.iso, title: 'ISO', value: exif!.iso.toString()),

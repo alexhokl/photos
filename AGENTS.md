@@ -51,6 +51,18 @@ task apk                      # flutter build apk
 task run-flutter              # flutter run -d macos
 ```
 
+Shared infrastructure comes from the `flutter_helper` package
+(github.com/alexhokl/flutter-helper, pinned by tag in `mobile/pubspec.yaml`):
+the gRPC channel (`GrpcChannelHolder`, used by `LibraryService`,
+`UploadService` and `DownloadService`), `backend_url` parsing and storage
+(the app's `BackendConfig` delegates to the shared one and adds the
+photos-specific settings), `GitCommitField`, `formatBytes`/`formatStopwatch`,
+`setUpInMemoryPrefs` for tests and the lint configuration. Fix or extend those
+there rather than copying code into this app. The Flutter tasks above (and the
+signing key and `tag` tasks) are included from
+`../flutter-helper/taskfiles/flutter.yml`, which needs a sibling checkout of
+flutter-helper.
+
 ## Code Style Guidelines
 
 ### Go
@@ -171,7 +183,7 @@ func TestExample(t *testing.T) {
 
 ### Flutter / Dart
 
-- Linting: `package:flutter_lints/flutter.yaml` (see `mobile/analysis_options.yaml`)
+- Linting: `package:flutter_helper/analysis_options.yaml`, which includes `package:flutter_lints/flutter.yaml` (see `mobile/analysis_options.yaml`)
 - Tests use `flutter_test` with `mocktail` for mocking
 - Test structure: `group()` / `testWidgets()` / `expect()` matchers
 - Generated gRPC client code lives in `mobile/lib/proto/`

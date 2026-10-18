@@ -2,9 +2,11 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter_helper/grpc.dart';
 import 'package:grpc/grpc.dart';
 import 'package:photo_manager/photo_manager.dart';
 import 'package:photos/proto/photos.pbgrpc.dart';
+
 /// Default chunk size for streaming uploads (64 KB)
 const int _defaultChunkSize = 64 * 1024;
 
@@ -23,12 +25,21 @@ class UploadService {
   static const String _defaultHost = 'localhost';
   static const int _defaultPort = 50051;
 
-  ClientChannel? _channel;
-  ByteServiceClient? _client;
-  LibraryServiceClient? _libraryClient;
-
   final String host;
   final int port;
+
+  late final GrpcChannelHolder _channel = GrpcChannelHolder(
+    host: host,
+    port: port,
+  );
+  ByteServiceClient? _cachedClient;
+  LibraryServiceClient? _cachedLibraryClient;
+
+  ByteServiceClient get _client =>
+      _cachedClient ??= ByteServiceClient(_channel.channel);
+
+  LibraryServiceClient get _libraryClient =>
+      _cachedLibraryClient ??= LibraryServiceClient(_channel.channel);
 
   /// Chunk size for streaming uploads in bytes
   final int chunkSize;
@@ -45,40 +56,6 @@ class UploadService {
     this.baseUploadTimeout = _defaultBaseUploadTimeout,
   });
 
-  /// Determine if a secure (TLS) connection is required based on the host.
-  /// Returns false for localhost/loopback addresses, true otherwise.
-  /// This matches the server-side logic in cmd/security.go.
-  bool _requireSecureConnection() {
-    if (host.isEmpty ||
-        host == 'localhost' ||
-        host == '127.0.0.1' ||
-        host == '::1') {
-      return false;
-    }
-    return true;
-  }
-
-  /// Get the appropriate channel credentials based on the host.
-  ChannelCredentials _getCredentials() {
-    if (_requireSecureConnection()) {
-      return const ChannelCredentials.secure();
-    }
-    return const ChannelCredentials.insecure();
-  }
-
-  /// Initialize the gRPC channel and client
-  void _ensureInitialized() {
-    if (_channel == null) {
-      _channel = ClientChannel(
-        host,
-        port: port,
-        options: ChannelOptions(credentials: _getCredentials()),
-      );
-      _client = ByteServiceClient(_channel!);
-      _libraryClient = LibraryServiceClient(_channel!);
-    }
-  }
-
   /// Upload a single photo asset to the cloud using streaming
   /// Returns the uploaded photo metadata on success
   /// If [directoryPrefix] is provided, the photo will be uploaded to that directory
@@ -88,8 +65,6 @@ class UploadService {
     String? directoryPrefix,
     void Function(int bytesSent, int totalBytes)? onChunkProgress,
   }) async {
-    _ensureInitialized();
-
     // Resolve the file from the device without loading it fully into RAM.
     final File? file = await asset.originFile;
     if (file == null) {
@@ -117,7 +92,8 @@ class UploadService {
     }
 
     // Compute a size-adaptive timeout: base + (fileSize / assumed throughput).
-    final adaptiveTimeout = baseUploadTimeout +
+    final adaptiveTimeout =
+        baseUploadTimeout +
         Duration(seconds: (fileSize / _assumedBytesPerSecond).ceil());
 
     try {
@@ -161,7 +137,7 @@ class UploadService {
     final controller = StreamController<StreamingUploadRequest>();
 
     // Start the streaming call
-    final responseFuture = _client!.streamingUpload(controller.stream);
+    final responseFuture = _client.streamingUpload(controller.stream);
 
     // Send metadata as the first message
     controller.add(
@@ -220,8 +196,6 @@ class UploadService {
     List<AssetEntity> assets, {
     String? directoryPrefix,
   }) async* {
-    _ensureInitialized();
-
     final requestController = StreamController<StreamingUploadRequest>();
 
     // Open a single BulkStreamingUpload call for the entire batch.
@@ -249,7 +223,7 @@ class UploadService {
   @visibleForTesting
   Stream<BulkUploadFileResult> makeBulkUploadCall(
     Stream<StreamingUploadRequest> requests,
-  ) => _client!.bulkStreamingUpload(requests);
+  ) => _client.bulkStreamingUpload(requests);
 
   /// Sends all [assets] as metadata + chunk + end_of_file sequences on [controller].
   ///
@@ -355,8 +329,6 @@ class UploadService {
   Future<Map<String, bool>> deleteUploadedPhotos(
     List<UploadResult> successfulResults,
   ) async {
-    _ensureInitialized();
-
     final deleteResults = <String, bool>{};
 
     for (final result in successfulResults) {
@@ -365,7 +337,7 @@ class UploadService {
       final objectId = result.response!.photo.objectId;
       try {
         final request = DeletePhotoRequest(objectId: objectId);
-        final response = await _libraryClient!.deletePhoto(request);
+        final response = await _libraryClient.deletePhoto(request);
         deleteResults[objectId] = response.success;
       } on GrpcError {
         deleteResults[objectId] = false;
@@ -377,19 +349,15 @@ class UploadService {
 
   /// Close the gRPC channel
   Future<void> dispose() async {
-    await _channel?.shutdown();
-    _channel = null;
-    _client = null;
-    _libraryClient = null;
+    _cachedClient = null;
+    _cachedLibraryClient = null;
+    await _channel.shutdown();
   }
 }
 
 /// Exception thrown when an upload fails
-class UploadException implements Exception {
-  final String message;
-  final GrpcError? grpcError;
-
-  UploadException(this.message, {this.grpcError});
+class UploadException extends ServiceException {
+  UploadException(super.message, {super.grpcError});
 
   @override
   String toString() => 'UploadException: $message';

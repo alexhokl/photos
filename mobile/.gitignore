@@ -43,3 +43,6 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Local path override for developing against ../../flutter-helper
+pubspec_overrides.yaml

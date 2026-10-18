@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:photos/app_config.dart';
+import 'package:flutter_helper/config.dart' as helper;
+import 'package:flutter_helper/ui.dart';
 import 'package:photos/services/library_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -27,8 +27,8 @@ class BackendConfig {
         SettingsPage.defaultSignedUrlExpirationSeconds,
   });
 
-  /// Parse a URL string into host and port
-  /// Defaults to port 443 for https, 80 for http if not specified
+  /// Parse a URL string into host and port. A URL without a scheme is
+  /// treated as https; the port defaults to 443 for https and 80 for http.
   factory BackendConfig.fromUrl(
     String url, {
     String defaultDirectory = '',
@@ -38,22 +38,14 @@ class BackendConfig {
         SettingsPage.defaultSignedUrlExpirationSeconds,
     int proxyPort = SettingsPage.defaultProxyPort,
   }) {
-    final uri = Uri.parse(url);
-    final host = uri.host;
-    final scheme = uri.scheme.isEmpty ? 'https' : uri.scheme;
-    int port;
-
-    if (uri.hasPort) {
-      port = uri.port;
-    } else {
-      // Default ports based on scheme
-      port = scheme == 'https' ? 443 : 80;
-    }
+    final parsed = helper.BackendConfig.fromUrl(
+      url.contains('://') ? url : 'https://${url.trim()}',
+    );
 
     return BackendConfig(
-      host: host,
-      port: port,
-      scheme: scheme,
+      host: parsed.host,
+      port: parsed.port,
+      scheme: parsed.scheme,
       proxyPort: proxyPort,
       defaultDirectory: defaultDirectory,
       deleteAfterUpload: deleteAfterUpload,
@@ -65,9 +57,9 @@ class BackendConfig {
   /// Load backend configuration from shared preferences
   static Future<BackendConfig> load() async {
     final prefs = SharedPreferencesAsync();
-    final url =
-        await prefs.getString(SettingsPage.backendUrlKey) ??
-        SettingsPage.defaultBackendUrl;
+    final url = await helper.BackendConfig.loadUrl(
+      defaultUrl: SettingsPage.defaultBackendUrl,
+    );
     final defaultDir =
         await prefs.getString(SettingsPage.defaultDirectoryKey) ?? '';
     final deleteAfterUpload =
@@ -97,7 +89,7 @@ class SettingsPage extends StatefulWidget {
 
   final bool isActive;
 
-  static const String backendUrlKey = 'backend_url';
+  static const String backendUrlKey = helper.BackendConfig.storageKey;
   static const String defaultBackendUrl = 'https://photos.a-b.ts.net';
   static const String proxyPortKey = 'proxy_port';
   static const int defaultProxyPort = 8081;
@@ -183,7 +175,7 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Future<void> _saveBackendUrl(String url) async {
-    await _prefs.setString(SettingsPage.backendUrlKey, url);
+    await helper.BackendConfig.save(url);
     // Reload directory suggestions when backend URL changes
     _loadDirectorySuggestions();
   }
@@ -449,27 +441,9 @@ class _SettingsPageState extends State<SettingsPage> {
           const SizedBox(height: 24),
           Text('About', style: Theme.of(context).textTheme.titleLarge),
           const SizedBox(height: 16),
-          TextField(
-            controller: TextEditingController(text: AppConfig.gitCommit),
-            readOnly: true,
-            decoration: InputDecoration(
-              labelText: 'Git Commit',
-              border: const OutlineInputBorder(),
-              prefixIcon: const Icon(Icons.commit),
-              suffixIcon: IconButton(
-                icon: const Icon(Icons.copy),
-                onPressed: () {
-                  Clipboard.setData(ClipboardData(text: AppConfig.gitCommit));
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Git commit hash copied to clipboard'),
-                      duration: Duration(seconds: 2),
-                    ),
-                  );
-                },
-                tooltip: 'Copy to clipboard',
-              ),
-            ),
+          const GitCommitField(
+            label: 'Git Commit',
+            copiedMessage: 'Git commit hash copied to clipboard',
           ),
         ],
       ),

@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_helper/format.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:photo_manager/photo_manager.dart';
 import 'package:photos/proto/photos.pb.dart';
@@ -629,7 +630,7 @@ class _DownloadProgressDialogState extends State<DownloadProgressDialog> {
           const SizedBox(height: 16),
           Text(
             _totalBytes > 0
-                ? '${_formatBytes(_bytesReceived)} / ${_formatBytes(_totalBytes)}'
+                ? '${formatBytes(_bytesReceived)} / ${formatBytes(_totalBytes)}'
                 : 'Starting download...',
           ),
           const SizedBox(height: 8),
@@ -643,11 +644,6 @@ class _DownloadProgressDialogState extends State<DownloadProgressDialog> {
     );
   }
 
-  String _formatBytes(int bytes) {
-    if (bytes < 1024) return '$bytes B';
-    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
-    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
-  }
 }
 
 /// Dialog for selecting a directory with free text input and autocomplete.

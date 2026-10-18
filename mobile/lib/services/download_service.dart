@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 
+import 'package:flutter_helper/grpc.dart';
 import 'package:grpc/grpc.dart';
 import 'package:photos/proto/photos.pbgrpc.dart';
 
@@ -16,45 +17,19 @@ class DownloadService {
   static const String _defaultHost = 'localhost';
   static const int _defaultPort = 50051;
 
-  ClientChannel? _channel;
-  ByteServiceClient? _client;
-
   final String host;
   final int port;
 
+  late final GrpcChannelHolder _channel = GrpcChannelHolder(
+    host: host,
+    port: port,
+  );
+  ByteServiceClient? _cachedClient;
+
+  ByteServiceClient get _client =>
+      _cachedClient ??= ByteServiceClient(_channel.channel);
+
   DownloadService({this.host = _defaultHost, this.port = _defaultPort});
-
-  /// Determine if a secure (TLS) connection is required based on the host.
-  /// Returns false for localhost/loopback addresses, true otherwise.
-  bool _requireSecureConnection() {
-    if (host.isEmpty ||
-        host == 'localhost' ||
-        host == '127.0.0.1' ||
-        host == '::1') {
-      return false;
-    }
-    return true;
-  }
-
-  /// Get the appropriate channel credentials based on the host.
-  ChannelCredentials _getCredentials() {
-    if (_requireSecureConnection()) {
-      return const ChannelCredentials.secure();
-    }
-    return const ChannelCredentials.insecure();
-  }
-
-  /// Initialize the gRPC channel and client
-  void _ensureInitialized() {
-    if (_channel == null) {
-      _channel = ClientChannel(
-        host,
-        port: port,
-        options: ChannelOptions(credentials: _getCredentials()),
-      );
-      _client = ByteServiceClient(_channel!);
-    }
-  }
 
   /// Download a photo using server-side streaming for large files
   /// Returns a [DownloadResult] with photo metadata and raw bytes
@@ -64,12 +39,10 @@ class DownloadService {
     String objectId, {
     void Function(int bytesReceived, int totalBytes)? onProgress,
   }) async {
-    _ensureInitialized();
-
     final request = StreamingDownloadRequest(objectId: objectId);
 
     try {
-      final responseStream = _client!.streamingDownload(request);
+      final responseStream = _client.streamingDownload(request);
 
       Photo? photo;
       final chunks = <List<int>>[];
@@ -109,18 +82,14 @@ class DownloadService {
 
   /// Close the gRPC channel
   Future<void> dispose() async {
-    await _channel?.shutdown();
-    _channel = null;
-    _client = null;
+    _cachedClient = null;
+    await _channel.shutdown();
   }
 }
 
 /// Exception thrown when a download fails
-class DownloadException implements Exception {
-  final String message;
-  final GrpcError? grpcError;
-
-  DownloadException(this.message, {this.grpcError});
+class DownloadException extends ServiceException {
+  DownloadException(super.message, {super.grpcError});
 
   @override
   String toString() => 'DownloadException: $message';

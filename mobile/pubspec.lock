@@ -222,6 +222,15 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "3.4.1"
+  flutter_helper:
+    dependency: "direct main"
+    description:
+      path: "."
+      ref: "v0.1.0"
+      resolved-ref: "7dc62b6d29f07680c767e83b43acc822044f5570"
+      url: "https://github.com/alexhokl/flutter-helper.git"
+    source: git
+    version: "0.1.0"
   flutter_launcher_icons:
     dependency: "direct dev"
     description:
@@ -665,7 +674,7 @@ packages:
     source: hosted
     version: "2.4.1"
   shared_preferences_platform_interface:
-    dependency: "direct dev"
+    dependency: transitive
     description:
       name: shared_preferences_platform_interface
       sha256: "57cbf196c486bc2cf1f02b85784932c6094376284b3ad5779d1b1c6c6a816b80"

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_helper/ui.dart';
 import 'package:grpc/grpc.dart';
 import 'package:photo_manager/photo_manager.dart';
 import 'package:photos/services/library_service.dart';
@@ -20,7 +21,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Photos',
-      theme: ThemeData(colorScheme: .fromSeed(seedColor: Colors.cyan)),
+      theme: themesFromSeed(Colors.cyan).light,
       home: const HomePage(title: 'Photos'),
     );
   }

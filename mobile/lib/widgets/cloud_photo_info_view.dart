@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_helper/format.dart';
+import 'package:photos/widgets/exif_format.dart';
 import 'package:photos/proto/photos.pb.dart';
 import 'package:photos/services/library_service.dart';
 import 'package:photos/widgets/settings_page.dart';
@@ -69,11 +71,6 @@ class _CloudPhotoInfoViewState extends State<CloudPhotoInfoView> {
     }
   }
 
-  String _formatBytes(int bytes) {
-    if (bytes < 1024) return '$bytes B';
-    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
-    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
-  }
 
   String _formatLocation(double latitude, double longitude) {
     return '${latitude.toStringAsFixed(6)}, ${longitude.toStringAsFixed(6)}';
@@ -87,25 +84,8 @@ class _CloudPhotoInfoViewState extends State<CloudPhotoInfoView> {
     return 'https://www.google.com/maps?q=${latitude.toStringAsFixed(6)},${longitude.toStringAsFixed(6)}';
   }
 
-  String _formatExposureTime(double exposureTime) {
-    if (exposureTime <= 0) return '';
-    if (exposureTime >= 1) {
-      return '${exposureTime.toStringAsFixed(1)}s';
-    }
-    // Convert to fraction (e.g., 0.001 -> 1/1000)
-    final denominator = (1 / exposureTime).round();
-    return '1/${denominator}s';
-  }
 
-  String _formatAperture(double aperture) {
-    if (aperture <= 0) return '';
-    return 'f/${aperture.toStringAsFixed(1)}';
-  }
 
-  String _formatFocalLength(double focalLength) {
-    if (focalLength <= 0) return '';
-    return '${focalLength.toStringAsFixed(1)}mm';
-  }
 
   Future<void> _launchGoogleMaps(double latitude, double longitude) async {
     final url = Uri.parse(_getGoogleMapsUrl(latitude, longitude));
@@ -190,7 +170,7 @@ class _CloudPhotoInfoViewState extends State<CloudPhotoInfoView> {
           icon: Icons.data_usage,
           title: 'Size',
           value: photo.sizeBytes.toInt() > 0
-              ? _formatBytes(photo.sizeBytes.toInt())
+              ? formatBytes(photo.sizeBytes.toInt())
               : 'Unknown',
         ),
         if (photo.hasDimensions)
@@ -249,19 +229,19 @@ class _CloudPhotoInfoViewState extends State<CloudPhotoInfoView> {
           _InfoTile(
             icon: Icons.straighten,
             title: 'Focal Length',
-            value: _formatFocalLength(photo.focalLength),
+            value: formatFocalLength(photo.focalLength),
           ),
         if (photo.aperture > 0)
           _InfoTile(
             icon: Icons.camera,
             title: 'Aperture',
-            value: _formatAperture(photo.aperture),
+            value: formatAperture(photo.aperture),
           ),
         if (photo.exposureTime > 0)
           _InfoTile(
             icon: Icons.shutter_speed,
             title: 'Shutter Speed',
-            value: _formatExposureTime(photo.exposureTime),
+            value: formatExposureTime(photo.exposureTime),
           ),
         if (photo.iso > 0)
           _InfoTile(icon: Icons.iso, title: 'ISO', value: photo.iso.toString()),

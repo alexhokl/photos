@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_helper/format.dart';
 import 'package:photo_manager/photo_manager.dart';
 import 'package:video_player/video_player.dart';
 
@@ -149,20 +150,6 @@ class _DeviceVideoPlayerState extends State<DeviceVideoPlayer> {
     });
   }
 
-  String _formatDuration(Duration duration) {
-    final hours = duration.inHours;
-    final minutes = duration.inMinutes.remainder(60);
-    final seconds = duration.inSeconds.remainder(60);
-
-    if (hours > 0) {
-      return '${hours.toString().padLeft(2, '0')}:'
-          '${minutes.toString().padLeft(2, '0')}:'
-          '${seconds.toString().padLeft(2, '0')}';
-    }
-    return '${minutes.toString().padLeft(2, '0')}:'
-        '${seconds.toString().padLeft(2, '0')}';
-  }
-
   @override
   Widget build(BuildContext context) {
     if (_hasError) {
@@ -272,14 +259,20 @@ class _DeviceVideoPlayerState extends State<DeviceVideoPlayer> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          _formatDuration(_controller!.value.position),
+                          formatStopwatch(
+                            _controller!.value.position,
+                            padHours: true,
+                          ),
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 12,
                           ),
                         ),
                         Text(
-                          _formatDuration(_controller!.value.duration),
+                          formatStopwatch(
+                            _controller!.value.duration,
+                            padHours: true,
+                          ),
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 12,
