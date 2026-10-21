@@ -1,4 +1,4 @@
-FROM golang:1.25.5-alpine3.21 AS builder
+FROM golang:1.26.5-alpine3.23 AS builder
 
 RUN apk add --no-cache gcc musl-dev libjpeg-turbo-dev wget
 
@@ -18,7 +18,7 @@ RUN wget -q --no-check-certificate https://www.dechifro.org/dcraw/dcraw.c && \
     gcc -o /usr/local/bin/dcraw -DNO_JASPER -DNO_LCMS dcraw.c -lm -ljpeg && \
     rm dcraw.c
 
-FROM alpine:3.21
+FROM alpine:3.23
 
 RUN apk add --no-cache ca-certificates ffmpeg libwebp-tools
 

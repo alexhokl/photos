@@ -1,6 +1,6 @@
 module github.com/alexhokl/photos
 
-go 1.25.5
+go 1.26
 
 require (
 	cloud.google.com/go/storage v1.59.1
@@ -55,7 +55,7 @@ require (
 	github.com/gaissmai/bart v0.18.0 // indirect
 	github.com/go-errors/errors v1.4.2 // indirect
 	github.com/go-jose/go-jose/v4 v4.1.4 // indirect
-	github.com/go-json-experiment/json v0.0.0-20250813024750-ebf49471dced // indirect
+	github.com/go-json-experiment/json v0.0.0-20260820222146-c27c302e5fc3 // indirect
 	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-viper/mapstructure/v2 v2.4.0 // indirect
@@ -128,7 +128,7 @@ require (
 
 require (
 	github.com/alexhokl/helper v0.0.94
-	github.com/alexhokl/privateserver v1.0.4
+	github.com/alexhokl/privateserver v1.0.5
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/viper v1.21.0
 	golang.org/x/net v0.55.0 // indirect
