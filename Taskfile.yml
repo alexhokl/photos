@@ -110,6 +110,13 @@ tasks:
     platforms: [darwin]
     cmd: open ./mobile/build/macos/Build/Products/Release/photos.app
 
+  install-skill:
+    desc: Install the skill to the local system
+    cmds:
+      - mkdir -p ~/.agents/skills ~/.claude/skills
+      - ln -snf "{{.TASKFILE_DIR}}/skills/photos-cli" ~/.agents/skills/photos-cli
+      - ln -snf "{{.TASKFILE_DIR}}/skills/photos-cli" ~/.claude/skills/photos-cli
+
   copy-apk-to-desktop:
     desc: Copy APK to Desktop
     platforms: [darwin]

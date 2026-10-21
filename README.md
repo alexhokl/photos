@@ -185,6 +185,13 @@ If upgrading an existing installation signed with the same key, use the `-r` fla
 adb install -r mobile/build/app/outputs/flutter-apk/app-release.apk
 ```
 
+## Agent skill
+
+[`skills/photos-cli/`](skills/photos-cli) is an Agent Skill that teaches a
+coding agent to drive the `photos` CLI (listing, transferring, organising and
+describing photos). Install it into `~/.agents/skills` and `~/.claude/skills`
+with `task install-skill`.
+
 ## Configuration
 
 Configuration can be specified via command-line flags, environment variables

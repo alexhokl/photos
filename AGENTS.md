@@ -15,6 +15,7 @@ Google Cloud Storage for photo storage, with Tailscale for private networking.
 - `database/` -- GORM models and database operations
 - `proto/` -- Protobuf definitions and generated Go/Dart code
 - `mobile/` -- Flutter application (macOS, Android, iOS, Linux, Windows)
+- `skills/` -- Agent Skill for driving the `photos` CLI (`task install-skill`)
 - `google/`, `protoc-gen-openapiv2/` -- Proto dependencies
 - `openapiv2/` -- Generated OpenAPI/Swagger specs
 
