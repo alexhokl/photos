@@ -11,6 +11,7 @@ import 'package:photos/services/library_service.dart';
 import 'package:photos/services/photo_cache_manager.dart';
 import 'package:photos/widgets/cloud_photo_info_view.dart';
 import 'package:photos/widgets/cloud_video_player.dart';
+import 'package:photos/widgets/index_keyed_maps.dart';
 import 'package:photos/widgets/settings_page.dart';
 import 'package:share_plus/share_plus.dart';
 
@@ -64,11 +65,16 @@ class CloudPhotoViewer extends StatefulWidget {
   final Map<String, String> signedUrls;
   final int initialIndex;
 
+  /// Called with the object ID when a photo is deleted from the viewer, which
+  /// then advances to the next photo instead of closing.
+  final void Function(String objectId)? onDeleted;
+
   const CloudPhotoViewer({
     super.key,
     required this.photos,
     required this.signedUrls,
     required this.initialIndex,
+    this.onDeleted,
   });
 
   @override
@@ -78,11 +84,12 @@ class CloudPhotoViewer extends StatefulWidget {
 class _CloudPhotoViewerState extends State<CloudPhotoViewer> {
   late PageController _pageController;
   late int _currentIndex;
+  late final List<Photo> _photos = List.of(widget.photos);
   final Map<int, TransformationController> _transformationControllers = {};
   final Map<int, CloudVideoPlayerController> _videoControllers = {};
   bool _isZoomed = false;
 
-  Photo get _currentPhoto => widget.photos[_currentIndex];
+  Photo get _currentPhoto => _photos[_currentIndex];
 
   /// Returns true if the photo has a video content type
   bool _isVideo(Photo photo) {
@@ -151,6 +158,31 @@ class _CloudPhotoViewerState extends State<CloudPhotoViewer> {
     });
   }
 
+  /// Removes the photo at [index] and shows the next one (or the previous one
+  /// if it was the last), shifting the per-index controllers to match.
+  void _removePhotoAt(int index) {
+    final transformationController = _transformationControllers.remove(index);
+    final videoController = _videoControllers.remove(index);
+    shiftIndexKeysAfter(_transformationControllers, index);
+    shiftIndexKeysAfter(_videoControllers, index);
+
+    final newIndex = index < _photos.length - 1 ? index : index - 1;
+    setState(() {
+      _photos.removeAt(index);
+      _isZoomed = false;
+      _currentIndex = newIndex;
+    });
+    if (newIndex != index) {
+      _pageController.jumpToPage(newIndex);
+    }
+
+    // Dispose once the deleted page is no longer built
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      transformationController?.dispose();
+      videoController?.dispose();
+    });
+  }
+
   Future<void> _deletePhoto() async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -178,11 +210,22 @@ class _CloudPhotoViewerState extends State<CloudPhotoViewer> {
     try {
       final config = await BackendConfig.load();
       libraryService = LibraryService(host: config.host, port: config.port);
-      await libraryService.deletePhoto(_currentPhoto.objectId);
+      final deletedId = _currentPhoto.objectId;
+      await libraryService.deletePhoto(deletedId);
+      if (!mounted) return;
 
-      if (mounted) {
+      final onDeleted = widget.onDeleted;
+      if (onDeleted == null) {
         Navigator.pop(context, const CloudPhotoViewerResult.removed());
+        return;
       }
+      onDeleted(deletedId);
+
+      if (_photos.length == 1) {
+        Navigator.pop(context);
+        return;
+      }
+      _removePhotoAt(_currentIndex);
     } on LibraryException catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -411,7 +454,7 @@ class _CloudPhotoViewerState extends State<CloudPhotoViewer> {
   }
 
   Widget _buildPhotoPage(int index) {
-    final photo = widget.photos[index];
+    final photo = _photos[index];
     final signedUrl = widget.signedUrls[photo.objectId];
 
     if (signedUrl == null) {
@@ -525,12 +568,15 @@ class _CloudPhotoViewerState extends State<CloudPhotoViewer> {
       ),
       body: PageView.builder(
         controller: _pageController,
-        itemCount: widget.photos.length,
+        itemCount: _photos.length,
         physics: _isZoomed
             ? const NeverScrollableScrollPhysics()
             : const PageScrollPhysics(),
         onPageChanged: _resetZoomOnPageChange,
-        itemBuilder: (context, index) => _buildPhotoPage(index),
+        itemBuilder: (context, index) => KeyedSubtree(
+          key: ValueKey(_photos[index].objectId),
+          child: _buildPhotoPage(index),
+        ),
       ),
     );
   }

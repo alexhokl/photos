@@ -7,6 +7,7 @@ import 'package:photo_manager/photo_manager.dart';
 import 'package:photos/services/library_service.dart';
 import 'package:photos/services/upload_service.dart';
 import 'package:photos/widgets/device_video_player.dart';
+import 'package:photos/widgets/index_keyed_maps.dart';
 import 'package:photos/widgets/photo_info_view.dart';
 import 'package:photos/widgets/settings_page.dart';
 
@@ -58,19 +59,6 @@ Uint8List? rotateImageAntiClockwise(Uint8List bytes, {required bool png}) {
     ..iccProfile = image.iccProfile;
 
   return png ? img.encodePng(rotated) : img.encodeJpg(rotated, quality: 95);
-}
-
-/// Shifts the keys of an index-keyed [map] down by one for every index after
-/// [removedIndex], to follow the removal of that index from a list.
-@visibleForTesting
-void shiftIndexKeysAfter<V>(Map<int, V> map, int removedIndex) {
-  final shifted = {
-    for (final entry in map.entries)
-      entry.key > removedIndex ? entry.key - 1 : entry.key: entry.value,
-  };
-  map
-    ..clear()
-    ..addAll(shifted);
 }
 
 class PhotoViewer extends StatefulWidget {

@@ -776,6 +776,7 @@ class CloudPhotoGridState extends State<CloudPhotoGrid> {
           photos: _photos,
           signedUrls: viewerSignedUrls,
           initialIndex: index,
+          onDeleted: removePhoto,
         ),
       ),
     );
