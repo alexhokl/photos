@@ -1,7 +1,7 @@
 import 'dart:isolate';
-import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image/image.dart' as img;
 import 'package:photo_manager/photo_manager.dart';
 import 'package:photos/services/library_service.dart';
@@ -60,6 +60,16 @@ Uint8List? rotateImageAntiClockwise(Uint8List bytes, {required bool png}) {
 
   return png ? img.encodePng(rotated) : img.encodeJpg(rotated, quality: 95);
 }
+
+/// Runs [rotateImageAntiClockwise] on a background isolate.
+///
+/// This is a top-level function so the closure sent to the isolate captures
+/// only [bytes] and [png]. A closure created inside a State method can capture
+/// the State itself, which cannot be sent to another isolate.
+Future<Uint8List?> rotateImageAntiClockwiseInBackground(
+  Uint8List bytes, {
+  required bool png,
+}) => Isolate.run(() => rotateImageAntiClockwise(bytes, png: png));
 
 class PhotoViewer extends StatefulWidget {
   final List<AssetEntity> assets;
@@ -409,8 +419,9 @@ class _PhotoViewerState extends State<PhotoViewer> {
         return;
       }
 
-      final rotatedBytes = await Isolate.run(
-        () => rotateImageAntiClockwise(imageBytes, png: isPng),
+      final rotatedBytes = await rotateImageAntiClockwiseInBackground(
+        imageBytes,
+        png: isPng,
       );
       if (rotatedBytes == null) {
         showError('Rotate failed: unsupported image format');
@@ -446,8 +457,12 @@ class _PhotoViewerState extends State<PhotoViewer> {
         ),
       );
       Navigator.pop(context, rotatedId);
+    } on PlatformException catch (e) {
+      debugPrint('Rotate failed: $e');
+      showError('Rotate failed: ${e.message ?? e.code}');
     } catch (e) {
-      showError('Rotate failed: $e');
+      debugPrint('Rotate failed: $e');
+      showError('Rotate failed: ${e.runtimeType}');
     }
   }
 

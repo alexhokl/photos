@@ -361,6 +361,21 @@ void main() {
       expect(img.decodeJpgExif(rotated)?.imageIfd.orientation ?? 1, equals(1));
     });
 
+    test('rotates on a background isolate', () async {
+      final png = img.encodePng(buildImage());
+
+      final rotated = await rotateImageAntiClockwiseInBackground(
+        png,
+        png: true,
+      );
+
+      final decoded = img.decodePng(rotated!)!;
+      expect(decoded.width, equals(1));
+      expect(decoded.height, equals(2));
+      expect(isBlue(decoded.getPixel(0, 0)), isTrue);
+      expect(isRed(decoded.getPixel(0, 1)), isTrue);
+    });
+
     test('returns null for undecodable data', () {
       final result = rotateImageAntiClockwise(
         Uint8List.fromList([1, 2, 3, 4]),
