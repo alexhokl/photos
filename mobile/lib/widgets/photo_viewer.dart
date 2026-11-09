@@ -79,11 +79,16 @@ class PhotoViewer extends StatefulWidget {
   /// then advances to the next photo instead of closing.
   final void Function(String assetId)? onDeleted;
 
+  /// Called with the old asset ID and the new asset when a photo is replaced
+  /// (e.g. rotated), which the viewer then shows instead of closing.
+  final void Function(String oldId, AssetEntity newAsset)? onReplaced;
+
   const PhotoViewer({
     super.key,
     required this.assets,
     required this.initialIndex,
     this.onDeleted,
+    this.onReplaced,
   });
 
   @override
@@ -271,6 +276,23 @@ class _PhotoViewerState extends State<PhotoViewer> {
     });
   }
 
+  /// Shows [asset] in place of the asset at [index], e.g. after rotating it.
+  void _replaceAssetAt(int index, AssetEntity asset) {
+    final transformationController = _transformationControllers.remove(index);
+    setState(() {
+      _assets[index] = asset;
+      _imageCache.remove(index);
+      _loadingStates.remove(index);
+      _isZoomed = false;
+    });
+    _loadImage(index);
+
+    // Dispose once the old page is no longer built
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      transformationController?.dispose();
+    });
+  }
+
   Future<void> _renamePhoto() async {
     final renamedId = _currentAsset.id;
     final currentTitle = _currentAsset.title ?? '';
@@ -435,7 +457,7 @@ class _PhotoViewerState extends State<PhotoViewer> {
           latitude != null &&
           longitude != null &&
           (latitude != 0 || longitude != 0);
-      await PhotoManager.editor.saveImage(
+      final newAsset = await PhotoManager.editor.saveImage(
         rotatedBytes,
         filename: filename,
         title: filename,
@@ -456,7 +478,14 @@ class _PhotoViewerState extends State<PhotoViewer> {
           duration: const Duration(seconds: 2),
         ),
       );
-      Navigator.pop(context, rotatedId);
+
+      final onReplaced = widget.onReplaced;
+      if (onReplaced == null) {
+        Navigator.pop(context, rotatedId);
+        return;
+      }
+      onReplaced(rotatedId, newAsset);
+      _replaceAssetAt(_currentIndex, newAsset);
     } on PlatformException catch (e) {
       debugPrint('Rotate failed: $e');
       showError('Rotate failed: ${e.message ?? e.code}');

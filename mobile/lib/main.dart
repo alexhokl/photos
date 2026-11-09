@@ -103,6 +103,8 @@ class _HomePageState extends State<HomePage> {
           assets: gridState.displayOrderPhotos,
           initialIndex: index,
           onDeleted: (id) => _photoGridKey.currentState?.removePhoto(id),
+          onReplaced: (oldId, asset) =>
+              _photoGridKey.currentState?.replacePhoto(oldId, asset),
         ),
       ),
     );

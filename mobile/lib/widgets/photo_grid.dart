@@ -8,6 +8,25 @@ import 'package:photos/services/upload_service.dart';
 import 'package:photos/widgets/settings_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+/// Returns a copy of [assets] with the asset whose ID is [oldId] replaced by
+/// [replacement] in the same position, or with [replacement] appended if no
+/// asset has that ID.
+@visibleForTesting
+List<AssetEntity> replaceAssetById(
+  List<AssetEntity> assets,
+  String oldId,
+  AssetEntity replacement,
+) {
+  final result = List.of(assets);
+  final index = result.indexWhere((a) => a.id == oldId);
+  if (index == -1) {
+    result.add(replacement);
+  } else {
+    result[index] = replacement;
+  }
+  return result;
+}
+
 /// Represents a group of photos taken on the same date.
 class PhotoDateGroup {
   final DateTime date;
@@ -445,6 +464,17 @@ class PhotoGridState extends State<PhotoGrid> {
       _displayOrderPhotosCache = null;
     });
     _selectionNotifier.removePhotoId(photoId);
+    widget.onSelectionChanged?.call(_selectionNotifier.selectedCount);
+  }
+
+  /// Replaces the photo [oldId] with [newPhoto], e.g. after it was rotated.
+  void replacePhoto(String oldId, AssetEntity newPhoto) {
+    setState(() {
+      _photos = replaceAssetById(_photos, oldId, newPhoto);
+      _photoGroups = _groupPhotosByDate(_photos);
+      _displayOrderPhotosCache = null;
+    });
+    _selectionNotifier.removePhotoId(oldId);
     widget.onSelectionChanged?.call(_selectionNotifier.selectedCount);
   }
 

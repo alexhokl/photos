@@ -6,6 +6,48 @@ import 'package:photos/widgets/photo_grid.dart';
 class MockAssetEntity extends Mock implements AssetEntity {}
 
 void main() {
+  group('replaceAssetById', () {
+    late MockAssetEntity asset1;
+    late MockAssetEntity asset2;
+    late MockAssetEntity asset3;
+    late MockAssetEntity replacement;
+
+    setUp(() {
+      asset1 = MockAssetEntity();
+      asset2 = MockAssetEntity();
+      asset3 = MockAssetEntity();
+      replacement = MockAssetEntity();
+      when(() => asset1.id).thenReturn('photo1');
+      when(() => asset2.id).thenReturn('photo2');
+      when(() => asset3.id).thenReturn('photo3');
+      when(() => replacement.id).thenReturn('photo2-rotated');
+    });
+
+    test('replaces the matching asset in the same position', () {
+      final result = replaceAssetById(
+        [asset1, asset2, asset3],
+        'photo2',
+        replacement,
+      );
+
+      expect(result, equals([asset1, replacement, asset3]));
+    });
+
+    test('appends the replacement when the old ID is missing', () {
+      final result = replaceAssetById([asset1], 'photo2', replacement);
+
+      expect(result, equals([asset1, replacement]));
+    });
+
+    test('does not modify the input list', () {
+      final input = [asset1, asset2];
+
+      replaceAssetById(input, 'photo2', replacement);
+
+      expect(input, equals([asset1, asset2]));
+    });
+  });
+
   group('PhotoDateGroup', () {
     late MockAssetEntity mockAsset1;
     late MockAssetEntity mockAsset2;
