@@ -1,5 +1,8 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:image/image.dart' as img;
 import 'package:photos/widgets/photo_viewer.dart';
 
 void main() {
@@ -243,8 +246,15 @@ void main() {
       expect(PhotoViewerAction.values, contains(PhotoViewerAction.rename));
     });
 
-    test('has exactly 5 values', () {
-      expect(PhotoViewerAction.values.length, equals(5));
+    test('has rotateAntiClockwise value', () {
+      expect(
+        PhotoViewerAction.values,
+        contains(PhotoViewerAction.rotateAntiClockwise),
+      );
+    });
+
+    test('has exactly 6 values', () {
+      expect(PhotoViewerAction.values.length, equals(6));
     });
 
     test('info has index 0', () {
@@ -265,6 +275,98 @@ void main() {
 
     test('rename has index 4', () {
       expect(PhotoViewerAction.rename.index, equals(4));
+    });
+
+    test('rotateAntiClockwise has index 5', () {
+      expect(PhotoViewerAction.rotateAntiClockwise.index, equals(5));
+    });
+  });
+
+  group('rotateImageAntiClockwise', () {
+    final red = img.ColorRgb8(255, 0, 0);
+    final blue = img.ColorRgb8(0, 0, 255);
+
+    // A 2x1 image: red on the left, blue on the right.
+    img.Image buildImage() {
+      final image = img.Image(width: 2, height: 1);
+      image.setPixel(0, 0, red);
+      image.setPixel(1, 0, blue);
+      return image;
+    }
+
+    bool isRed(img.Pixel p) => p.r > 200 && p.b < 60;
+    bool isBlue(img.Pixel p) => p.b > 200 && p.r < 60;
+
+    test('rotates PNG pixels anti-clockwise', () {
+      final png = img.encodePng(buildImage());
+
+      final rotated = rotateImageAntiClockwise(png, png: true);
+
+      final decoded = img.decodePng(rotated!)!;
+      expect(decoded.width, equals(1));
+      expect(decoded.height, equals(2));
+      // Anti-clockwise: the right edge moves to the top
+      expect(isBlue(decoded.getPixel(0, 0)), isTrue);
+      expect(isRed(decoded.getPixel(0, 1)), isTrue);
+    });
+
+    test('keeps JPEG EXIF metadata and resets orientation', () {
+      final image = buildImage();
+      image.exif.imageIfd['Make'] = img.IfdValueAscii('Acme');
+      image.exif.imageIfd['Model'] = img.IfdValueAscii('Camera 1');
+      image.exif.imageIfd.orientation = 1;
+      image.exif.exifIfd['DateTimeOriginal'] = img.IfdValueAscii(
+        '2026:01:02 03:04:05',
+      );
+      image.exif.exifIfd['ExifImageWidth'] = img.IfdValueShort(2);
+      image.exif.exifIfd['ExifImageLength'] = img.IfdValueShort(1);
+      image.exif.gpsIfd['GPSLatitudeRef'] = img.IfdValueAscii('N');
+      image.exif.thumbnailIfd['Compression'] = img.IfdValueShort(6);
+      final jpg = img.encodeJpg(image, quality: 100);
+
+      final rotated = rotateImageAntiClockwise(jpg, png: false);
+
+      final decoded = img.decodeJpg(rotated!)!;
+      expect(decoded.width, equals(1));
+      expect(decoded.height, equals(2));
+      final exif = img.decodeJpgExif(rotated)!;
+      expect(exif.imageIfd['Make']?.toString(), equals('Acme'));
+      expect(exif.imageIfd['Model']?.toString(), equals('Camera 1'));
+      expect(exif.imageIfd.orientation, equals(1));
+      expect(
+        exif.exifIfd['DateTimeOriginal']?.toString(),
+        equals('2026:01:02 03:04:05'),
+      );
+      expect(exif.exifIfd['ExifImageWidth']?.toInt(), equals(1));
+      expect(exif.exifIfd['ExifImageLength']?.toInt(), equals(2));
+      expect(exif.gpsIfd['GPSLatitudeRef']?.toString(), equals('N'));
+      expect(exif.containsKey('ifd1'), isFalse);
+    });
+
+    test('applies existing EXIF orientation before rotating', () {
+      final image = buildImage();
+      // Orientation 6: displayed rotated 90 degrees clockwise (1 wide, 2 high)
+      image.exif.imageIfd.orientation = 6;
+      final jpg = img.encodeJpg(image, quality: 100);
+
+      final rotated = rotateImageAntiClockwise(jpg, png: false);
+
+      // Displayed 1x2 (red on top) rotated anti-clockwise is 2x1 with red on
+      // the left, and no orientation other than normal left
+      final decoded = img.decodeJpg(rotated!)!;
+      expect(decoded.width, equals(2));
+      expect(decoded.height, equals(1));
+      expect(isRed(decoded.getPixel(0, 0)), isTrue);
+      expect(isBlue(decoded.getPixel(1, 0)), isTrue);
+      expect(img.decodeJpgExif(rotated)?.imageIfd.orientation ?? 1, equals(1));
+    });
+
+    test('returns null for undecodable data', () {
+      final result = rotateImageAntiClockwise(
+        Uint8List.fromList([1, 2, 3, 4]),
+        png: false,
+      );
+      expect(result, isNull);
     });
   });
 
@@ -293,6 +395,14 @@ void main() {
                         child: ListTile(
                           leading: Icon(Icons.edit),
                           title: Text('Rename'),
+                          contentPadding: EdgeInsets.zero,
+                        ),
+                      ),
+                      const PopupMenuItem(
+                        value: PhotoViewerAction.rotateAntiClockwise,
+                        child: ListTile(
+                          leading: Icon(Icons.rotate_left),
+                          title: Text('Rotate anti-clockwise'),
                           contentPadding: EdgeInsets.zero,
                         ),
                       ),
@@ -328,8 +438,10 @@ void main() {
 
         expect(find.text('Info'), findsOneWidget);
         expect(find.text('Rename'), findsOneWidget);
+        expect(find.text('Rotate anti-clockwise'), findsOneWidget);
         expect(find.text('Delete'), findsOneWidget);
         expect(find.text('Upload'), findsOneWidget);
+        expect(find.byIcon(Icons.rotate_left), findsOneWidget);
         expect(find.byIcon(Icons.info_outline), findsOneWidget);
         expect(find.byIcon(Icons.edit), findsOneWidget);
         expect(find.byIcon(Icons.delete), findsOneWidget);

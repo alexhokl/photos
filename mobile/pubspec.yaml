@@ -57,6 +57,9 @@ dependencies:
   # For EXIF metadata extraction from local photos
   exif: ^3.3.0
 
+  # For rotating local photos
+  image: ^4.8.0
+
   # For rendering markdown content
   flutter_markdown: ^0.7.6
 

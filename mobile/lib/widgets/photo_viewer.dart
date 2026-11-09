@@ -1,6 +1,8 @@
+import 'dart:isolate';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:image/image.dart' as img;
 import 'package:photo_manager/photo_manager.dart';
 import 'package:photos/services/library_service.dart';
 import 'package:photos/services/upload_service.dart';
@@ -8,7 +10,55 @@ import 'package:photos/widgets/device_video_player.dart';
 import 'package:photos/widgets/photo_info_view.dart';
 import 'package:photos/widgets/settings_page.dart';
 
-enum PhotoViewerAction { info, delete, upload, uploadTo, rename }
+enum PhotoViewerAction {
+  info,
+  delete,
+  upload,
+  uploadTo,
+  rename,
+  rotateAntiClockwise,
+}
+
+/// Rotates an encoded image 90 degrees anti-clockwise, keeping its metadata.
+///
+/// Any EXIF orientation is applied to the pixels first, so the result is
+/// rotated relative to how the photo is displayed. The original EXIF data
+/// (date taken, GPS, camera, ...) and ICC profile are carried over, with the
+/// orientation reset to normal, the pixel dimensions updated and the stale
+/// embedded thumbnail dropped. The output is PNG if [png] is true, otherwise
+/// JPEG. Returns null if [bytes] cannot be decoded.
+Uint8List? rotateImageAntiClockwise(Uint8List bytes, {required bool png}) {
+  img.Image? image;
+  try {
+    image = img.decodeImage(bytes);
+  } catch (_) {
+    return null;
+  }
+  if (image == null) return null;
+
+  // The JPEG decoder already applies (and removes) the EXIF orientation
+  final exif = img.ExifData.from(image.exif);
+  final rotated = img.copyRotate(img.bakeOrientation(image), angle: -90);
+
+  if (!exif.isEmpty) {
+    exif.imageIfd.orientation = 1;
+  }
+  if (exif.directories['ifd0']?.sub.containsKey('exif') ?? false) {
+    final exifIfd = exif.exifIfd;
+    if (exifIfd['ExifImageWidth'] != null) {
+      exifIfd['ExifImageWidth'] = img.IfdValueLong(rotated.width);
+    }
+    if (exifIfd['ExifImageLength'] != null) {
+      exifIfd['ExifImageLength'] = img.IfdValueLong(rotated.height);
+    }
+  }
+  exif.directories.remove('ifd1');
+  rotated
+    ..exif = exif
+    ..iccProfile = image.iccProfile;
+
+  return png ? img.encodePng(rotated) : img.encodeJpg(rotated, quality: 95);
+}
 
 class PhotoViewer extends StatefulWidget {
   final List<AssetEntity> assets;
@@ -269,6 +319,89 @@ class _PhotoViewerState extends State<PhotoViewer> {
     }
   }
 
+  Future<void> _rotatePhotoAntiClockwise() async {
+    final asset = _currentAsset;
+    final rotatedId = asset.id;
+    final filename = asset.title ?? 'photo.jpg';
+    final isPng = filename.toLowerCase().endsWith('.png');
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Rotating'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const CircularProgressIndicator(),
+            const SizedBox(height: 16),
+            Text(filename),
+          ],
+        ),
+      ),
+    );
+
+    void showError(String message) {
+      if (!mounted) return;
+      Navigator.pop(context); // Close progress dialog
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(message),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    }
+
+    try {
+      final imageBytes = await asset.originBytes;
+      if (imageBytes == null) {
+        showError('Could not access photo data');
+        return;
+      }
+
+      final rotatedBytes = await Isolate.run(
+        () => rotateImageAntiClockwise(imageBytes, png: isPng),
+      );
+      if (rotatedBytes == null) {
+        showError('Rotate failed: unsupported image format');
+        return;
+      }
+
+      // Save as a new file, keeping the library metadata of the original
+      final latitude = asset.latitude;
+      final longitude = asset.longitude;
+      final hasLocation =
+          latitude != null &&
+          longitude != null &&
+          (latitude != 0 || longitude != 0);
+      await PhotoManager.editor.saveImage(
+        rotatedBytes,
+        filename: filename,
+        title: filename,
+        relativePath: asset.relativePath,
+        creationDate: asset.createDateTime,
+        latitude: hasLocation ? latitude : null,
+        longitude: hasLocation ? longitude : null,
+      );
+
+      // Delete the original file
+      await PhotoManager.editor.deleteWithIds([rotatedId]);
+
+      if (!mounted) return;
+      Navigator.pop(context); // Close progress dialog
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Rotated $filename'),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+      Navigator.pop(context, rotatedId);
+    } catch (e) {
+      showError('Rotate failed: $e');
+    }
+  }
+
   Future<void> _uploadPhoto() async {
     final config = await BackendConfig.load();
     final uploadService = UploadService(host: config.host, port: config.port);
@@ -356,6 +489,9 @@ class _PhotoViewerState extends State<PhotoViewer> {
         break;
       case PhotoViewerAction.rename:
         _renamePhoto();
+        break;
+      case PhotoViewerAction.rotateAntiClockwise:
+        _rotatePhotoAntiClockwise();
         break;
     }
   }
@@ -509,6 +645,15 @@ class _PhotoViewerState extends State<PhotoViewer> {
                   contentPadding: EdgeInsets.zero,
                 ),
               ),
+              if (!isCurrentVideo)
+                const PopupMenuItem(
+                  value: PhotoViewerAction.rotateAntiClockwise,
+                  child: ListTile(
+                    leading: Icon(Icons.rotate_left),
+                    title: Text('Rotate anti-clockwise'),
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                ),
               const PopupMenuItem(
                 value: PhotoViewerAction.upload,
                 child: ListTile(
