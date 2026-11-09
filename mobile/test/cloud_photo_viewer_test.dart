@@ -2236,4 +2236,25 @@ void main() {
       expect(url, 'https://host/v1/photos/bytes/users/alice/2024/img.jpg');
     });
   });
+
+  group('CloudPhotoViewerResult', () {
+    test('removed carries the object ID of the removed photo', () {
+      const result = CloudPhotoViewerResult.removed(objectId: '2024/b.jpg');
+
+      expect(result.removed, isTrue);
+      expect(result.oldObjectId, equals('2024/b.jpg'));
+      expect(result.newObjectId, isNull);
+    });
+
+    test('renamed carries the old and new object IDs', () {
+      const result = CloudPhotoViewerResult.renamed(
+        oldId: '2024/a.jpg',
+        newId: '2024/c.jpg',
+      );
+
+      expect(result.removed, isFalse);
+      expect(result.oldObjectId, equals('2024/a.jpg'));
+      expect(result.newObjectId, equals('2024/c.jpg'));
+    });
+  });
 }

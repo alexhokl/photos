@@ -43,13 +43,16 @@ class CloudPhotoViewerResult {
   /// True if the photo was deleted or moved to another directory.
   final bool removed;
 
-  /// If the photo was renamed, contains the old and new object IDs.
+  /// The object ID of the removed photo, or the old object ID if the photo
+  /// was renamed.
   final String? oldObjectId;
+
+  /// The new object ID if the photo was renamed.
   final String? newObjectId;
 
-  const CloudPhotoViewerResult.removed()
+  const CloudPhotoViewerResult.removed({required String objectId})
     : removed = true,
-      oldObjectId = null,
+      oldObjectId = objectId,
       newObjectId = null;
 
   const CloudPhotoViewerResult.renamed({
@@ -216,7 +219,10 @@ class _CloudPhotoViewerState extends State<CloudPhotoViewer> {
 
       final onDeleted = widget.onDeleted;
       if (onDeleted == null) {
-        Navigator.pop(context, const CloudPhotoViewerResult.removed());
+        Navigator.pop(
+          context,
+          CloudPhotoViewerResult.removed(objectId: deletedId),
+        );
         return;
       }
       onDeleted(deletedId);
@@ -295,14 +301,12 @@ class _CloudPhotoViewerState extends State<CloudPhotoViewer> {
           ? targetDirectory
           : '$targetDirectory/';
       final destinationObjectId = '$destPrefix$filename';
+      final sourceObjectId = _currentPhoto.objectId;
 
-      await libraryService.copyPhoto(
-        _currentPhoto.objectId,
-        destinationObjectId,
-      );
+      await libraryService.copyPhoto(sourceObjectId, destinationObjectId);
 
       if (move) {
-        await libraryService.deletePhoto(_currentPhoto.objectId);
+        await libraryService.deletePhoto(sourceObjectId);
       }
 
       if (!mounted) return;
@@ -316,7 +320,10 @@ class _CloudPhotoViewerState extends State<CloudPhotoViewer> {
       );
 
       if (move) {
-        Navigator.pop(context, const CloudPhotoViewerResult.removed());
+        Navigator.pop(
+          context,
+          CloudPhotoViewerResult.removed(objectId: sourceObjectId),
+        );
       }
     } on LibraryException catch (e) {
       if (!mounted) return;

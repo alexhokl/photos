@@ -784,7 +784,8 @@ class CloudPhotoGridState extends State<CloudPhotoGrid> {
     if (result == null) return;
 
     if (result.removed) {
-      removePhoto(photo.objectId);
+      // The viewer may have been swiped to another photo before removing it
+      removePhoto(result.oldObjectId!);
     } else if (result.oldObjectId != null && result.newObjectId != null) {
       // Photo was renamed - update it in place
       _updatePhotoObjectId(result.oldObjectId!, result.newObjectId!);
