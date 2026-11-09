@@ -60,14 +60,32 @@ Uint8List? rotateImageAntiClockwise(Uint8List bytes, {required bool png}) {
   return png ? img.encodePng(rotated) : img.encodeJpg(rotated, quality: 95);
 }
 
+/// Shifts the keys of an index-keyed [map] down by one for every index after
+/// [removedIndex], to follow the removal of that index from a list.
+@visibleForTesting
+void shiftIndexKeysAfter<V>(Map<int, V> map, int removedIndex) {
+  final shifted = {
+    for (final entry in map.entries)
+      entry.key > removedIndex ? entry.key - 1 : entry.key: entry.value,
+  };
+  map
+    ..clear()
+    ..addAll(shifted);
+}
+
 class PhotoViewer extends StatefulWidget {
   final List<AssetEntity> assets;
   final int initialIndex;
+
+  /// Called with the asset ID when a photo is deleted from the viewer, which
+  /// then advances to the next photo instead of closing.
+  final void Function(String assetId)? onDeleted;
 
   const PhotoViewer({
     super.key,
     required this.assets,
     required this.initialIndex,
+    this.onDeleted,
   });
 
   @override
@@ -77,15 +95,16 @@ class PhotoViewer extends StatefulWidget {
 class _PhotoViewerState extends State<PhotoViewer> {
   late PageController _pageController;
   late int _currentIndex;
+  late final List<AssetEntity> _assets = List.of(widget.assets);
   final Map<int, Uint8List?> _imageCache = {};
   final Map<int, bool> _loadingStates = {};
   final Map<int, TransformationController> _transformationControllers = {};
   final Map<int, DeviceVideoPlayerController> _videoControllers = {};
   bool _isZoomed = false;
 
-  AssetEntity get _currentAsset => widget.assets[_currentIndex];
+  AssetEntity get _currentAsset => _assets[_currentIndex];
 
-  bool _isVideo(int index) => widget.assets[index].type == AssetType.video;
+  bool _isVideo(int index) => _assets[index].type == AssetType.video;
 
   @override
   void initState() {
@@ -111,7 +130,7 @@ class _PhotoViewerState extends State<PhotoViewer> {
     // Load current and adjacent images (skip videos - they load on demand)
     for (int i = centerIndex - 1; i <= centerIndex + 1; i++) {
       if (i >= 0 &&
-          i < widget.assets.length &&
+          i < _assets.length &&
           !_imageCache.containsKey(i) &&
           !_isVideo(i)) {
         _loadImage(i);
@@ -151,10 +170,11 @@ class _PhotoViewerState extends State<PhotoViewer> {
     if (_loadingStates[index] == true) return;
     _loadingStates[index] = true;
 
-    final asset = widget.assets[index];
+    final asset = _assets[index];
     final data = await asset.originBytes;
 
-    if (mounted) {
+    // The photo may have moved to another index if one was deleted meanwhile
+    if (mounted && index < _assets.length && _assets[index].id == asset.id) {
       setState(() {
         _imageCache[index] = data;
         _loadingStates[index] = false;
@@ -207,9 +227,50 @@ class _PhotoViewerState extends State<PhotoViewer> {
   Future<void> _deletePhoto() async {
     final deletedId = _currentAsset.id;
     final result = await PhotoManager.editor.deleteWithIds([deletedId]);
-    if (result.isNotEmpty && mounted) {
+    if (result.isEmpty || !mounted) return;
+
+    final onDeleted = widget.onDeleted;
+    if (onDeleted == null) {
       Navigator.pop(context, deletedId);
+      return;
     }
+    onDeleted(deletedId);
+
+    if (_assets.length == 1) {
+      Navigator.pop(context);
+      return;
+    }
+    _removeAssetAt(_currentIndex);
+  }
+
+  /// Removes the asset at [index] and shows the next one (or the previous one
+  /// if it was the last), shifting the per-index caches to match.
+  void _removeAssetAt(int index) {
+    final transformationController = _transformationControllers.remove(index);
+    final videoController = _videoControllers.remove(index);
+    _imageCache.remove(index);
+    _loadingStates.remove(index);
+    shiftIndexKeysAfter(_imageCache, index);
+    shiftIndexKeysAfter(_loadingStates, index);
+    shiftIndexKeysAfter(_transformationControllers, index);
+    shiftIndexKeysAfter(_videoControllers, index);
+
+    final newIndex = index < _assets.length - 1 ? index : index - 1;
+    setState(() {
+      _assets.removeAt(index);
+      _isZoomed = false;
+      _currentIndex = newIndex;
+    });
+    if (newIndex != index) {
+      _pageController.jumpToPage(newIndex);
+    }
+    _preloadImages(newIndex);
+
+    // Dispose once the deleted page is no longer built
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      transformationController?.dispose();
+      videoController?.dispose();
+    });
   }
 
   Future<void> _renamePhoto() async {
@@ -583,7 +644,7 @@ class _PhotoViewerState extends State<PhotoViewer> {
     // Check if this is a video
     if (_isVideo(index)) {
       return DeviceVideoPlayer(
-        asset: widget.assets[index],
+        asset: _assets[index],
         controller: _getVideoController(index),
       );
     }
@@ -684,12 +745,15 @@ class _PhotoViewerState extends State<PhotoViewer> {
       ),
       body: PageView.builder(
         controller: _pageController,
-        itemCount: widget.assets.length,
+        itemCount: _assets.length,
         physics: _isZoomed
             ? const NeverScrollableScrollPhysics()
             : const PageScrollPhysics(),
         onPageChanged: _resetZoomOnPageChange,
-        itemBuilder: (context, index) => _buildPhotoPage(index),
+        itemBuilder: (context, index) => KeyedSubtree(
+          key: ValueKey(_assets[index].id),
+          child: _buildPhotoPage(index),
+        ),
       ),
     );
   }

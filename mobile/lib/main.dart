@@ -102,6 +102,7 @@ class _HomePageState extends State<HomePage> {
         builder: (context) => PhotoViewer(
           assets: gridState.displayOrderPhotos,
           initialIndex: index,
+          onDeleted: (id) => _photoGridKey.currentState?.removePhoto(id),
         ),
       ),
     );
