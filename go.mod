@@ -127,7 +127,7 @@ require (
 )
 
 require (
-	github.com/alexhokl/helper v0.0.94
+	github.com/alexhokl/helper v0.0.96
 	github.com/alexhokl/privateserver v1.0.5
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/viper v1.21.0
